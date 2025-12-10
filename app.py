@@ -8,6 +8,11 @@ from datetime import datetime, timedelta
 import json
 
 # ============================================================================
+# CONFIGURATION
+# ============================================================================
+FACILITATOR_PASSWORD = "fetp2025"  # Change this for your deployment
+
+# ============================================================================
 # PAGE CONFIG
 # ============================================================================
 st.set_page_config(
@@ -1612,12 +1617,12 @@ with st.sidebar:
         ('linelist', '📋 Line List'),
         ('epicurve', '📈 Epi Curve'),
         ('spotmap', '📍 Spot Map'),
-        ('field', '🗺️ Field Sites'),
+        ('map', '🗺️ Field Sites'),
     ]
     
     # Day 2+: Study design
     if current_day >= 2:
-        nav_options.append(('study', '🔬 Study Design'))
+        nav_options.append(('study_design', '🔬 Study Design'))
     
     # Day 3+: Analysis
     if current_day >= 3:
@@ -2165,6 +2170,260 @@ elif st.session_state.current_view == 'map':
                     else:
                         st.error("Insufficient funds!")
 
+elif st.session_state.current_view == 'spotmap':
+    st.markdown("### 📍 Spot Map - Geographic Distribution of Cases")
+    
+    st.session_state.spot_map_viewed = True
+    
+    # Get case data
+    cases = TRUTH['individuals'][TRUTH['individuals']['symptomatic_AES'] == True].copy()
+    
+    # Assign coordinates with jitter for visualization
+    village_coords = {
+        'V1': {'lat': 5.55, 'lon': -0.20, 'name': 'Nalu'},
+        'V2': {'lat': 5.52, 'lon': -0.15, 'name': 'Kabwe'},
+        'V3': {'lat': 5.58, 'lon': -0.12, 'name': 'Tamu'}
+    }
+    
+    # Add coordinates with jitter
+    np.random.seed(42)
+    cases['lat'] = cases['village_id'].apply(
+        lambda v: village_coords.get(v, {}).get('lat', 5.55) + np.random.uniform(-0.015, 0.015)
+    )
+    cases['lon'] = cases['village_id'].apply(
+        lambda v: village_coords.get(v, {}).get('lon', -0.18) + np.random.uniform(-0.015, 0.015)
+    )
+    cases['village_name'] = cases['village_id'].map(lambda v: village_coords.get(v, {}).get('name', 'Unknown'))
+    
+    # Color by severity
+    cases['severity'] = cases['severe_neuro'].map({True: 'Severe', False: 'Mild'})
+    cases['color'] = cases['outcome'].map({
+        'died': 'red',
+        'recovered_sequelae': 'orange', 
+        'recovered': 'yellow'
+    }).fillna('yellow')
+    
+    # Create map
+    fig = px.scatter_mapbox(
+        cases,
+        lat='lat',
+        lon='lon',
+        color='severity',
+        color_discrete_map={'Severe': '#e74c3c', 'Mild': '#f39c12'},
+        size_max=15,
+        hover_data=['age', 'sex', 'village_name', 'onset_date', 'outcome'],
+        zoom=11,
+        height=500
+    )
+    
+    # Add village markers
+    for vid, coords in village_coords.items():
+        fig.add_trace(go.Scattermapbox(
+            lat=[coords['lat']],
+            lon=[coords['lon']],
+            mode='markers+text',
+            marker=dict(size=20, color='blue', opacity=0.5),
+            text=[coords['name']],
+            textposition='top center',
+            name=coords['name'],
+            showlegend=False
+        ))
+    
+    # Add pig cooperative marker
+    fig.add_trace(go.Scattermapbox(
+        lat=[5.545],
+        lon=[-0.195],
+        mode='markers+text',
+        marker=dict(size=15, symbol='circle', color='brown'),
+        text=['🐷 Pig Co-op'],
+        textposition='bottom center',
+        name='Pig Cooperative',
+        showlegend=False
+    ))
+    
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin={"r": 0, "t": 0, "l": 0, "b": 0}
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Summary statistics
+    st.markdown("---")
+    st.markdown("#### 📊 Geographic Summary")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        nalu_cases = len(cases[cases['village_id'] == 'V1'])
+        st.metric("Nalu (V1)", f"{nalu_cases} cases")
+    
+    with col2:
+        kabwe_cases = len(cases[cases['village_id'] == 'V2'])
+        st.metric("Kabwe (V2)", f"{kabwe_cases} cases")
+    
+    with col3:
+        tamu_cases = len(cases[cases['village_id'] == 'V3'])
+        st.metric("Tamu (V3)", f"{tamu_cases} cases")
+    
+    # Interpretation prompts
+    with st.expander("🤔 Spot Map Interpretation Questions"):
+        st.markdown("""
+        Consider these questions as you review the geographic distribution:
+        
+        1. **Clustering:** Do cases cluster in specific areas? What might explain this?
+        2. **Village comparison:** Why might Nalu have more cases than Tamu?
+        3. **Environmental features:** What is located near the case clusters?
+        4. **Hypothesis generation:** What geographic exposures might explain this pattern?
+        """)
+
+elif st.session_state.current_view == 'analysis':
+    st.markdown("### 📊 Data Analysis - Day 3")
+    
+    if not st.session_state.questionnaire_submitted:
+        st.warning("⚠️ You need to complete study design and deploy your field team first (Study Design tab).")
+    else:
+        st.success("✅ Your field team has returned with data!")
+        
+        st.session_state.descriptive_analysis_done = True
+        
+        # Generate a realistic dataset based on ground truth
+        cases = TRUTH['individuals'][TRUTH['individuals']['symptomatic_AES'] == True].copy()
+        
+        # Sample controls (non-cases from same villages)
+        non_cases = TRUTH['individuals'][
+            (TRUTH['individuals']['symptomatic_AES'] == False) &
+            (TRUTH['individuals']['village_id'].isin(['V1', 'V2']))
+        ].sample(n=min(30, len(TRUTH['individuals'])), random_state=42)
+        
+        # Combine into study dataset
+        study_df = pd.concat([
+            cases.assign(case_status=1),
+            non_cases.assign(case_status=0)
+        ])
+        
+        # Add household-level variables
+        hh_lookup = TRUTH['households'].set_index('hh_id').to_dict('index')
+        
+        study_df['pigs_nearby'] = study_df['hh_id'].apply(
+            lambda hh: hh_lookup.get(hh, {}).get('pigs_owned', 0) > 0 and 
+                       (hh_lookup.get(hh, {}).get('pig_pen_distance_m') or 100) < 30
+        )
+        study_df['uses_nets'] = study_df['hh_id'].apply(
+            lambda hh: hh_lookup.get(hh, {}).get('uses_mosquito_nets', True)
+        )
+        
+        # Inject some missing values for realism
+        np.random.seed(42)
+        for col in ['JE_vaccinated', 'evening_outdoor_exposure']:
+            mask = np.random.random(len(study_df)) < 0.08
+            study_df.loc[mask, col] = np.nan
+        
+        st.markdown("#### 📋 Your Study Dataset")
+        st.caption(f"n = {len(study_df)} ({len(cases)} cases, {len(non_cases)} controls)")
+        
+        # Show data
+        display_cols = ['person_id', 'age', 'sex', 'village_id', 'case_status', 
+                       'JE_vaccinated', 'evening_outdoor_exposure', 'pigs_nearby', 'uses_nets']
+        st.dataframe(study_df[display_cols], use_container_width=True, hide_index=True)
+        
+        # Download button
+        csv = study_df[display_cols].to_csv(index=False)
+        st.download_button("📥 Download Dataset (CSV)", csv, "study_data.csv", "text/csv")
+        
+        st.markdown("---")
+        st.markdown("#### 📈 Descriptive Statistics")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Age Distribution by Case Status**")
+            fig = px.box(study_df, x='case_status', y='age', 
+                        labels={'case_status': 'Case Status (1=Case, 0=Control)', 'age': 'Age (years)'},
+                        color='case_status',
+                        color_discrete_map={1: '#e74c3c', 0: '#3498db'})
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            st.markdown("**Sex Distribution**")
+            sex_table = pd.crosstab(study_df['sex'], study_df['case_status'], margins=True)
+            sex_table.columns = ['Controls', 'Cases', 'Total']
+            sex_table.index = ['Female', 'Male', 'Total']
+            st.table(sex_table)
+        
+        st.markdown("---")
+        st.markdown("#### 🔬 Analytical Results (2×2 Tables)")
+        
+        # Function to calculate OR and display 2x2 table
+        def show_2x2_table(df, exposure_col, exposure_name):
+            # Filter out missing values
+            df_clean = df.dropna(subset=[exposure_col])
+            
+            # Create 2x2 counts
+            a = len(df_clean[(df_clean[exposure_col] == True) & (df_clean['case_status'] == 1)])
+            b = len(df_clean[(df_clean[exposure_col] == True) & (df_clean['case_status'] == 0)])
+            c = len(df_clean[(df_clean[exposure_col] == False) & (df_clean['case_status'] == 1)])
+            d = len(df_clean[(df_clean[exposure_col] == False) & (df_clean['case_status'] == 0)])
+            
+            table_data = {
+                '': ['Exposed', 'Unexposed', 'Total'],
+                'Cases': [a, c, a+c],
+                'Controls': [b, d, b+d],
+                'Total': [a+b, c+d, a+b+c+d]
+            }
+            
+            st.markdown(f"**{exposure_name}**")
+            st.table(pd.DataFrame(table_data))
+            
+            # Calculate OR
+            if c > 0 and b > 0:
+                OR = (a * d) / (b * c)
+                st.metric("Odds Ratio", f"{OR:.2f}")
+                if OR > 2:
+                    st.caption("⚠️ Strong positive association")
+                elif OR < 0.5:
+                    st.caption("🛡️ Protective association")
+            else:
+                st.caption("Cannot calculate OR (zero cell)")
+            
+            return a, b, c, d
+        
+        tab1, tab2, tab3, tab4 = st.tabs(["Pig Proximity", "Mosquito Nets", "Vaccination", "Evening Exposure"])
+        
+        with tab1:
+            show_2x2_table(study_df, 'pigs_nearby', 'Living within 30m of pig pens')
+        
+        with tab2:
+            # Invert for risk (not using nets = exposed)
+            study_df['no_nets'] = ~study_df['uses_nets']
+            show_2x2_table(study_df, 'no_nets', 'NOT using mosquito nets')
+        
+        with tab3:
+            # Invert for risk (not vaccinated = exposed)
+            study_df['not_vaccinated'] = study_df['JE_vaccinated'].apply(lambda x: not x if pd.notna(x) else np.nan)
+            show_2x2_table(study_df, 'not_vaccinated', 'NOT vaccinated against JE')
+        
+        with tab4:
+            show_2x2_table(study_df, 'evening_outdoor_exposure', 'Evening outdoor activities')
+        
+        st.markdown("---")
+        with st.expander("📖 Interpreting Your Results"):
+            st.markdown("""
+            **Odds Ratio Interpretation:**
+            - OR = 1.0: No association
+            - OR > 1.0: Exposure associated with increased odds of disease
+            - OR < 1.0: Exposure associated with decreased odds (protective)
+            
+            **Statistical Significance:**
+            - Look for OR confidence intervals that don't cross 1.0
+            - Consider biological plausibility
+            - Triangulate with other evidence (interviews, environmental, lab)
+            
+            **Confounding:**
+            - Could age or village explain the association?
+            - Consider stratified analysis
+            """)
+
 elif st.session_state.current_view == 'laboratory':
     st.markdown("### 🧪 Laboratory Investigation")
     st.info(f"Lab Credits: {st.session_state.lab_credits} | Each test costs 1 credit")
@@ -2186,6 +2445,10 @@ elif st.session_state.current_view == 'laboratory':
                     st.session_state.lab_credits -= 1
                     result = process_lab_sample(sample_type, source, village)
                     st.session_state.lab_results.append(result)
+                    st.session_state.lab_samples_submitted.append({
+                        'sample_type': sample_type,
+                        'village': village
+                    })
                     st.success(f"Sample submitted! Results in {result['turnaround_days']} days.")
                     st.rerun()
                 else:
@@ -2203,6 +2466,15 @@ elif st.session_state.current_view == 'laboratory':
                     st.session_state.lab_credits -= 1
                     result = process_lab_sample(sample_type, source, village)
                     st.session_state.lab_results.append(result)
+                    st.session_state.lab_samples_submitted.append({
+                        'sample_type': sample_type,
+                        'village': village
+                    })
+                    # Track specific sample types
+                    if sample_type == 'pig_serum':
+                        st.session_state.pig_samples_collected = True
+                    if sample_type == 'mosquito_pool':
+                        st.session_state.mosquito_traps_set.append(village)
                     st.success(f"Sample submitted! Results in {result['turnaround_days']} days.")
                     st.rerun()
                 else:
@@ -2275,7 +2547,7 @@ elif st.session_state.current_view == 'study_design':
             control_def = st.text_area("Control definition:", height=100)
         
         st.markdown("#### 4. Exposures to Measure")
-        st.multiselect(
+        selected_exposures = st.multiselect(
             "Select exposures to include in your questionnaire:",
             ["Proximity to pig pens (<30m)",
              "Mosquito net use",
@@ -2284,7 +2556,8 @@ elif st.session_state.current_view == 'study_design':
              "JE vaccination status",
              "Water source",
              "Occupation",
-             "Recent travel"]
+             "Recent travel"],
+            default=["Proximity to pig pens (<30m)", "Mosquito net use", "JE vaccination status"]
         )
         
         st.markdown("#### 5. Sample Size")
@@ -2300,30 +2573,11 @@ elif st.session_state.current_view == 'study_design':
         if st.form_submit_button(f"Deploy Field Team (${cost})"):
             if st.session_state.budget >= cost:
                 st.session_state.budget -= cost
-                st.session_state.questionnaire_deployed = True
+                st.session_state.questionnaire_submitted = True
+                st.session_state.study_design_chosen = study_type
                 st.session_state.hypothesis_text = hypothesis
-                st.success("✅ Field team deployed! Data collection in progress...")
-                
-                # Generate mock results
-                st.markdown("---")
-                st.markdown("### 📊 Preliminary Results")
-                
-                # Simulated 2x2 table
-                st.markdown("**Exposure: Living within 30m of pig pens**")
-                
-                data = {
-                    '': ['Exposed (near pigs)', 'Unexposed', 'Total'],
-                    'Cases': [12, 3, 15],
-                    'Controls': [8, 22, 30],
-                    'Total': [20, 25, 45]
-                }
-                st.table(pd.DataFrame(data))
-                
-                # Calculate OR
-                OR = (12 * 22) / (3 * 8)
-                st.metric("Crude Odds Ratio", f"{OR:.1f}")
-                st.caption("95% CI: 2.8 - 39.2 | p < 0.001")
-                
+                st.session_state.questionnaire_variables = selected_exposures
+                st.success("✅ Field team deployed! Data collection in progress. Go to Analysis tab on Day 3 to see results.")
             else:
                 st.error("Insufficient funds!")
 
@@ -2487,7 +2741,7 @@ elif st.session_state.current_view == 'debrief':
         "Inspected pig cooperative site": 'ES02' in st.session_state.sites_inspected,
         "Built epidemic curve": st.session_state.epi_curve_built,
         "Viewed spot map": st.session_state.spot_map_viewed,
-        "Deployed analytical study": st.session_state.study_deployed
+        "Deployed analytical study": st.session_state.questionnaire_submitted
     }
     
     score = sum(critical_clues.values())

@@ -59,7 +59,7 @@ if 'completed_steps' not in st.session_state: st.session_state.completed_steps =
 # Resources
 if 'budget' not in st.session_state: st.session_state.budget = 2500
 if 'lab_credits' not in st.session_state: st.session_state.lab_credits = 10
-if 'current_inspection' not in st.session_state: st.session_state.current_inspection = None  # FIXED: Remembers active photo
+if 'current_inspection' not in st.session_state: st.session_state.current_inspection = None 
 
 # Study Design
 if 'case_definition' not in st.session_state: st.session_state.case_definition = ""
@@ -210,7 +210,9 @@ if st.session_state.current_view == 'briefing':
     fig.update_layout(height=400, xaxis=dict(visible=False), yaxis=dict(visible=False), margin=dict(l=0,r=0,t=0,b=0))
     st.plotly_chart(fig, use_container_width=True)
     
-    st.markdown("#### 📷 Site Inspections ($50 each)")
+    st.markdown("#### 📷 Visual Inspection ($50)")
+    st.caption("Click to send a team to take photos. Draw your own inferences.")
+    
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -237,14 +239,38 @@ if st.session_state.current_view == 'briefing':
                 st.rerun()
             else: st.error("No Funds")
     
-    # RENDER THE ACTIVE INSPECTION IMAGE
-    st.markdown("---")
-    if st.session_state.current_inspection == "mine":
-        st.image("https://placehold.co/600x300?text=Mine+Shaft:+Poor+Ventilation+Observed", caption="Inspection: North Mines")
-    elif st.session_state.current_inspection == "pigs":
-        st.image("https://placehold.co/600x300?text=Pig+Sty:+Stagnant+Water+Pools", caption="Inspection: South Farms")
-    elif st.session_state.current_inspection == "river":
-        st.image("https://placehold.co/600x300?text=River+Bank:+Mosquito+Breeding+Site", caption="Inspection: River")
+    # RENDER THE PHOTO GALLERY
+    if st.session_state.current_inspection:
+        st.markdown("---")
+        st.markdown(f"### 📸 Field Photos: {st.session_state.current_inspection.title()}")
+        
+        # Define image sets (Using Unsplash source URLs for realism)
+        gallery = {
+            "mine": [
+                "https://images.unsplash.com/photo-1516937941344-00b4ec0c42cd?w=400&h=300&fit=crop", # Industrial
+                "https://images.unsplash.com/photo-1574352067721-72d5913ef8e1?w=400&h=300&fit=crop", # Worker
+                "https://images.unsplash.com/photo-1581092921461-eab62e97a78e?w=400&h=300&fit=crop"  # Factory
+            ],
+            "pigs": [
+                "https://images.unsplash.com/photo-1516467508483-a72120608ae7?w=400&h=300&fit=crop", # Pigs
+                "https://images.unsplash.com/photo-1567306301408-9b74779a11af?w=400&h=300&fit=crop", # Mud
+                "https://images.unsplash.com/photo-1596464716127-f9a865d1d643?w=400&h=300&fit=crop"  # Rural water
+            ],
+            "river": [
+                "https://images.unsplash.com/photo-1437482078695-73f5ca6c96e2?w=400&h=300&fit=crop", # River
+                "https://images.unsplash.com/photo-1519817914152-c2d22195a6ae?w=400&h=300&fit=crop", # Water
+                "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?w=400&h=300&fit=crop"  # Cooking/Water
+            ]
+        }
+        
+        photos = gallery.get(st.session_state.current_inspection, [])
+        p1, p2, p3 = st.columns(3)
+        with p1: st.image(photos[0], caption="Site Photo A")
+        with p2: st.image(photos[1], caption="Site Photo B")
+        with p3: st.image(photos[2], caption="Site Photo C")
+        
+        st.markdown("**🕵️ Field Notebook:**")
+        st.text_area("What do you see? (Look for: vectors, hygiene, environment)", placeholder="e.g., I see standing water near the animal pens...")
 
 elif st.session_state.current_view == 'contacts':
     st.markdown("### 👥 Interviews")

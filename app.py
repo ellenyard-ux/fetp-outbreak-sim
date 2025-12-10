@@ -782,7 +782,7 @@ elif st.session_state.current_view == 'interview':
             st.rerun()
 
 elif st.session_state.current_view == 'cases':
-    st.markdown("## 📋 Line List")
+    st.markdown("## 📋 Line List & Data Analysis")
     
     import pandas as pd
     
@@ -790,6 +790,7 @@ elif st.session_state.current_view == 'cases':
     if 'nurse_sarah' in st.session_state.interviewed_characters:
         st.success("✅ Complete case information obtained from Nurse Sarah")
         
+        # Create full dataframe
         df = pd.DataFrame(CASES)
         df['status'] = ['Confirmed'] * 15
         df['outcome'] = ['Alive'] * 15
@@ -797,11 +798,325 @@ elif st.session_state.current_view == 'cases':
         df['outcome'][5] = 'Deceased'  # Baby Ama
         df['outcome'][13] = 'Deceased'  # Blessing M.
         
-        st.dataframe(
-            df[['id', 'name', 'age', 'sex', 'onset', 'neighborhood', 'well', 'status', 'outcome']],
-            use_container_width=True,
-            hide_index=True
-        )
+        # Show line list in expandable section
+        with st.expander("📋 View Complete Line List", expanded=False):
+            st.dataframe(
+                df[['id', 'name', 'age', 'sex', 'onset', 'neighborhood', 'well', 'status', 'outcome']],
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Download option
+            csv = df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Line List (CSV)",
+                data=csv,
+                file_name="riverside_linelist.csv",
+                mime="text/csv"
+            )
+        
+        st.markdown("---")
+        
+        # Interactive Analytics Dashboard
+        st.markdown("## 📊 Descriptive Epidemiology Dashboard")
+        st.info("Use the tools below to analyze your line list data by Person, Place, and Time")
+        
+        # Create tabs for different analyses
+        tab1, tab2, tab3, tab4 = st.tabs(["👥 Person", "📍 Place", "📅 Time", "📈 Custom Analysis"])
+        
+        with tab1:
+            st.markdown("### Analysis by Person")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Select variable to analyze:**")
+                person_var = st.selectbox(
+                    "Variable",
+                    ["age", "sex", "outcome"],
+                    key="person_var"
+                )
+                
+                if st.button("Generate Frequency Table", key="person_table"):
+                    if person_var == "age":
+                        # Create age groups
+                        df['age_group'] = pd.cut(df['age'], 
+                                                  bins=[0, 5, 18, 60, 100], 
+                                                  labels=['<5', '5-17', '18-59', '60+'])
+                        freq_table = df['age_group'].value_counts().sort_index()
+                        st.markdown("**Cases by Age Group:**")
+                        st.dataframe(freq_table.reset_index().rename(columns={'index': 'Age Group', 'age_group': 'Count'}))
+                        
+                        # Calculate percentages
+                        pct_table = (freq_table / freq_table.sum() * 100).round(1)
+                        st.markdown("**Percentage Distribution:**")
+                        st.dataframe(pct_table.reset_index().rename(columns={'index': 'Age Group', 'age_group': 'Percent'}))
+                        
+                    else:
+                        freq_table = df[person_var].value_counts()
+                        st.markdown(f"**Cases by {person_var.title()}:**")
+                        st.dataframe(freq_table.reset_index().rename(columns={'index': person_var.title(), person_var: 'Count'}))
+                        
+                        pct_table = (freq_table / freq_table.sum() * 100).round(1)
+                        st.markdown("**Percentage Distribution:**")
+                        st.dataframe(pct_table.reset_index().rename(columns={'index': person_var.title(), person_var: 'Percent'}))
+            
+            with col2:
+                st.markdown("**Generate visualization:**")
+                chart_type = st.radio("Chart type", ["Bar Chart", "Pie Chart"], key="person_chart_type")
+                
+                if st.button("Create Chart", key="person_chart"):
+                    import plotly.express as px
+                    
+                    if person_var == "age":
+                        df['age_group'] = pd.cut(df['age'], 
+                                                  bins=[0, 5, 18, 60, 100], 
+                                                  labels=['<5', '5-17', '18-59', '60+'])
+                        plot_data = df['age_group'].value_counts().sort_index()
+                        plot_df = plot_data.reset_index()
+                        plot_df.columns = ['Age Group', 'Count']
+                        
+                        if chart_type == "Bar Chart":
+                            fig = px.bar(plot_df, x='Age Group', y='Count', 
+                                       title=f'Cases by Age Group',
+                                       color='Count',
+                                       color_continuous_scale='Reds')
+                        else:
+                            fig = px.pie(plot_df, values='Count', names='Age Group',
+                                       title=f'Cases by Age Group')
+                    else:
+                        plot_data = df[person_var].value_counts()
+                        plot_df = plot_data.reset_index()
+                        plot_df.columns = [person_var.title(), 'Count']
+                        
+                        if chart_type == "Bar Chart":
+                            fig = px.bar(plot_df, x=person_var.title(), y='Count',
+                                       title=f'Cases by {person_var.title()}',
+                                       color='Count',
+                                       color_continuous_scale='Reds')
+                        else:
+                            fig = px.pie(plot_df, values='Count', names=person_var.title(),
+                                       title=f'Cases by {person_var.title()}')
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        with tab2:
+            st.markdown("### Analysis by Place")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Select geographic variable:**")
+                place_var = st.selectbox(
+                    "Variable",
+                    ["neighborhood", "well"],
+                    key="place_var",
+                    format_func=lambda x: "Neighborhood" if x == "neighborhood" else "Water Source (Well)"
+                )
+                
+                if st.button("Generate Frequency Table", key="place_table"):
+                    freq_table = df[place_var].value_counts()
+                    st.markdown(f"**Cases by {place_var.title()}:**")
+                    
+                    if place_var == "neighborhood":
+                        st.dataframe(freq_table.reset_index().rename(columns={'index': 'Neighborhood', place_var: 'Count'}))
+                    else:
+                        freq_display = freq_table.reset_index()
+                        freq_display.columns = ['Well Number', 'Count']
+                        freq_display['Well Number'] = 'Well #' + freq_display['Well Number'].astype(str)
+                        st.dataframe(freq_display)
+                    
+                    # Calculate attack rates if they want
+                    st.markdown("**Calculate Attack Rate:**")
+                    st.write("Attack Rate = (Cases / Population at Risk) × 100")
+                    
+                    if place_var == "well":
+                        st.info("""
+                        **Population data:**
+                        - Well #1 serves ~60 households (≈300 people)
+                        - Well #2 serves ~40 households (≈200 people)
+                        """)
+                        
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            well1_cases = len(df[df['well'] == 1])
+                            if st.button("Calculate Attack Rate (Well #1)"):
+                                ar = (well1_cases / 300) * 100
+                                st.success(f"Well #1 Attack Rate: **{ar:.1f}%** ({well1_cases}/300)")
+                        
+                        with col_b:
+                            well2_cases = len(df[df['well'] == 2])
+                            if st.button("Calculate Attack Rate (Well #2)"):
+                                ar = (well2_cases / 200) * 100
+                                if well2_cases == 0:
+                                    st.success(f"Well #2 Attack Rate: **{ar:.1f}%** ({well2_cases}/200)")
+                                else:
+                                    st.warning(f"Well #2 Attack Rate: **{ar:.1f}%** ({well2_cases}/200)")
+            
+            with col2:
+                st.markdown("**Generate visualization:**")
+                
+                if st.button("Create Chart", key="place_chart"):
+                    import plotly.express as px
+                    
+                    plot_data = df[place_var].value_counts()
+                    plot_df = plot_data.reset_index()
+                    
+                    if place_var == "neighborhood":
+                        plot_df.columns = ['Neighborhood', 'Count']
+                        fig = px.bar(plot_df, x='Neighborhood', y='Count',
+                                   title='Cases by Neighborhood',
+                                   color='Count',
+                                   color_continuous_scale='Reds')
+                    else:
+                        plot_df.columns = ['Well', 'Count']
+                        plot_df['Well'] = 'Well #' + plot_df['Well'].astype(str)
+                        fig = px.bar(plot_df, x='Well', y='Count',
+                                   title='Cases by Water Source',
+                                   color='Count',
+                                   color_continuous_scale='Reds')
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        with tab3:
+            st.markdown("### Analysis by Time")
+            
+            st.info("📈 Create an epidemic curve to visualize the outbreak over time")
+            
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                st.markdown("**Epidemic Curve Settings:**")
+                
+                time_unit = st.radio(
+                    "Time unit",
+                    ["Day", "Week"],
+                    key="time_unit"
+                )
+                
+                show_labels = st.checkbox("Show case counts on bars", value=True)
+                
+                if st.button("Generate Epidemic Curve", type="primary", key="epi_curve"):
+                    st.session_state['show_epi_curve'] = True
+            
+            with col2:
+                if st.session_state.get('show_epi_curve', False):
+                    import plotly.graph_objects as go
+                    
+                    # Convert onset to datetime for proper sorting
+                    df['onset_date'] = pd.to_datetime('2025-' + df['onset'].str.replace('Mar ', 'March '))
+                    
+                    # Count cases by date
+                    epi_data = df.groupby('onset_date').size().reset_index(name='cases')
+                    epi_data = epi_data.sort_values('onset_date')
+                    
+                    # Create bar chart
+                    fig = go.Figure()
+                    
+                    fig.add_trace(go.Bar(
+                        x=epi_data['onset_date'],
+                        y=epi_data['cases'],
+                        marker_color='#FF6B35',
+                        text=epi_data['cases'] if show_labels else None,
+                        textposition='outside',
+                        name='Cases'
+                    ))
+                    
+                    fig.update_layout(
+                        title='Epidemic Curve: Cases by Date of Onset',
+                        xaxis_title='Date of Onset',
+                        yaxis_title='Number of Cases',
+                        showlegend=False,
+                        height=400,
+                        yaxis=dict(dtick=1)
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Summary statistics
+                    st.markdown("**Epidemic Curve Interpretation:**")
+                    
+                    first_case = epi_data['onset_date'].min().strftime('%B %d')
+                    last_case = epi_data['onset_date'].max().strftime('%B %d')
+                    peak_date = epi_data.loc[epi_data['cases'].idxmax(), 'onset_date'].strftime('%B %d')
+                    peak_cases = epi_data['cases'].max()
+                    duration = (epi_data['onset_date'].max() - epi_data['onset_date'].min()).days
+                    
+                    col_a, col_b, col_c = st.columns(3)
+                    with col_a:
+                        st.metric("First Case", first_case)
+                        st.metric("Duration", f"{duration} days")
+                    with col_b:
+                        st.metric("Peak Date", peak_date)
+                        st.metric("Peak Cases", peak_cases)
+                    with col_c:
+                        st.metric("Last Case", last_case)
+                        st.metric("Total Cases", len(df))
+                    
+                    st.info("""
+                    💡 **Pattern Analysis:**
+                    - What does the shape suggest about the outbreak type?
+                    - Point source? Continuous common source? Propagated?
+                    - When was the likely exposure period?
+                    """)
+        
+        with tab4:
+            st.markdown("### Custom Analysis")
+            
+            st.markdown("**Cross-tabulation:**")
+            st.write("Create a two-way table to explore relationships between variables")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                row_var = st.selectbox(
+                    "Row variable",
+                    ["sex", "neighborhood", "well", "outcome"],
+                    key="row_var"
+                )
+            
+            with col2:
+                col_var = st.selectbox(
+                    "Column variable",
+                    ["sex", "neighborhood", "well", "outcome"],
+                    key="col_var"
+                )
+            
+            if st.button("Generate Cross-tabulation"):
+                if row_var == col_var:
+                    st.error("Please select different variables for rows and columns")
+                else:
+                    crosstab = pd.crosstab(df[row_var], df[col_var], margins=True)
+                    st.markdown(f"**{row_var.title()} × {col_var.title()}**")
+                    st.dataframe(crosstab)
+                    
+                    # Show percentages
+                    if st.checkbox("Show row percentages"):
+                        crosstab_pct = pd.crosstab(df[row_var], df[col_var], normalize='index') * 100
+                        crosstab_pct = crosstab_pct.round(1)
+                        st.markdown("**Row Percentages:**")
+                        st.dataframe(crosstab_pct)
+            
+            st.markdown("---")
+            
+            st.markdown("**Calculate Case Fatality Rate:**")
+            
+            if st.button("Calculate CFR"):
+                deaths = len(df[df['outcome'] == 'Deceased'])
+                total_cases = len(df)
+                cfr = (deaths / total_cases) * 100
+                
+                st.success(f"**Case Fatality Rate: {cfr:.1f}%**")
+                st.write(f"Deaths: {deaths} / Total Cases: {total_cases}")
+                
+                st.info("""
+                💡 **Interpretation:**
+                - How does this CFR compare to expected CFR for cholera?
+                - What factors might influence the CFR?
+                - Typical cholera CFR with treatment: <1%
+                - Typical cholera CFR without treatment: 25-50%
+                """)
+        
     else:
         st.warning("⚠️ Incomplete case information - Visit the clinic and speak with the nurse for detailed records")
         
@@ -838,75 +1153,6 @@ elif st.session_state.current_view == 'cases':
             st.rerun()
     
     st.markdown("---")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 📊 Epidemic Curve")
-        
-        # Create proper epidemic curve data
-        epi_data = {
-            'Mar 3': 1,
-            'Mar 4': 2,
-            'Mar 5': 3,
-            'Mar 6': 3,
-            'Mar 7': 2,
-            'Mar 8': 2,
-            'Mar 9': 2
-        }
-        
-        # Create visual bar chart using HTML/CSS
-        max_cases = max(epi_data.values())
-        
-        st.markdown('<div style="background: white; padding: 15px; border-radius: 5px;">', unsafe_allow_html=True)
-        st.markdown('<p style="text-align: center; font-weight: bold; margin-bottom: 10px;">Cases by Date of Onset</p>', unsafe_allow_html=True)
-        
-        # Y-axis and bars
-        for y in range(max_cases, 0, -1):
-            row_html = f'<div style="display: flex; align-items: center; margin: 2px 0;">'
-            row_html += f'<span style="width: 30px; text-align: right; margin-right: 10px; font-size: 12px;">{y}</span>'
-            
-            for date, count in epi_data.items():
-                if count >= y:
-                    row_html += '<div style="width: 60px; height: 20px; background-color: #FF6B35; margin: 0 2px; border: 1px solid #CC5529;"></div>'
-                else:
-                    row_html += '<div style="width: 60px; height: 20px; margin: 0 2px;"></div>'
-            
-            row_html += '</div>'
-            st.markdown(row_html, unsafe_allow_html=True)
-        
-        # X-axis
-        x_axis = '<div style="display: flex; align-items: center; margin-top: 5px; border-top: 2px solid #333;">'
-        x_axis += '<span style="width: 30px; margin-right: 10px;"></span>'
-        for date in epi_data.keys():
-            x_axis += f'<div style="width: 60px; text-align: center; font-size: 10px; margin: 0 2px;">{date.split()[1]}</div>'
-        x_axis += '</div>'
-        st.markdown(x_axis, unsafe_allow_html=True)
-        
-        st.markdown('<p style="text-align: center; font-size: 11px; margin-top: 5px;">March 2025</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.info("📈 **Pattern:** Point-source outbreak with peak on March 6")
-
-    
-    with col2:
-        st.markdown("### 🔍 Key Patterns")
-        st.info("""
-        **Demographics:**
-        - 60% children under 10
-        - 20% elderly (>60)
-        - 20% working-age adults
-        
-        **Geographic:**
-        - 100% from Neighborhood A
-        - All households use Well #1
-        
-        **Clinical:**
-        - Severe watery diarrhea (100%)
-        - Vomiting (93%)
-        - Dehydration (100%)
-        - 3 deaths (CFR: 20%)
-        """)
 
 elif st.session_state.current_view == 'notes':
     st.markdown("## ✍️ Investigation Notes")

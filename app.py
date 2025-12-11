@@ -21,7 +21,7 @@ from je_logic import (
 
 TRANSLATIONS = {
     "en": {
-        "title": "JE Outbreak Investigation – Sidero Valley",
+        "title": "AES Outbreak Investigation – Sidero Valley",
         "day": "Day",
         "budget": "Budget",
         "time_remaining": "Time remaining",
@@ -462,6 +462,7 @@ def init_session_state():
     st.session_state.setdefault("clinic_records_reviewed", False)
     st.session_state.setdefault("selected_clinic_cases", [])
     st.session_state.setdefault("case_finding_score", None)
+    st.session_state.setdefault("found_cases_added", False)
     
     # Descriptive epidemiology
     st.session_state.setdefault("descriptive_epi_viewed", False)
@@ -1269,6 +1270,205 @@ def generate_clinic_records():
     return all_records
 
 
+def generate_hospital_records():
+    """
+    Generate detailed hospital medical records for 2 of the hospitalized cases.
+    These contain more clinical detail than clinic records - typical for a
+    district hospital in a developing country.
+    """
+    records = {
+        "case_1": {
+            "patient_id": "DH-2025-0847",
+            "name": "Kwame Asante",
+            "age": "7 years",
+            "sex": "Male",
+            "village": "Nalu Village",
+            "admission_date": "3-Jun-2025",
+            "admission_time": "14:30",
+            "brought_by": "Mother (Ama Asante)",
+            "chief_complaint": "Fever and seizures",
+            "history_present_illness": """
+Child was well until 3 days prior to admission. Mother reports onset of high fever 
+which did not respond to paracetamol. On day 2, child became drowsy and confused, 
+not recognizing family members. On morning of admission, child had generalized 
+tonic-clonic seizure lasting approximately 3-4 minutes. Postictal state noted. 
+No history of previous seizures. No recent travel. No sick contacts known.
+
+Child plays regularly in rice fields near home after school. Family keeps 3 pigs 
+in pen behind house. No mosquito net use - mother says 'it is too hot.'
+""",
+            "past_medical_history": "No significant PMH. Immunizations up to date per mother (card not available). No known allergies.",
+            "physical_exam": """
+General: Febrile child, drowsy but rousable, irritable when examined
+Vitals: Temp 39.8°C, HR 142, RR 28, BP 95/60
+HEENT: Pupils equal, reactive. No papilledema on fundoscopy. Neck stiffness present.
+Chest: Clear to auscultation
+CVS: Tachycardic, no murmur
+Abdomen: Soft, non-tender
+Neuro: GCS 12 (E3V4M5). Increased tone in all limbs. Reflexes brisk. 
+       No focal deficits noted. Kernig sign equivocal.
+Skin: No rash. Multiple mosquito bites on arms and legs.
+""",
+            "investigations": """
+- Malaria RDT: Negative
+- Blood glucose: 5.2 mmol/L
+- Hb: 10.8 g/dL  
+- WBC: 14,200 (lymphocyte predominant)
+- Lumbar puncture: CSF clear, WBC 85 (90% lymphocytes), protein 0.8 g/L, glucose 2.8 mmol/L
+  CSF Gram stain: No organisms seen
+- Blood culture: Pending
+""",
+            "initial_diagnosis": "Acute encephalitis syndrome - viral encephalitis likely",
+            "differential": "Viral encephalitis (arboviral vs. other), bacterial meningitis (less likely given CSF), cerebral malaria (RDT negative but consider)",
+            "treatment": """
+- IV fluids: D5 0.45% saline at maintenance
+- Ceftriaxone 100mg/kg IV (empiric while awaiting cultures)
+- Phenobarbital loading dose for seizure prophylaxis
+- Paracetamol for fever
+- Close neuro obs
+""",
+            "progress_notes": """
+Day 2: Remains febrile. Had 2 more brief seizures overnight. Added acyclovir empirically.
+Day 3: Fever persisting. More alert today. No further seizures.
+Day 4: Improving. GCS 14. Taking oral fluids. Mother asking about discharge.
+Day 7: Stable. Some residual weakness L arm. Discharge planned with f/u in 2 weeks.
+""",
+            "discharge_diagnosis": "Acute viral encephalitis - etiology undetermined",
+            "outcome": "Survived with mild residual weakness"
+        },
+        
+        "case_2": {
+            "patient_id": "DH-2025-0851",
+            "name": "Esi Mensah",
+            "age": "5 years",
+            "sex": "Female",
+            "village": "Nalu Village",
+            "admission_date": "4-Jun-2025",
+            "admission_time": "11:15",
+            "brought_by": "Father (Kofi Mensah)",
+            "chief_complaint": "Unresponsive and shaking",
+            "history_present_illness": """
+Previously healthy child. Father reports 2 days of high fever before she 
+'stopped making sense' and then became unresponsive this morning. Multiple 
+episodes of shaking/jerking movements witnessed at home. No vomiting or 
+diarrhea. No rash. No recent illness in household.
+
+Family lives near the pig cooperative - father works there caring for pigs. 
+Child often accompanies him to work. Family does not use mosquito nets. 
+House is approximately 50 meters from rice paddies.
+""",
+            "past_medical_history": "Born at home, no birth complications. Growth normal. Immunization card lost but mother believes she received most vaccines. Had malaria 6 months ago, treated.",
+            "physical_exam": """
+General: Critically ill-appearing child, unresponsive to voice, minimal response to pain
+Vitals: Temp 40.1°C, HR 168, RR 34, BP 88/52, SpO2 94% on room air
+HEENT: Pupils 3mm, sluggish reaction. Neck rigid. Sunset sign noted.
+Chest: Coarse breath sounds bilaterally  
+CVS: Tachycardic, regular
+Abdomen: Soft
+Neuro: GCS 6 (E1V2M3). Decerebrate posturing to painful stimuli. 
+       Hypertonia. Hyperreflexia. Babinski positive bilaterally.
+Skin: Multiple insect bites. No petechiae.
+""",
+            "investigations": """
+- Malaria RDT: Negative
+- Blood glucose: 4.1 mmol/L
+- Hb: 9.6 g/dL
+- WBC: 18,400 (neutrophil predominant)
+- Platelets: 124,000
+- Lumbar puncture: CSF slightly turbid, WBC 156 (70% lymphocytes), protein 1.2 g/L, glucose 2.1 mmol/L
+  CSF Gram stain: No organisms
+- Chest X-ray: Bilateral infiltrates
+- Blood culture: No growth at 48h
+""",
+            "initial_diagnosis": "Severe acute encephalitis syndrome with raised ICP",
+            "differential": "Viral encephalitis, bacterial meningitis, cerebral malaria",
+            "treatment": """
+- Oxygen via nasal prongs
+- IV fluids restricted (2/3 maintenance for raised ICP)
+- Mannitol 0.5g/kg for raised ICP
+- Ceftriaxone 100mg/kg IV
+- Acyclovir 20mg/kg IV q8h
+- Phenytoin loading then maintenance
+- Head elevation 30 degrees
+- ICU admission
+""",
+            "progress_notes": """
+Day 2: Remains critical. GCS 5. Required intubation for airway protection. 
+       On ventilator. Seizures controlled with phenytoin.
+Day 3: No improvement. Developed aspiration pneumonia. Started on gentamicin.
+Day 4: Persistent coma. Family counseled about poor prognosis.
+Day 5: Declared dead at 06:45. Family declined autopsy.
+""",
+            "discharge_diagnosis": "Acute viral encephalitis with raised ICP and aspiration pneumonia",
+            "outcome": "Died"
+        }
+    }
+    
+    return records
+
+
+def render_hospital_record(record: dict):
+    """Render a detailed hospital medical record."""
+    
+    st.markdown(f"""
+    <div style="
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 20px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        margin-bottom: 20px;
+    ">
+    <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px;">
+        <strong style="font-size: 14px;">SIDERO VALLEY DISTRICT HOSPITAL</strong><br>
+        <em>Medical Records Department</em>
+    </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"**Patient ID:** {record['patient_id']}")
+        st.markdown(f"**Name:** {record['name']}")
+        st.markdown(f"**Age/Sex:** {record['age']} / {record['sex']}")
+        st.markdown(f"**Village:** {record['village']}")
+    
+    with col2:
+        st.markdown(f"**Admission Date:** {record['admission_date']}")
+        st.markdown(f"**Admission Time:** {record['admission_time']}")
+        st.markdown(f"**Brought By:** {record['brought_by']}")
+    
+    st.markdown("---")
+    
+    st.markdown(f"**Chief Complaint:** {record['chief_complaint']}")
+    
+    with st.expander("📋 History of Present Illness", expanded=True):
+        st.markdown(record['history_present_illness'])
+    
+    with st.expander("📋 Past Medical History"):
+        st.markdown(record['past_medical_history'])
+    
+    with st.expander("🩺 Physical Examination", expanded=True):
+        st.markdown(f"```\n{record['physical_exam']}\n```")
+    
+    with st.expander("🧪 Investigations"):
+        st.markdown(f"```\n{record['investigations']}\n```")
+    
+    st.markdown(f"**Initial Diagnosis:** {record['initial_diagnosis']}")
+    st.markdown(f"**Differential:** {record['differential']}")
+    
+    with st.expander("💊 Treatment"):
+        st.markdown(record['treatment'])
+    
+    with st.expander("📝 Progress Notes"):
+        st.markdown(record['progress_notes'])
+    
+    st.markdown(f"**Discharge Diagnosis:** {record['discharge_diagnosis']}")
+    st.markdown(f"**Outcome:** {record['outcome']}")
+
+
 def render_clinic_record(record: dict, show_checkbox: bool = True) -> bool:
     """
     Render a single clinic record in a handwritten style.
@@ -1434,7 +1634,7 @@ def sidebar_navigation():
         st.rerun()
     
     st.sidebar.markdown("---")
-    st.sidebar.title("Sidero Valley JE Simulation")
+    st.sidebar.title("AES Investigation – Sidero Valley")
 
     if not st.session_state.alert_acknowledged:
         # Before the alert is acknowledged, keep sidebar simple
@@ -1630,7 +1830,7 @@ Your team has been asked to investigate, using a One Health approach.
 def view_overview():
     truth = st.session_state.truth
 
-    st.title("JE Outbreak Investigation – Sidero Valley")
+    st.title("AES Outbreak Investigation – Sidero Valley")
     st.subheader(f"Day {st.session_state.current_day} briefing")
 
     st.markdown(day_briefing_text(st.session_state.current_day))
@@ -1827,128 +2027,152 @@ def view_interviews():
 
 def view_case_finding():
     """View for reviewing clinic records and finding additional cases."""
-    st.header("🔍 Case Finding - Clinic Records Review")
+    st.header("🔍 Case Finding")
     
-    # Resource display and cost warning
-    time_cost = TIME_COSTS["clinic_records_review"]
+    # Tabs for different record sources
+    tab1, tab2 = st.tabs(["📋 Clinic Records", "🏥 Hospital Records"])
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("⏱️ Time Remaining", f"{st.session_state.time_remaining}h")
-    with col2:
-        st.metric("📋 Activity Cost", f"{time_cost}h")
-    with col3:
-        if st.session_state.clinic_records_reviewed:
-            st.success("✅ Completed")
-        else:
-            st.info("Not yet completed")
-    
-    # Check if already done or if enough time
-    if not st.session_state.clinic_records_reviewed:
-        if st.session_state.time_remaining < time_cost:
-            st.error(f"⚠️ Not enough time to review clinic records. Need {time_cost}h, have {st.session_state.time_remaining}h.")
-            st.info("Advance to the next day to get more time, or prioritize other activities.")
-            return
-    
-    st.markdown("""
-    You've obtained permission to review records from the **Nalu Health Center**.
-    Look through these handwritten clinic notes to identify potential AES cases 
-    that may not have been reported to the district hospital.
-    
-    **Your task:** Review each record and select any that might be related to the outbreak.
-    Consider: fever, neurological symptoms (confusion, seizures, altered consciousness), 
-    and geographic/temporal clustering.
-    """)
-    
-    st.info("💡 Tip: Not every fever is AES. Look for the combination of fever AND neurological symptoms.")
-    
-    # Generate clinic records
-    if 'clinic_records' not in st.session_state:
-        st.session_state.clinic_records = generate_clinic_records()
-    
-    records = st.session_state.clinic_records
-    
-    # Show records in columns
-    st.markdown("---")
-    st.markdown("### 📋 Nalu Health Center - Patient Register (June 2025)")
-    
-    col1, col2 = st.columns(2)
-    
-    selected = []
-    for i, record in enumerate(records):
-        with col1 if i % 2 == 0 else col2:
-            render_clinic_record(record, show_checkbox=False)
-            is_selected = st.checkbox(
-                f"Potential AES case",
-                key=f"clinic_select_{record['record_id']}",
-                value=record['record_id'] in st.session_state.selected_clinic_cases
-            )
-            if is_selected:
-                selected.append(record['record_id'])
-    
-    st.markdown("---")
-    
-    # Summary and submission
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.markdown(f"**Selected records:** {len(selected)}")
-        if selected:
-            st.caption(", ".join(selected))
-    
-    with col2:
-        # Only show submit if not already done
+    with tab1:
+        st.subheader("Nalu Health Center - Patient Register Review")
+        
+        # Resource display and cost warning
+        time_cost = TIME_COSTS["clinic_records_review"]
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("⏱️ Time Remaining", f"{st.session_state.time_remaining}h")
+        with col2:
+            st.metric("📋 Activity Cost", f"{time_cost}h")
+        with col3:
+            if st.session_state.clinic_records_reviewed:
+                st.success("✅ Completed")
+            else:
+                st.info("Not yet completed")
+        
+        # Check if already done or if enough time
         if not st.session_state.clinic_records_reviewed:
-            if st.button(f"Submit Case Finding (costs {time_cost}h)", type="primary"):
-                # Deduct time
-                spend_time(time_cost, "Clinic records review")
+            if st.session_state.time_remaining < time_cost:
+                st.error(f"⚠️ Not enough time to review clinic records. Need {time_cost}h, have {st.session_state.time_remaining}h.")
+                st.info("Advance to the next day to get more time, or prioritize other activities.")
+            else:
+                st.markdown("""
+                You've obtained permission to review records from the **Nalu Health Center**.
+                Look through these handwritten clinic notes to identify potential AES cases 
+                that may not have been reported to the district hospital.
                 
-                st.session_state.selected_clinic_cases = selected
-                st.session_state.clinic_records_reviewed = True
+                **Your task:** Review each record and select any that might be related to the outbreak.
+                Consider: fever, neurological symptoms (confusion, seizures, altered consciousness), 
+                and geographic/temporal clustering.
+                """)
                 
-                # Calculate score
-                true_positives = sum(1 for rid in selected 
-                                   for r in records if r['record_id'] == rid and r.get('is_aes'))
-                false_positives = len(selected) - true_positives
+                st.info("💡 Tip: Not every fever is AES. Look for the combination of fever AND neurological symptoms.")
                 
-                # Count total true AES cases
-                total_aes = sum(1 for r in records if r.get('is_aes'))
-                false_negatives = total_aes - true_positives
+                # Generate clinic records
+                if 'clinic_records' not in st.session_state:
+                    st.session_state.clinic_records = generate_clinic_records()
                 
-                st.session_state.case_finding_score = {
-                    'true_positives': true_positives,
-                    'false_positives': false_positives,
-                    'false_negatives': false_negatives,
-                    'total_aes': total_aes,
-                    'selected': len(selected)
-                }
+                records = st.session_state.clinic_records
                 
-                st.success(f"✅ Case finding complete! You identified {true_positives} of {total_aes} potential AES cases.")
+                # Show records in columns
+                st.markdown("---")
+                st.markdown("### 📋 Patient Register (June 2025)")
                 
-                if false_positives > 0:
-                    st.warning(f"⚠️ {false_positives} record(s) you selected may not be AES cases.")
-                if false_negatives > 0:
-                    st.info(f"📝 {false_negatives} potential AES case(s) were missed. Review records with fever + neurological symptoms.")
+                col1, col2 = st.columns(2)
                 
-                st.rerun()
+                selected = []
+                for i, record in enumerate(records):
+                    with col1 if i % 2 == 0 else col2:
+                        render_clinic_record(record, show_checkbox=False)
+                        is_selected = st.checkbox(
+                            f"Potential AES case",
+                            key=f"clinic_select_{record['record_id']}",
+                            value=record['record_id'] in st.session_state.selected_clinic_cases
+                        )
+                        if is_selected:
+                            selected.append(record['record_id'])
+                
+                st.markdown("---")
+                
+                # Summary and submission
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.markdown(f"**Selected records:** {len(selected)}")
+                    if selected:
+                        st.caption(", ".join(selected))
+                
+                with col2:
+                    if st.button(f"Submit Case Finding (costs {time_cost}h)", type="primary"):
+                        # Deduct time
+                        spend_time(time_cost, "Clinic records review")
+                        
+                        st.session_state.selected_clinic_cases = selected
+                        st.session_state.clinic_records_reviewed = True
+                        
+                        # Calculate score
+                        true_positives = sum(1 for rid in selected 
+                                           for r in records if r['record_id'] == rid and r.get('is_aes'))
+                        false_positives = len(selected) - true_positives
+                        
+                        # Count total true AES cases
+                        total_aes = sum(1 for r in records if r.get('is_aes'))
+                        false_negatives = total_aes - true_positives
+                        
+                        st.session_state.case_finding_score = {
+                            'true_positives': true_positives,
+                            'false_positives': false_positives,
+                            'false_negatives': false_negatives,
+                            'total_aes': total_aes,
+                            'selected': len(selected)
+                        }
+                        
+                        # Add found cases to the line list
+                        if true_positives > 0:
+                            st.session_state.found_cases_added = True
+                        
+                        st.success(f"✅ Case finding complete! You identified {true_positives} of {total_aes} potential AES cases.")
+                        
+                        if false_positives > 0:
+                            st.warning(f"⚠️ {false_positives} record(s) you selected may not be AES cases.")
+                        if false_negatives > 0:
+                            st.info(f"📝 {false_negatives} potential AES case(s) were missed. Review records with fever + neurological symptoms.")
+                        
+                        st.rerun()
         else:
-            st.info("Already completed")
+            # Show results if already completed
+            if st.session_state.case_finding_score:
+                score = st.session_state.case_finding_score
+                st.markdown("### 📊 Your Case Finding Results")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("True Positives", score['true_positives'])
+                with col2:
+                    st.metric("False Positives", score['false_positives'])
+                with col3:
+                    sensitivity = (score['true_positives'] / score['total_aes'] * 100) if score['total_aes'] > 0 else 0
+                    st.metric("Sensitivity", f"{sensitivity:.0f}%")
+                
+                if score['true_positives'] > 0:
+                    st.success(f"✅ {score['true_positives']} additional cases have been added to the line list for analysis.")
     
-    # Show previous score if available
-    if st.session_state.case_finding_score:
-        score = st.session_state.case_finding_score
-        with st.expander("📊 Your Case Finding Results"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("True Positives", score['true_positives'])
-            with col2:
-                st.metric("False Positives", score['false_positives'])
-            with col3:
-                st.metric("Missed Cases", score['false_negatives'])
-            
-            sensitivity = score['true_positives'] / score['total_aes'] * 100 if score['total_aes'] > 0 else 0
-            st.progress(sensitivity / 100)
-            st.caption(f"Sensitivity: {sensitivity:.0f}% ({score['true_positives']}/{score['total_aes']} AES cases identified)")
+    with tab2:
+        st.subheader("District Hospital - Detailed Medical Records")
+        
+        st.markdown("""
+        The District Hospital has provided detailed medical records for 2 of the admitted AES cases.
+        These records contain more clinical information that may help characterize the outbreak.
+        """)
+        
+        hospital_records = generate_hospital_records()
+        
+        record_choice = st.selectbox(
+            "Select patient record to review:",
+            options=list(hospital_records.keys()),
+            format_func=lambda x: f"{hospital_records[x]['name']} ({hospital_records[x]['age']}, {hospital_records[x]['village']})"
+        )
+        
+        if record_choice:
+            render_hospital_record(hospital_records[record_choice])
 
 
 def view_descriptive_epi():
@@ -2188,13 +2412,15 @@ def view_descriptive_epi():
             fig.add_trace(go.Bar(
                 x=counts['onset_date'],
                 y=counts['cases'],
-                marker_color='#e74c3c'
+                marker_color='#e74c3c',
+                width=0.9  # Make bars touch (histogram style)
             ))
             fig.update_layout(
                 xaxis_title="Onset Date" if interval == "Day" else "Week",
                 yaxis_title="Number of Cases",
                 height=350,
-                margin=dict(l=10, r=10, t=10, b=10)
+                margin=dict(l=10, r=10, t=10, b=10),
+                bargap=0  # No gap between bars (histogram style)
             )
             st.plotly_chart(fig, use_container_width=True)
             
@@ -2724,7 +2950,7 @@ def view_village_profiles():
 
 
 def view_spot_map():
-    """Geographic spot map of cases."""
+    """Geographic spot map of cases using a custom fictional map."""
     st.header("📍 Spot Map - Geographic Distribution of Cases")
     
     truth = st.session_state.truth
@@ -2735,19 +2961,22 @@ def view_spot_map():
     # Get symptomatic cases
     cases = individuals[individuals["symptomatic_AES"] == True].copy()
     
+    # Also include found cases from clinic records if any
+    found_cases_count = 0
+    if st.session_state.get('found_cases_added') and st.session_state.case_finding_score:
+        found_cases_count = st.session_state.case_finding_score.get('true_positives', 0)
+    
     if len(cases) == 0:
         st.warning("No cases to display on map.")
         return
     
-    # Merge with household info first (to get village_id from households)
-    # households already has village_id, so we just need village_name from villages
+    # Merge with household info
     hh_with_village = households.merge(
         villages[["village_id", "village_name"]], 
         on="village_id", 
         how="left"
     )
     
-    # Now merge cases with household info - only bring in hh_id, village_id, village_name
     cases = cases.merge(
         hh_with_village[["hh_id", "village_id", "village_name"]], 
         on="hh_id", 
@@ -2755,66 +2984,119 @@ def view_spot_map():
         suffixes=('', '_hh')
     )
     
-    # Use village_id from households if the merge created duplicates
     if 'village_id_hh' in cases.columns:
         cases['village_id'] = cases['village_id_hh']
         cases = cases.drop(columns=['village_id_hh'])
     
-    # Assign coordinates with jitter for visualization
-    village_coords = {
-        'V1': {'lat': 5.55, 'lon': -0.20, 'name': 'Nalu Village'},
-        'V2': {'lat': 5.52, 'lon': -0.15, 'name': 'Kabwe Village'},
-        'V3': {'lat': 5.58, 'lon': -0.12, 'name': 'Tamu Village'}
-    }
+    # Count cases by village
+    village_counts = cases['village_name'].value_counts().to_dict()
+    nalu_cases = village_counts.get('Nalu Village', 0)
+    kabwe_cases = village_counts.get('Kabwe Village', 0)
+    tamu_cases = village_counts.get('Tamu Village', 0)
     
-    # Add coordinates with jitter - use vectorized approach
+    # Generate case dots for SVG
     np.random.seed(42)
-    n_cases = len(cases)
     
-    def get_coords(vid, coord_type):
-        default = 5.55 if coord_type == 'lat' else -0.18
-        if pd.isna(vid):
-            return default
-        return village_coords.get(str(vid), {}).get(coord_type, default)
+    def generate_case_dots(n_cases, cx, cy, radius=25):
+        """Generate SVG circles for cases clustered around a point."""
+        dots = []
+        for i in range(n_cases):
+            # Random position within radius
+            angle = np.random.uniform(0, 2 * np.pi)
+            r = np.random.uniform(5, radius)
+            x = cx + r * np.cos(angle)
+            y = cy + r * np.sin(angle)
+            # Determine severity color
+            is_severe = np.random.random() < 0.3
+            color = '#e74c3c' if is_severe else '#f39c12'
+            dots.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="{color}" stroke="white" stroke-width="1"/>')
+        return '\n'.join(dots)
     
-    cases['lat'] = cases['village_id'].apply(lambda v: get_coords(v, 'lat')) + np.random.uniform(-0.012, 0.012, n_cases)
-    cases['lon'] = cases['village_id'].apply(lambda v: get_coords(v, 'lon')) + np.random.uniform(-0.012, 0.012, n_cases)
+    # Generate dots for each village
+    nalu_dots = generate_case_dots(nalu_cases, 200, 280, 30)
+    kabwe_dots = generate_case_dots(kabwe_cases, 340, 200, 25)
+    tamu_dots = generate_case_dots(tamu_cases, 120, 120, 20)
     
-    # Color by severity
-    cases['severity'] = cases['severe_neuro'].map({True: 'Severe', False: 'Mild'})
+    # Custom SVG map of Sidero Valley
+    map_svg = f'''
+    <svg viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" style="background: #f0f8ff;">
+        <!-- Title -->
+        <text x="250" y="25" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">Sidero Valley - Case Distribution Map</text>
+        
+        <!-- River -->
+        <path d="M 50,350 Q 150,300 200,280 Q 250,260 300,250 Q 350,240 400,200 Q 450,160 480,100" 
+              stroke="#4a90d9" stroke-width="12" fill="none" opacity="0.7"/>
+        <path d="M 50,350 Q 150,300 200,280 Q 250,260 300,250 Q 350,240 400,200 Q 450,160 480,100" 
+              stroke="#6ab0ff" stroke-width="6" fill="none"/>
+        <text x="420" y="130" font-size="10" fill="#4a90d9" font-style="italic">Sidero River</text>
+        
+        <!-- Rice Paddies (near Nalu and Kabwe) -->
+        <rect x="140" y="240" width="80" height="60" fill="#7cb342" opacity="0.5" rx="5"/>
+        <rect x="230" y="220" width="60" height="50" fill="#7cb342" opacity="0.5" rx="5"/>
+        <rect x="280" y="180" width="50" height="40" fill="#7cb342" opacity="0.4" rx="5"/>
+        <text x="180" y="235" font-size="8" fill="#33691e">Rice Paddies</text>
+        
+        <!-- Pig Farm marker near Nalu -->
+        <rect x="160" y="310" width="30" height="20" fill="#8d6e63" opacity="0.7" rx="3"/>
+        <text x="175" y="323" font-size="7" fill="white" text-anchor="middle">🐷</text>
+        <text x="175" y="340" font-size="7" fill="#5d4037" text-anchor="middle">Pig Coop</text>
+        
+        <!-- Upland/Forest area (near Tamu) -->
+        <ellipse cx="100" cy="100" rx="60" ry="50" fill="#2e7d32" opacity="0.3"/>
+        <text x="100" y="70" font-size="8" fill="#1b5e20" text-anchor="middle">Forested Uplands</text>
+        
+        <!-- VILLAGES -->
+        
+        <!-- Nalu Village (largest, near river and paddies) -->
+        <circle cx="200" cy="280" r="35" fill="#ffcc80" stroke="#e65100" stroke-width="2"/>
+        <text x="200" y="275" text-anchor="middle" font-size="11" font-weight="bold" fill="#e65100">Nalu</text>
+        <text x="200" y="288" text-anchor="middle" font-size="8" fill="#bf360c">Pop: 480</text>
+        
+        <!-- Kabwe Village (medium, between Nalu and uplands) -->
+        <circle cx="340" cy="200" r="28" fill="#ffe0b2" stroke="#ff6f00" stroke-width="2"/>
+        <text x="340" y="196" text-anchor="middle" font-size="10" font-weight="bold" fill="#ff6f00">Kabwe</text>
+        <text x="340" y="208" text-anchor="middle" font-size="7" fill="#e65100">Pop: 510</text>
+        
+        <!-- Tamu Village (smallest, in uplands away from paddies) -->
+        <circle cx="120" cy="120" r="22" fill="#fff3e0" stroke="#ff9800" stroke-width="2"/>
+        <text x="120" y="117" text-anchor="middle" font-size="9" font-weight="bold" fill="#ff9800">Tamu</text>
+        <text x="120" y="128" text-anchor="middle" font-size="7" fill="#e65100">Pop: 390</text>
+        
+        <!-- Path from Kabwe to Nalu (through paddies) -->
+        <path d="M 315,210 Q 280,240 230,265" stroke="#a1887f" stroke-width="3" fill="none" stroke-dasharray="5,3"/>
+        <text x="270" y="250" font-size="7" fill="#6d4c41" transform="rotate(-20 270 250)">path to school</text>
+        
+        <!-- District Hospital -->
+        <rect x="420" y="300" width="40" height="30" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" rx="3"/>
+        <text x="440" y="315" text-anchor="middle" font-size="8" fill="#1976d2">🏥</text>
+        <text x="440" y="325" text-anchor="middle" font-size="6" fill="#1565c0">Hospital</text>
+        <text x="440" y="340" font-size="6" fill="#666" text-anchor="middle">12 km →</text>
+        
+        <!-- CASE DOTS -->
+        {nalu_dots}
+        {kabwe_dots}
+        {tamu_dots}
+        
+        <!-- Legend -->
+        <rect x="10" y="350" width="150" height="45" fill="white" stroke="#ccc" rx="5"/>
+        <text x="20" y="365" font-size="9" font-weight="bold">Legend</text>
+        <circle cx="25" cy="378" r="4" fill="#e74c3c"/>
+        <text x="35" y="381" font-size="8">Severe case</text>
+        <circle cx="90" cy="378" r="4" fill="#f39c12"/>
+        <text x="100" y="381" font-size="8">Mild case</text>
+        <rect x="20" y="386" width="10" height="6" fill="#7cb342" opacity="0.5"/>
+        <text x="35" y="392" font-size="7">Rice paddies</text>
+        
+        <!-- Scale -->
+        <line x1="380" y="380" x2="430" y2="380" stroke="#333" stroke-width="2"/>
+        <text x="405" y="375" font-size="7" text-anchor="middle">~1 km</text>
+        
+        <!-- Compass -->
+        <text x="460" y="60" font-size="12" text-anchor="middle">↑ N</text>
+    </svg>
+    '''
     
-    # Create map
-    fig = px.scatter_mapbox(
-        cases,
-        lat='lat',
-        lon='lon',
-        color='severity',
-        color_discrete_map={'Severe': '#e74c3c', 'Mild': '#f39c12'},
-        size_max=15,
-        hover_data=['age', 'sex', 'village_name', 'onset_date', 'outcome'],
-        zoom=12,
-        height=500
-    )
-    
-    # Add village markers
-    for vid, coords in village_coords.items():
-        fig.add_trace(go.Scattermapbox(
-            lat=[coords['lat']],
-            lon=[coords['lon']],
-            mode='markers+text',
-            marker=dict(size=20, color='blue', opacity=0.4),
-            text=[coords['name']],
-            textposition='top center',
-            name=coords['name'],
-            showlegend=False
-        ))
-    
-    fig.update_layout(
-        mapbox_style="carto-positron",
-        margin={"r": 0, "t": 0, "l": 0, "b": 0}
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
+    st.markdown(map_svg, unsafe_allow_html=True)
     
     # Summary statistics
     st.markdown("---")
@@ -2822,19 +3104,17 @@ def view_spot_map():
     
     col1, col2, col3 = st.columns(3)
     
-    village_counts = cases['village_id'].value_counts()
-    
     with col1:
-        n = village_counts.get('V1', 0)
-        st.metric("Nalu Village", f"{n} cases")
+        st.metric("Nalu Village", f"{nalu_cases} cases")
     
     with col2:
-        n = village_counts.get('V2', 0)
-        st.metric("Kabwe Village", f"{n} cases")
+        st.metric("Kabwe Village", f"{kabwe_cases} cases")
     
     with col3:
-        n = village_counts.get('V3', 0)
-        st.metric("Tamu Village", f"{n} cases")
+        st.metric("Tamu Village", f"{tamu_cases} cases")
+    
+    if found_cases_count > 0:
+        st.info(f"📋 Note: {found_cases_count} additional case(s) identified through clinic record review have been included in the case counts.")
     
     # Interpretation prompts
     with st.expander("🤔 Spot Map Interpretation Questions"):

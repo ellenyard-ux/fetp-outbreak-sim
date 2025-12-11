@@ -196,9 +196,13 @@ def assign_infections(individuals_df, households_df):
     """
     Assign JE infections based on risk model.
     Preserves seed individual status.
+    
+    JE attack rates in outbreaks: typically 1-10 per 10,000 population
+    In high-risk endemic areas: up to 50 per 10,000
+    We target ~15-25 symptomatic cases total for the scenario
     """
-    # Base risk by village
-    base_risk = {'V1': 0.18, 'V2': 0.07, 'V3': 0.02}
+    # Base risk by village (reduced for realistic attack rates)
+    base_risk = {'V1': 0.06, 'V2': 0.025, 'V3': 0.005}
     
     # Create household lookup
     hh_lookup = households_df.set_index('hh_id').to_dict('index')
@@ -209,23 +213,24 @@ def assign_infections(individuals_df, households_df):
             if len(row['person_id']) <= 5:  # P0001, P1001, etc.
                 return row['true_je_infection']
         
-        risk = base_risk.get(row['village_id'], 0.02)
+        risk = base_risk.get(row['village_id'], 0.005)
         
         hh = hh_lookup.get(row['hh_id'], {})
         if hh:
+            # Risk factors (reduced for realism)
             if hh.get('pigs_owned', 0) >= 3:
-                risk += 0.08
+                risk += 0.03
             if pd.notna(hh.get('pig_pen_distance_m')) and hh.get('pig_pen_distance_m', 100) < 20:
-                risk += 0.05
+                risk += 0.02
             if not hh.get('uses_mosquito_nets', True):
-                risk += 0.05
+                risk += 0.02
             if hh.get('rice_field_distance_m', 200) < 100:
-                risk += 0.04
+                risk += 0.015
         
         if row.get('JE_vaccinated', False):
             risk *= 0.15
         
-        return np.random.random() < min(risk, 0.4)
+        return np.random.random() < min(risk, 0.15)
     
     individuals_df['true_je_infection'] = individuals_df.apply(calculate_risk, axis=1)
     

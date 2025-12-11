@@ -224,7 +224,7 @@ DAY_STRUCTURE = {
 All cases come from villages near Sidero Valley. We need your team in Nalu immediately.
 
 Your tasks today:
-1. Review the hospital case data
+1. Review initial cases
 2. Develop a working case definition  
 3. Begin interviews to understand the situation
 4. Document initial hypotheses'''
@@ -1595,16 +1595,6 @@ with st.sidebar:
     col1.metric("Budget", f"${st.session_state.budget:,}")
     col2.metric("Lab Credits", st.session_state.lab_credits)
     
-    # Advance Day button
-    st.markdown("---")
-    
-    if current_day < 5:
-        if st.button(f"⏭️ Complete Day {current_day} → Day {current_day + 1}", use_container_width=True, type="primary"):
-            if advance_day():
-                st.rerun()
-    else:
-        st.success("📋 Final Day - Complete your briefing!")
-    
     st.markdown("---")
     
     # Navigation - day-appropriate options
@@ -1682,9 +1672,16 @@ with st.sidebar:
         st.markdown(f"{'✅' if st.session_state.env_officer_unlocked else '🔒'} Environmental Officer consulted")
         st.markdown(f"{'✅' if st.session_state.pig_samples_collected else '🔒'} Animal samples collected")
         st.markdown(f"{'✅' if len(st.session_state.mosquito_traps_set) > 0 else '🔒'} Vector sampling done")
-        
-        if not st.session_state.one_health_triggered:
-            st.info("💡 Tip: Ask NPCs about animals or mosquitoes to unlock One Health experts!")
+    
+    st.markdown("---")
+    
+    # Advance Day button - moved to bottom
+    if current_day < 5:
+        if st.button(f"⏭️ Complete Day {current_day} → Day {current_day + 1}", use_container_width=True, type="primary"):
+            if advance_day():
+                st.rerun()
+    else:
+        st.success("📋 Final Day - Complete your briefing!")
     
     st.markdown("---")
     
@@ -1777,49 +1774,66 @@ if st.session_state.current_view == 'briefing':
         st.markdown("""
         - **Population:** ~1,400 across 3 villages
         - **Main livelihoods:** Rice farming, pig rearing
-        - **Season:** Rainy season (peak mosquito breeding)
+        - **Season:** Rainy season
         - **Health facilities:** 1 district hospital, 2 health centers
         """)
         
         st.markdown("**Your First Steps:**")
         st.markdown("""
-        1. Review hospital case data
-        2. Talk to Dr. Okonkwo
-        3. Develop initial hypothesis
-        4. Plan field investigation
+        1. Review initial cases
+        2. Develop a working case definition
+        3. Begin interviews to understand the situation
+        4. Document initial hypotheses
         """)
     
     st.markdown("---")
     
     # Case Definition Exercise
     st.markdown("### 📝 Develop Your Case Definition")
-    st.info("Before investigating further, write a working case definition for this outbreak.")
     
     with st.form("case_definition_form"):
         st.markdown("**Clinical Criteria:**")
         clinical = st.text_area(
             "What symptoms/signs define a case?",
-            placeholder="e.g., Acute onset of fever AND altered mental status OR seizures...",
             height=80
         )
         
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("**Person:**")
-            person = st.text_input("Who? (age, other characteristics)", placeholder="e.g., Any age, resident of...")
+            person = st.text_input("Who? (age, other characteristics)")
         
         with col2:
             st.markdown("**Place:**")
-            place = st.text_input("Where?", placeholder="e.g., Sidero Valley district")
+            place = st.text_input("Where?")
         
         st.markdown("**Time:**")
-        time_period = st.text_input("When?", placeholder="e.g., Onset between June 1-30, 2024")
+        time_period = st.text_input("When?")
         
         if st.form_submit_button("Save Case Definition"):
             full_def = f"Clinical: {clinical}\nPerson: {person}\nPlace: {place}\nTime: {time_period}"
             st.session_state.case_definition_text = full_def
             st.session_state.case_definition_written = True
             st.success("✅ Case definition saved! You can refine it as you learn more.")
+    
+    st.markdown("---")
+    
+    # Initial Hypotheses Section
+    st.markdown("### 💡 Document Initial Hypotheses")
+    
+    with st.form("hypotheses_form"):
+        st.markdown("Based on what you know so far, what are possible causes of this outbreak?")
+        
+        hypothesis1 = st.text_input("Hypothesis 1:")
+        hypothesis2 = st.text_input("Hypothesis 2:")
+        hypothesis3 = st.text_input("Hypothesis 3:")
+        hypothesis4 = st.text_input("Hypothesis 4 (optional):")
+        
+        if st.form_submit_button("Save Hypotheses"):
+            hypotheses = [h for h in [hypothesis1, hypothesis2, hypothesis3, hypothesis4] if h.strip()]
+            st.session_state.hypotheses_documented = hypotheses
+            st.session_state.initial_hypotheses = hypotheses
+            st.success(f"✅ {len(hypotheses)} hypotheses documented!")
 
 elif st.session_state.current_view == 'interviews':
     st.markdown("### 👥 Key Informant Interviews")
@@ -1919,7 +1933,7 @@ elif st.session_state.current_view == 'interviews':
                     if not is_unlocked:
                         st.markdown(f"**🔒 {char['name']}**")
                         st.caption(f"{char['role']}")
-                        st.caption("*Ask about animals or environment to unlock*")
+                        st.caption("*Not yet available*")
                     else:
                         st.markdown(f"**{char['avatar']} {char['name']}**")
                         st.caption(char['role'])
@@ -1942,16 +1956,6 @@ elif st.session_state.current_view == 'interviews':
                                 st.error("Insufficient funds!")
             
             st.markdown("---")
-        
-        # Hint for One Health
-        if not st.session_state.one_health_triggered:
-            st.markdown("""
-            <div style="background: #e8f4f8; padding: 15px; border-radius: 10px; border-left: 4px solid #17a2b8;">
-                <strong>💡 Investigation Tip:</strong> Some experts are not yet available. 
-                Try asking your current contacts about <em>animals</em>, <em>pigs</em>, <em>mosquitoes</em>, 
-                or <em>environmental factors</em> to unlock additional NPCs!
-            </div>
-            """, unsafe_allow_html=True)
 
 elif st.session_state.current_view == 'linelist':
     st.markdown("### 📋 Case Line List")
@@ -2242,7 +2246,7 @@ elif st.session_state.current_view == 'spotmap':
     ))
     
     fig.update_layout(
-        mapbox_style="open-street-map",
+        mapbox_style="carto-positron",
         margin={"r": 0, "t": 0, "l": 0, "b": 0}
     )
     

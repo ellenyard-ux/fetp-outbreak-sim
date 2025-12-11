@@ -3,7 +3,6 @@ import anthropic
 import pandas as pd
 import numpy as np
 
-# Import core logic from je_logic
 from je_logic import (
     load_truth_data,
     generate_full_population,
@@ -13,16 +12,13 @@ from je_logic import (
     check_day_prerequisites,
 )
 
-# -------------------------------
-# INITIAL SETUP & CACHED LOADERS
-# -------------------------------
+# =========================
+# INITIALIZATION
+# =========================
 
 @st.cache_data
 def load_truth_and_population(data_dir: str = "."):
-    """
-    Load static truth tables (villages, households seed, individuals seed, lab, env, npc_truth)
-    and generate a full synthetic population with infection status.
-    """
+    """Load truth data and generate a full population."""
     truth = load_truth_data(data_dir=data_dir)
     villages_df = truth["villages"]
     households_seed = truth["households_seed"]
@@ -31,7 +27,6 @@ def load_truth_and_population(data_dir: str = "."):
     households_full, individuals_full = generate_full_population(
         villages_df, households_seed, individuals_seed
     )
-
     truth["households"] = households_full
     truth["individuals"] = individuals_full
     return truth
@@ -39,7 +34,7 @@ def load_truth_and_population(data_dir: str = "."):
 
 def init_session_state():
     if "truth" not in st.session_state:
-        # NOTE: if you move CSVs/JSON to a 'data/' folder, change to data_dir="data"
+        # files are in the repo root right now
         st.session_state.truth = load_truth_and_population(data_dir=".")
 
     if "current_day" not in st.session_state:
@@ -62,8 +57,9 @@ def init_session_state():
             "mapped_columns": [],
             "sample_size": {"cases": 15, "controls_per_case": 2},
             "lab_orders": [],
-            "interventions": [],
             "questionnaire_raw": [],
+            "final_diagnosis": "",
+            "recommendations": [],
         }
 
     if "generated_dataset" not in st.session_state:
@@ -81,69 +77,67 @@ def init_session_state():
     if "current_npc" not in st.session_state:
         st.session_state.current_npc = None
 
-    # Unlock flags (One Health, etc.)
     if "unlock_flags" not in st.session_state:
         st.session_state.unlock_flags = {}
 
+    # flags used by check_day_prerequisites (you can expand later)
+    st.session_state.setdefault("case_definition_written", False)
+    st.session_state.setdefault("questionnaire_submitted", False)
+    st.session_state.setdefault("descriptive_analysis_done", False)
+    st.session_state.setdefault("lab_samples_submitted", [])
 
-# -------------------------------
+
+# =========================
 # NPC / INTERVIEW ENGINE
-# -------------------------------
+# =========================
 
 def build_epidemiologic_context(truth: dict) -> str:
-    """
-    Create a short summary of the outbreak from the truth tables
-    that NPCs can draw on. This integrates village & household logic
-    into the interviews.
-    """
+    """Short summary of the outbreak from truth tables."""
     individuals = truth["individuals"]
     households = truth["households"]
     villages = truth["villages"][["village_id", "village_name"]]
 
-    # Merge individual → household → village
     hh_vil = households.merge(villages, on="village_id", how="left")
-    merged = individuals.merge(hh_vil[["hh_id", "village_name"]], on="hh_id", how="left")
+    merged = individuals.merge(
+        hh_vil[["hh_id", "village_name"]], on="hh_id", how="left"
+    )
 
-    # Symptomatic AES cases
     cases = merged[merged["symptomatic_AES"] == True]
     total_cases = len(cases)
 
     if total_cases == 0:
         return "No symptomatic AES cases have been assigned in the truth model."
 
-    # Cases by village
     village_counts = cases["village_name"].value_counts().to_dict()
 
-    # Cases by age group
     bins = [0, 4, 14, 49, 120]
     labels = ["0–4", "5–14", "15–49", "50+"]
     age_groups = pd.cut(cases["age"], bins=bins, labels=labels, right=True)
     age_counts = age_groups.value_counts().to_dict()
 
     context = (
-        f"There are currently {total_cases} symptomatic AES cases in the district. "
+        f"There are currently about {total_cases} symptomatic AES cases in the district. "
         f"Cases by village: {village_counts}. "
         f"Cases by age group: {age_counts}. "
-        "Most cases are children, and almost all come from villages with rice paddies and pigs."
+        "Most cases are children and come from villages with rice paddies and pigs."
     )
     return context
 
 
 def build_npc_data_context(npc_key: str, truth: dict) -> str:
-    """
-    Provide NPC-specific data context based on data_access flags
-    and the village/household-level truth tables.
-    """
+    """NPC-specific data context based on their data_access scope."""
     npc = truth["npc_truth"][npc_key]
     data_access = npc.get("data_access")
 
     individuals = truth["individuals"]
     households = truth["households"]
     villages = truth["villages"][["village_id", "village_name"]]
-    hh_vil = households.merge(villages, on="village_id", how="left")
-    merged = individuals.merge(hh_vil[["hh_id", "village_name"]], on="hh_id", how="left")
 
-    # Default context
+    hh_vil = households.merge(villages, on="village_id", how="left")
+    merged = individuals.merge(
+        hh_vil[["hh_id", "village_name"]], on="hh_id", how="left"
+    )
+
     epi_context = build_epidemiologic_context(truth)
 
     if data_access == "hospital_cases":
@@ -152,19 +146,20 @@ def build_npc_data_context(npc_key: str, truth: dict) -> str:
         return (
             epi_context
             + " As hospital director, you mainly see hospitalized AES cases. "
-              f"You know that current hospitalized cases come from these villages: {summary}."
+              f"You know current hospitalized cases come from these villages: {summary}."
         )
-    elif data_access == "triage_logs":
+
+    if data_access == "triage_logs":
         cases = merged[merged["symptomatic_AES"] == True]
         earliest = cases["onset_date"].min()
         latest = cases["onset_date"].max()
         return (
             epi_context
-            + " As a triage nurse, you mainly see who walks in the door first. "
-              f"You have noticed the first AES cases between {earliest} and {latest}."
+            + " As triage nurse, you mostly notice who walks in first. "
+              f"You saw the first AES cases between {earliest} and {latest}."
         )
-    elif data_access == "private_clinic":
-        # Assume clinic mostly sees early mild AES near Nalu
+
+    if data_access == "private_clinic":
         cases = merged[
             (merged["symptomatic_AES"] == True)
             & (merged["village_name"] == "Nalu Village")
@@ -172,98 +167,92 @@ def build_npc_data_context(npc_key: str, truth: dict) -> str:
         n = len(cases)
         return (
             epi_context
-            + f" As a private healer, you have personally seen about {n} early AES-like illnesses "
+            + f" As a private healer, you have personally seen around {n} early AES-like illnesses "
               "from households near pig farms and rice paddies in Nalu."
         )
-    elif data_access == "school_attendance":
+
+    if data_access == "school_attendance":
         school_age = merged[(merged["age"] >= 5) & (merged["age"] <= 18)]
         cases = school_age[school_age["symptomatic_AES"] == True]
         n = len(cases)
         by_village = cases["village_name"].value_counts().to_dict()
         return (
             epi_context
-            + f" As school principal, you primarily know about school-age children. "
+            + f" As school principal, you mostly know about school-age children. "
               f"You know of AES cases among your students: {n} total, by village: {by_village}."
         )
-    elif data_access == "vet_surveillance":
+
+    if data_access == "vet_surveillance":
         lab = truth["lab_samples"]
-        pig_samples = lab[lab["sample_type"] == "pig_serum"]
-        pos = pig_samples[pig_samples["true_JEV_status"] == True]
+        pigs = lab[lab["sample_type"] == "pig_serum"]
+        pos = pigs[pigs["true_JEV_positive"] == True]
         by_village = pos["linked_village_id"].value_counts().to_dict()
         return (
             epi_context
-            + " As the district veterinary officer, you track pig health and surveillance. "
-              f"Recent pig serology suggests JEV circulation in villages: {by_village}."
+            + " As the district veterinary officer, you track pig health. "
+              f"Recent pig tests suggest JEV circulation in villages: {by_village}."
         )
-    elif data_access == "environmental_data":
+
+    if data_access == "environmental_data":
         env = truth["environment_sites"]
-        high_breeding = env[env["breeding_index"] == "high"]
+        high = env[env["breeding_index"] == "high"]
+        sites = high["site_id"].tolist()
         return (
             epi_context
-            + " As environmental health officer, you have surveyed breeding sites. "
-              f"You know of high mosquito breeding around these sites: {high_breeding['site_id'].tolist()}."
+            + " As environmental health officer, you survey breeding sites. "
+              f"You know of high mosquito breeding around these sites: {sites}."
         )
-    else:
-        # Generic context
-        return epi_context
+
+    return epi_context
 
 
-def get_npc_response(npc_key: str, user_input: str):
-    """
-    Call Anthropic to generate an NPC response using:
-    - npc_truth.json
-    - Outbreak context from villages/households/individuals
-    - Conditional clue logic
-    """
+def get_npc_response(npc_key: str, user_input: str) -> str:
+    """Call Anthropic using npc_truth + epidemiologic context."""
     api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        return "⚠️ Anthropic API key missing. Please configure secrets."
+        return "⚠️ Anthropic API key missing."
 
     truth = st.session_state.truth
     npc_truth = truth["npc_truth"][npc_key]
 
-    # Build epidemiologic + NPC-specific context
     epi_context = build_npc_data_context(npc_key, truth)
 
-    # Track revealed clues for this NPC
     if npc_key not in st.session_state.revealed_clues:
         st.session_state.revealed_clues[npc_key] = []
 
-    # Base system prompt
     system_prompt = f"""
 You are {npc_truth['name']}, the {npc_truth['role']} in Sidero Valley.
 
 Personality:
 {npc_truth['personality']}
 
-Outbreak context (for your awareness, not to recite verbatim word-for-word):
+Outbreak context (for your awareness):
 {epi_context}
 
-ALWAYS REVEAL (you may weave these into your answers naturally):
+ALWAYS REVEAL (inevitably come up over the conversation):
 {npc_truth['always_reveal']}
 
 CONDITIONAL CLUES:
-Only reveal a conditional clue when the user question clearly relates to its keyword.
+Reveal a conditional clue ONLY when the user's question clearly relates to its keyword.
 Conditional clues (keyword: clue):
 {npc_truth['conditional_clues']}
 
 RED HERRINGS:
-You may occasionally mention these, but do NOT contradict the core truth:
+You may mention these occasionally but do NOT contradict the core truth:
 {npc_truth['red_herrings']}
 
 UNKNOWN:
-If the user asks about any of these topics, explicitly say you do not know:
+If the user asks about these topics, say you do not know:
 {npc_truth['unknowns']}
 
-CONVERSATION RULES:
+RULES:
 - Answer in 2–4 sentences.
-- Stay in character and speak as a real person from the district.
-- Do NOT invent new case counts, lab results, or locations beyond what is implied above.
-- If you refer to numbers, keep them approximate (e.g., 'several children', 'a few cases').
-- If you are unsure, say so.
+- Stay in character as a real person from the district.
+- Do not invent new case counts, lab results, or locations beyond what is implied above.
+- If unsure, say you are not sure.
 """
 
-    # Determine which conditional clues are eligible based on the user question
+    # Decide which conditional clues are allowed in this answer
     lower_q = user_input.lower()
     conditional_to_use = []
     for keyword, clue in npc_truth.get("conditional_clues", {}).items():
@@ -274,25 +263,26 @@ CONVERSATION RULES:
     conditional_text = ""
     if conditional_to_use:
         conditional_text = (
-            "\n\nYou are allowed to reveal NEW specific clues in this answer:\n"
+            "\n\nYou may reveal these NEW specific clues in this answer:\n"
             + "\n".join(f"- {c}" for c in conditional_to_use)
         )
 
     client = anthropic.Anthropic(api_key=api_key)
+
     history = st.session_state.interview_history.get(npc_key, [])
     msgs = [{"role": m["role"], "content": m["content"]} for m in history]
     msgs.append({"role": "user", "content": user_input})
 
-    response = client.messages.create(
+    resp = client.messages.create(
         model="claude-3-haiku-20240307",
         max_tokens=300,
         system=system_prompt + conditional_text,
         messages=msgs,
     )
 
-    text = response.content[0].text
+    text = resp.content[0].text
 
-    # Handle unlocks (e.g., vet_data_unlocked, environmental_data_unlocked)
+    # Unlock flags (One Health unlocks)
     unlock_flag = npc_truth.get("unlocks")
     if unlock_flag:
         st.session_state.unlock_flags[unlock_flag] = True
@@ -300,67 +290,40 @@ CONVERSATION RULES:
     return text
 
 
-# -------------------------------
-# UI COMPONENTS
-# -------------------------------
+# =========================
+# UI HELPERS
+# =========================
 
 def sidebar_navigation():
     st.sidebar.title("Sidero Valley JE Simulation")
     st.sidebar.markdown(
         f"**Day:** {st.session_state.current_day} / 5\n\n"
         f"**Budget:** ${st.session_state.budget}\n"
-        f"**Lab Credits:** {st.session_state.lab_credits}"
+        f"**Lab credits:** {st.session_state.lab_credits}"
     )
 
-    # Progress indicator
-    st.sidebar.markdown("### Progress")
-    for day in range(1, 6):
-        status = "⬜"
-        if day < st.session_state.current_day:
-            status = "✅"
-        elif day == st.session_state.current_day:
-            status = "🟡"
-        st.sidebar.markdown(f"{status} Day {day}")
-
-    st.sidebar.markdown("---")
-
-    # Map internal view to label
-    internal_to_label = {
-        "overview": "Overview",
-        "contacts": "Interviews",
-        "study": "Data & Study Design",
-        "lab": "Lab & Environment",
-        "outcome": "Interventions & Outcome",
-    }
-    label_to_internal = {v: k for k, v in internal_to_label.items()}
-
-    current_label = internal_to_label.get(st.session_state.current_view, "Overview")
-
-    view_label = st.sidebar.radio(
-        "Go to:",
-        ["Overview", "Interviews", "Data & Study Design", "Lab & Environment", "Interventions & Outcome"],
-        index=["Overview", "Interviews", "Data & Study Design", "Lab & Environment", "Interventions & Outcome"].index(
-            current_label
-        ),
-    )
-
-    st.session_state.current_view = label_to_internal[view_label]
+    st.sidebar.markdown("### Navigation")
+    labels = ["Overview", "Interviews", "Data & Study Design", "Lab & Environment", "Interventions & Outcome"]
+    internal = ["overview", "interviews", "study", "lab", "outcome"]
+    current_label = labels[internal.index(st.session_state.current_view)] if st.session_state.current_view in internal else "Overview"
+    choice = st.sidebar.radio("Go to:", labels, index=labels.index(current_label))
+    st.session_state.current_view = internal[labels.index(choice)]
 
 
 def view_overview():
-    st.title("Sidero Valley Outbreak Investigation")
+    st.title("JE Outbreak Investigation – Sidero Valley")
     st.markdown(
         """
 You are the district rapid response team investigating an outbreak of acute encephalitis syndrome (AES) in Sidero Valley.
 
-Over 5 days, you will:
-- Define and refine a working case definition
-- Conduct hypothesis-generating interviews
-- Design and analyze an epidemiologic study
-- Decide which lab and environmental samples to collect
+Over five “days” in this simulation, you will:
+- Develop a working case definition  
+- Conduct hypothesis-generating interviews  
+- Design and analyze an epidemiologic study  
+- Decide which human, animal, and environmental samples to collect  
 - Propose interventions to the Ministry of Health
 
-Use the left sidebar to navigate between sections.
+Use the sidebar to move between sections.
 """
     )
 
@@ -370,9 +333,9 @@ def view_interviews():
     npc_truth = truth["npc_truth"]
 
     st.header("👥 Interviews")
-    st.info("Each interview costs budget. Some NPCs can unlock additional data sources or One Health perspectives.")
+    st.info("Interview community members and officials. Each interview costs budget; some unlock new One Health information.")
 
-    # NPC selection grid
+    # NPC buttons
     cols = st.columns(3)
     for i, (npc_key, npc) in enumerate(npc_truth.items()):
         with cols[i % 3]:
@@ -383,26 +346,25 @@ def view_interviews():
                 if st.session_state.budget >= cost:
                     st.session_state.budget -= cost
                     st.session_state.current_npc = npc_key
-                    if npc_key not in st.session_state.interview_history:
-                        st.session_state.interview_history[npc_key] = []
+                    st.session_state.interview_history.setdefault(npc_key, [])
                     st.experimental_rerun()
                 else:
                     st.error("Insufficient budget for this interview.")
 
-    if st.session_state.current_npc:
-        npc_key = st.session_state.current_npc
+    # Active conversation
+    npc_key = st.session_state.current_npc
+    if npc_key:
         npc = npc_truth[npc_key]
         st.markdown("---")
-        st.subheader(f"💬 Talking to {npc['name']} ({npc['role']})")
+        st.subheader(f"Talking to {npc['name']} ({npc['role']})")
 
         history = st.session_state.interview_history.get(npc_key, [])
         for msg in history:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
 
-        user_q = st.chat_input("Ask a question...")
+        user_q = st.chat_input("Ask your question...")
         if user_q:
-            # Append user question
             history.append({"role": "user", "content": user_q})
             st.session_state.interview_history[npc_key] = history
 
@@ -419,21 +381,21 @@ def view_interviews():
 def view_study_design():
     st.header("📊 Data & Study Design")
 
-    # Step 1: Case definition
-    st.markdown("### Step 1: Case Definition (Working)")
-    case_def = st.text_area(
-        "Describe your current working case definition:",
+    # Case definition
+    st.markdown("### Step 1: Case Definition")
+    text = st.text_area(
+        "Write your working case definition:",
         value=st.session_state.decisions.get("case_definition_text", ""),
         height=120,
-        help="For example: Residents of Nalu or Kabwe with AES onset after June 1, age < 15 years, with fever and altered mental status.",
     )
     if st.button("Save Case Definition"):
-        st.session_state.decisions["case_definition_text"] = case_def
-        # Keep a simple structured version for the logic (you can refine this later)
+        st.session_state.decisions["case_definition_text"] = text
+        # minimal structured criteria for now
         st.session_state.decisions["case_definition"] = {"clinical_AES": True}
+        st.session_state.case_definition_written = True
         st.success("Case definition saved.")
 
-    # Step 2: Study design
+    # Study design
     st.markdown("### Step 2: Study Design")
     sd_type = st.radio("Choose a study design:", ["Case-control", "Retrospective cohort"])
     if sd_type == "Case-control":
@@ -441,112 +403,100 @@ def view_study_design():
     else:
         st.session_state.decisions["study_design"] = {"type": "cohort"}
 
-    # Step 3: Questionnaire mapping
-    st.markdown("### Step 3: Questionnaire Variables")
-    st.caption("Enter key questions/variables. The simulator will map them to underlying columns based on keywords.")
+    # Questionnaire
+    st.markdown("### Step 3: Questionnaire")
+    st.caption("List the key questions or variables you plan to include (one per line).")
     q_text = st.text_area(
-        "Questionnaire content",
+        "Questionnaire items:",
         value="\n".join(st.session_state.decisions.get("questionnaire_raw", [])),
-        height=150,
+        height=160,
     )
+    if st.button("Save Questionnaire"):
+        lines = [ln for ln in q_text.splitlines() if ln.strip()]
+        st.session_state.decisions["questionnaire_raw"] = lines
+        # Use the raw items as mapped_columns; je_logic will map keywords→true columns.
+        st.session_state.decisions["mapped_columns"] = lines
+        st.session_state.questionnaire_submitted = True
+        st.success("Questionnaire saved.")
 
-    if st.button("Save Questionnaire Variables"):
-        # Simple keyword-based mapping (your coder can later replace this with an LLM mapping step)
-        mapped_cols = []
-        lower = q_text.lower()
-        if "age" in lower:
-            mapped_cols.append("age")
-        if "sex" in lower or "gender" in lower:
-            mapped_cols.append("sex")
-        if "mosquito net" in lower or "bed net" in lower:
-            mapped_cols.append("Mosquito_Net_Use")
-        if "pig" in lower:
-            mapped_cols.append("Pigs_Near_Home")
-        if "rice" in lower or "paddy" in lower:
-            mapped_cols.append("rice_field_distance_m")
-        if "vaccin" in lower:
-            mapped_cols.append("JE_vaccinated")
-        if "evening" in lower or "dusk" in lower or "outside" in lower:
-            mapped_cols.append("evening_outdoor_exposure")
-
-        st.session_state.decisions["mapped_columns"] = list(set(mapped_cols))
-        st.session_state.decisions["questionnaire_raw"] = q_text.splitlines()
-        st.success(f"Mapped columns: {st.session_state.decisions['mapped_columns']}")
-
-    # Step 4: Dataset generation
-    st.markdown("### Step 4: Generate Study Dataset (for Day 3)")
-    if st.button("Generate Simulated Dataset"):
+    # Dataset generation
+    st.markdown("### Step 4: Generate Simulated Study Dataset")
+    if st.button("Generate Dataset"):
         truth = st.session_state.truth
-        individuals = truth["individuals"]
-        households = truth["households"]
-
-        decisions = st.session_state.decisions
-        study_df = generate_study_dataset(individuals, households, decisions)
-        st.session_state.generated_dataset = study_df
-        st.success("Dataset generated. You can now export and analyze it outside the app.")
-        st.dataframe(study_df.head())
+        df = generate_study_dataset(
+            truth["individuals"], truth["households"], st.session_state.decisions
+        )
+        st.session_state.generated_dataset = df
+        st.session_state.descriptive_analysis_done = True  # placeholder; refine later
+        st.success("Dataset generated. Preview below; export for analysis as needed.")
+        st.dataframe(df.head())
 
 
 def view_lab_and_environment():
     st.header("🧪 Lab & Environment")
-
-    st.markdown(
-        "Order lab tests and environmental investigations. "
-        "In this version, the UI is a placeholder, but the backend logic lives in `je_logic.process_lab_order()`."
-    )
     st.info(
-        "Your coder can create forms/buttons here that build lab order dictionaries and pass them to "
-        "`process_lab_order(order, truth['lab_samples'])`, then store results in `st.session_state.lab_results`."
+        "This screen is a placeholder for your coder to build lab ordering and environmental sampling forms "
+        "that call `process_lab_order()` from `je_logic.py` and append results to "
+        "`st.session_state.lab_results` and `st.session_state.lab_samples_submitted`."
     )
+
+    if st.session_state.lab_results:
+        st.markdown("### Lab results so far")
+        st.dataframe(pd.DataFrame(st.session_state.lab_results))
 
 
 def view_interventions_and_outcome():
     st.header("📉 Interventions & Outcome")
 
-    st.markdown("### Proposed interventions")
-    interventions = st.text_area(
-        "List your recommended interventions:",
-        value="\n".join(st.session_state.decisions.get("interventions", [])),
-        height=150,
+    st.markdown("### Final Diagnosis")
+    dx = st.text_input(
+        "What is your final diagnosis?",
+        value=st.session_state.decisions.get("final_diagnosis", ""),
     )
+    st.session_state.decisions["final_diagnosis"] = dx
 
-    if st.button("Save Interventions"):
-        st.session_state.decisions["interventions"] = [
-            line for line in interventions.splitlines() if line.strip()
-        ]
-        st.success("Interventions saved.")
+    st.markdown("### Recommendations")
+    rec_text = st.text_area(
+        "List your main recommendations:",
+        value="\n".join(st.session_state.decisions.get("recommendations", [])),
+        height=160,
+    )
+    st.session_state.decisions["recommendations"] = [
+        ln for ln in rec_text.splitlines() if ln.strip()
+    ]
 
-    st.markdown("### Evaluate Outcome (Prototype)")
-    if st.button("Evaluate Scenario Outcome"):
-        score = evaluate_interventions(
+    if st.button("Evaluate Outcome"):
+        outcome = evaluate_interventions(
             st.session_state.decisions, st.session_state.interview_history
         )
-        st.write(f"Intervention score (prototype): {score}")
-        st.info(
-            "Your coder can expand this to show a projected epi curve and a narrative describing how the outbreak evolves."
-        )
+        st.subheader(f"Outcome: {outcome['status']}")
+        st.markdown(outcome["narrative"])
+        st.markdown("### Factors considered")
+        for line in outcome["outcomes"]:
+            st.write(line)
+        st.write(f"Score: {outcome['score']}")
+        st.write(f"Estimated additional cases: {outcome['new_cases']}")
 
 
-# -------------------------------
-# MAIN APP
-# -------------------------------
+# =========================
+# MAIN
+# =========================
 
 def main():
-    st.set_page_config(page_title="JE Outbreak Simulation", layout="wide")
+    st.set_page_config(page_title="FETP Sim: Sidero Valley", page_icon="🦟", layout="wide")
     init_session_state()
     sidebar_navigation()
 
-    view_key = st.session_state.current_view
-
-    if view_key == "overview":
+    view = st.session_state.current_view
+    if view == "overview":
         view_overview()
-    elif view_key == "contacts":
+    elif view == "interviews":
         view_interviews()
-    elif view_key == "study":
+    elif view == "study":
         view_study_design()
-    elif view_key == "lab":
+    elif view == "lab":
         view_lab_and_environment()
-    elif view_key == "outcome":
+    elif view == "outcome":
         view_interventions_and_outcome()
     else:
         view_overview()

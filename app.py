@@ -2,6 +2,7 @@ import streamlit as st
 import anthropic
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 
 from je_logic import (
     load_truth_data,
@@ -34,21 +35,22 @@ def load_truth_and_population(data_dir: str = "."):
 
 def init_session_state():
     if "truth" not in st.session_state:
-        # files are in the repo root right now
+        # CSV/JSON files are in the repo root right now
         st.session_state.truth = load_truth_and_population(data_dir=".")
 
     if "current_day" not in st.session_state:
+        # 1–5
         st.session_state.current_day = 1
 
     if "current_view" not in st.session_state:
+        # Start on the briefing/overview page
         st.session_state.current_view = "overview"
 
-    if "budget" not in st.session_state:
-        st.session_state.budget = 1000
+    # Resources
+    st.session_state.setdefault("budget", 1000)
+    st.session_state.setdefault("lab_credits", 20)
 
-    if "lab_credits" not in st.session_state:
-        st.session_state.lab_credits = 20
-
+    # Decisions and artifacts
     if "decisions" not in st.session_state:
         st.session_state.decisions = {
             "case_definition": None,
@@ -62,33 +64,28 @@ def init_session_state():
             "recommendations": [],
         }
 
-    if "generated_dataset" not in st.session_state:
-        st.session_state.generated_dataset = None
+    st.session_state.setdefault("generated_dataset", None)
+    st.session_state.setdefault("lab_results", [])
+    st.session_state.setdefault("lab_samples_submitted", [])
+    st.session_state.setdefault("interview_history", {})
+    st.session_state.setdefault("revealed_clues", {})
+    st.session_state.setdefault("current_npc", None)
+    st.session_state.setdefault("unlock_flags", {})
 
-    if "lab_results" not in st.session_state:
-        st.session_state.lab_results = []
-
-    if "interview_history" not in st.session_state:
-        st.session_state.interview_history = {}
-
-    if "revealed_clues" not in st.session_state:
-        st.session_state.revealed_clues = {}
-
-    if "current_npc" not in st.session_state:
-        st.session_state.current_npc = None
-
-    if "unlock_flags" not in st.session_state:
-        st.session_state.unlock_flags = {}
-
-    # flags used by check_day_prerequisites (you can expand later)
+    # Flags used for day progression
     st.session_state.setdefault("case_definition_written", False)
     st.session_state.setdefault("questionnaire_submitted", False)
     st.session_state.setdefault("descriptive_analysis_done", False)
-    st.session_state.setdefault("lab_samples_submitted", [])
+
+    # Track whether user has opened the line list/epi view at least once (for Day 1)
+    st.session_state.setdefault("line_list_viewed", False)
+
+    # For messaging when advance-day fails
+    st.session_state.setdefault("advance_missing_tasks", [])
 
 
 # =========================
-# NPC / INTERVIEW ENGINE
+# UTILITY FUNCTIONS
 # =========================
 
 def build_epidemiologic_context(truth: dict) -> str:
@@ -291,7 +288,97 @@ RULES:
 
 
 # =========================
-# UI HELPERS
+# VISUALS: MAP, LINE LIST, EPI CURVE
+# =========================
+
+def make_village_map(truth: dict) -> go.Figure:
+    """Simple schematic map of villages with pig density and rice paddies."""
+    villages = truth["villages"].copy()
+    # Assign simple coordinates for display
+    villages = villages.reset_index(drop=True)
+    villages["x"] = np.arange(len(villages))
+    villages["y"] = 0
+
+    # Marker size from population, color from pig_density
+    size = 20 + 5 * (villages["population_size"] / villages["population_size"].max())
+    color_map = {"high": "red", "medium": "orange", "low": "yellow", "none": "green"}
+    colors = [color_map.get(str(d).lower(), "gray") for d in villages["pig_density"]]
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=villages["x"],
+            y=villages["y"],
+            mode="markers+text",
+            text=villages["village_name"],
+            textposition="top center",
+            marker=dict(size=size, color=colors, line=dict(color="black", width=1)),
+            hovertext=[
+                f"{row['village_name']}<br>Pigs: {row['pig_density']}<br>Rice paddies: {row['has_rice_paddies']}"
+                for _, row in villages.iterrows()
+            ],
+            hoverinfo="text",
+        )
+    )
+    fig.update_layout(
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        title="Schematic Map of Sidero Valley",
+        showlegend=False,
+        height=300,
+        margin=dict(l=10, r=10, t=40, b=10),
+    )
+    return fig
+
+
+def get_initial_cases(truth: dict, n: int = 12) -> pd.DataFrame:
+    """Return a small line list of earliest AES cases."""
+    individuals = truth["individuals"]
+    households = truth["households"]
+    villages = truth["villages"][["village_id", "village_name"]]
+
+    hh_vil = households.merge(villages, on="village_id", how="left")
+    merged = individuals.merge(
+        hh_vil[["hh_id", "village_name"]], on="hh_id", how="left"
+    )
+
+    cases = merged[merged["symptomatic_AES"] == True].copy()
+    if "onset_date" in cases.columns:
+        cases = cases.sort_values("onset_date")
+    return cases.head(n)[["person_id", "age", "sex", "village_name", "onset_date", "severe_neuro", "outcome"]]
+
+
+def make_epi_curve(truth: dict) -> go.Figure:
+    """Epi curve of AES cases by onset date."""
+    individuals = truth["individuals"]
+    cases = individuals[individuals["symptomatic_AES"] == True].copy()
+    if "onset_date" not in cases.columns:
+        fig = go.Figure()
+        fig.update_layout(title="Epi curve not available")
+        return fig
+
+    counts = cases.groupby("onset_date").size().reset_index(name="cases")
+    counts = counts.sort_values("onset_date")
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            x=counts["onset_date"],
+            y=counts["cases"],
+        )
+    )
+    fig.update_layout(
+        title="AES cases by onset date",
+        xaxis_title="Onset date",
+        yaxis_title="Number of cases",
+        height=300,
+        margin=dict(l=10, r=10, t=40, b=10),
+    )
+    return fig
+
+
+# =========================
+# UI COMPONENTS
 # =========================
 
 def sidebar_navigation():
@@ -302,30 +389,121 @@ def sidebar_navigation():
         f"**Lab credits:** {st.session_state.lab_credits}"
     )
 
-    st.sidebar.markdown("### Navigation")
-    labels = ["Overview", "Interviews", "Data & Study Design", "Lab & Environment", "Interventions & Outcome"]
+    # Progress indicator
+    st.sidebar.markdown("### Progress")
+    for day in range(1, 6):
+        if day < st.session_state.current_day:
+            status = "✅"
+        elif day == st.session_state.current_day:
+            status = "🟡"
+        else:
+            status = "⬜"
+        st.sidebar.markdown(f"{status} Day {day}")
+
+    st.sidebar.markdown("---")
+
+    labels = ["Overview / Briefing", "Interviews", "Data & Study Design", "Lab & Environment", "Interventions & Outcome"]
     internal = ["overview", "interviews", "study", "lab", "outcome"]
-    current_label = labels[internal.index(st.session_state.current_view)] if st.session_state.current_view in internal else "Overview"
+    current_label = labels[internal.index(st.session_state.current_view)] if st.session_state.current_view in internal else labels[0]
+
     choice = st.sidebar.radio("Go to:", labels, index=labels.index(current_label))
     st.session_state.current_view = internal[labels.index(choice)]
 
+    st.sidebar.markdown("---")
+    # Advance day button
+    if st.sidebar.button("Advance to next day"):
+        can_advance, missing = check_day_prerequisites(st.session_state.current_day, st.session_state)
+        if can_advance:
+            if st.session_state.current_day < 5:
+                st.session_state.current_day += 1
+                st.session_state.advance_missing_tasks = []
+            else:
+                st.sidebar.success("Already at Day 5.")
+        else:
+            st.session_state.advance_missing_tasks = missing
+            st.sidebar.warning("Cannot advance yet. See missing tasks on Overview.")
+
+
+def day_briefing_text(day: int) -> str:
+    if day == 1:
+        return (
+            "Day 1 focuses on detection and initial description of the outbreak. "
+            "Your goals are to understand the basic pattern (time, place, person), "
+            "draft a working case definition, and begin hypothesis-generating interviews."
+        )
+    if day == 2:
+        return (
+            "Day 2 focuses on hypothesis generation and study design. "
+            "You will design an analytic study and develop a questionnaire to collect data."
+        )
+    if day == 3:
+        return (
+            "Day 3 is dedicated to data cleaning and analysis. "
+            "You will work with your generated dataset to describe the outbreak and identify risk factors."
+        )
+    if day == 4:
+        return (
+            "Day 4 focuses on laboratory and environmental investigations. "
+            "You will decide which human, animal, and environmental samples to collect and how to test them."
+        )
+    return (
+        "Day 5 focuses on recommendations and communication. "
+        "You will integrate all evidence and present your findings and interventions to leadership."
+    )
+
+
+def day_task_list(day: int):
+    """Show tasks and whether they are completed."""
+    st.markdown("### Key tasks for today")
+    if day == 1:
+        st.checkbox("Write a working case definition", value=st.session_state.case_definition_written, disabled=True)
+        st.checkbox("Complete at least 2 interviews", value=len(st.session_state.interview_history) >= 2, disabled=True)
+        st.checkbox("Review line list and epi curve", value=st.session_state.line_list_viewed, disabled=True)
+    elif day == 2:
+        st.checkbox("Choose a study design", value=st.session_state.decisions.get("study_design") is not None, disabled=True)
+        st.checkbox("Submit questionnaire", value=st.session_state.questionnaire_submitted, disabled=True)
+        st.checkbox("Generate study dataset", value=st.session_state.generated_dataset is not None, disabled=True)
+    elif day == 3:
+        st.checkbox("Complete descriptive analysis", value=st.session_state.descriptive_analysis_done, disabled=True)
+    elif day == 4:
+        st.checkbox("Submit at least one lab sample", value=len(st.session_state.lab_samples_submitted) > 0, disabled=True)
+    else:
+        st.checkbox("Enter final diagnosis", value=bool(st.session_state.decisions.get("final_diagnosis")), disabled=True)
+        st.checkbox("Record main recommendations", value=bool(st.session_state.decisions.get("recommendations")), disabled=True)
+
+    if st.session_state.advance_missing_tasks:
+        st.warning("To advance to the next day, you still need to:\n- " + "\n- ".join(st.session_state.advance_missing_tasks))
+
 
 def view_overview():
+    truth = st.session_state.truth
+
     st.title("JE Outbreak Investigation – Sidero Valley")
-    st.markdown(
-        """
-You are the district rapid response team investigating an outbreak of acute encephalitis syndrome (AES) in Sidero Valley.
+    st.subheader(f"Day {st.session_state.current_day} briefing")
 
-Over five “days” in this simulation, you will:
-- Develop a working case definition  
-- Conduct hypothesis-generating interviews  
-- Design and analyze an epidemiologic study  
-- Decide which human, animal, and environmental samples to collect  
-- Propose interventions to the Ministry of Health
+    st.markdown(day_briefing_text(st.session_state.current_day))
 
-Use the sidebar to move between sections.
-"""
-    )
+    day_task_list(st.session_state.current_day)
+
+    st.markdown("---")
+    st.markdown("### Situation overview")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### Line list (initial AES cases)")
+        line_list = get_initial_cases(truth)
+        st.dataframe(line_list)
+        st.session_state.line_list_viewed = True
+
+    with col2:
+        st.markdown("#### Epi curve")
+        epi_fig = make_epi_curve(truth)
+        st.plotly_chart(epi_fig, use_container_width=True)
+
+    st.markdown("### Map of Sidero Valley")
+    map_fig = make_village_map(truth)
+    st.plotly_chart(map_fig, use_container_width=True)
 
 
 def view_interviews():
@@ -333,9 +511,8 @@ def view_interviews():
     npc_truth = truth["npc_truth"]
 
     st.header("👥 Interviews")
-    st.info("Interview community members and officials. Each interview costs budget; some unlock new One Health information.")
+    st.info("Interview community members and officials. Each interview costs budget; some unlock One Health perspectives.")
 
-    # NPC buttons
     cols = st.columns(3)
     for i, (npc_key, npc) in enumerate(npc_truth.items()):
         with cols[i % 3]:
@@ -350,7 +527,6 @@ def view_interviews():
                 else:
                     st.error("Insufficient budget for this interview.")
 
-    # Active conversation
     npc_key = st.session_state.current_npc
     if npc_key:
         npc = npc_truth[npc_key]
@@ -389,7 +565,6 @@ def view_study_design():
     )
     if st.button("Save Case Definition"):
         st.session_state.decisions["case_definition_text"] = text
-        # minimal structured criteria for now
         st.session_state.decisions["case_definition"] = {"clinical_AES": True}
         st.session_state.case_definition_written = True
         st.success("Case definition saved.")
@@ -413,8 +588,7 @@ def view_study_design():
     if st.button("Save Questionnaire"):
         lines = [ln for ln in q_text.splitlines() if ln.strip()]
         st.session_state.decisions["questionnaire_raw"] = lines
-        # Use the raw items as mapped_columns; je_logic will map keywords→true columns.
-        st.session_state.decisions["mapped_columns"] = lines
+        st.session_state.decisions["mapped_columns"] = lines  # je_logic maps keywords → real cols
         st.session_state.questionnaire_submitted = True
         st.success("Questionnaire saved.")
 
@@ -426,18 +600,57 @@ def view_study_design():
             truth["individuals"], truth["households"], st.session_state.decisions
         )
         st.session_state.generated_dataset = df
-        st.session_state.descriptive_analysis_done = True  # placeholder; refine later
+        st.session_state.descriptive_analysis_done = True  # simple proxy
         st.success("Dataset generated. Preview below; export for analysis as needed.")
         st.dataframe(df.head())
 
 
 def view_lab_and_environment():
     st.header("🧪 Lab & Environment")
-    st.info(
-        "This screen is a placeholder for your coder to build lab ordering and environmental sampling forms "
-        "that call `process_lab_order()` from `je_logic.py` and append results to "
-        "`st.session_state.lab_results` and `st.session_state.lab_samples_submitted`."
+
+    st.markdown(
+        "Order lab tests and environmental investigations. "
+        "This simple interface demonstrates how orders flow into `process_lab_order()`."
     )
+
+    truth = st.session_state.truth
+    villages = truth["villages"]
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        sample_type = st.selectbox(
+            "Sample type",
+            ["human_CSF", "human_serum", "pig_serum", "mosquito_pool"],
+        )
+    with col2:
+        village_id = st.selectbox(
+            "Village",
+            villages["village_id"],
+            format_func=lambda vid: villages.set_index("village_id").loc[vid, "village_name"],
+        )
+    with col3:
+        test = st.selectbox(
+            "Test",
+            ["JE_IgM_CSF", "JE_IgM_serum", "JE_PCR_mosquito", "JE_Ab_pig"],
+        )
+
+    source_description = st.text_input("Source description (e.g., 'Case from Nalu')", "")
+
+    if st.button("Submit lab order"):
+        order = {
+            "sample_type": sample_type,
+            "village_id": village_id,
+            "test": test,
+            "source_description": source_description or "Unspecified source",
+        }
+        result = process_lab_order(order, truth["lab_samples"])
+        st.session_state.lab_results.append(result)
+        st.session_state.lab_samples_submitted.append(order)
+        st.session_state.lab_credits -= result.get("cost", 0)
+        st.success(
+            f"Lab order submitted. Result: {result['result']} "
+            f"(turnaround {result['days_to_result']} days)."
+        )
 
     if st.session_state.lab_results:
         st.markdown("### Lab results so far")
@@ -482,7 +695,12 @@ def view_interventions_and_outcome():
 # =========================
 
 def main():
-    st.set_page_config(page_title="FETP Sim: Sidero Valley", page_icon="🦟", layout="wide")
+    st.set_page_config(
+        page_title="FETP Sim: Sidero Valley",
+        page_icon="🦟",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
     init_session_state()
     sidebar_navigation()
 

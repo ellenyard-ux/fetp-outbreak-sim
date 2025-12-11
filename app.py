@@ -83,7 +83,7 @@ def init_session_state():
     st.session_state.setdefault("current_npc", None)
     st.session_state.setdefault("unlock_flags", {})
 
-    # NEW: NPC emotional state & memory summary (per NPC)
+    # NPC emotional state & memory summary (per NPC)
     # structure: npc_state[npc_key] = {
     #   "emotion": "neutral" | "cooperative" | "wary" | "annoyed" | "offended",
     #   "interaction_count": int,
@@ -248,9 +248,10 @@ def analyze_user_tone(user_input: str) -> str:
 
 def update_npc_emotion(npc_key: str, user_tone: str):
     """
-    Update the NPC's emotional state based on user tone.
-    Emotional state persists across the whole exercise,
-    shifts gradually, and can recover over time.
+    Strong emotional model:
+    - Rude tone escalates emotion quickly to 'annoyed' or 'offended'
+    - Polite tone causes mild softening
+    - Neutral slowly heals annoyance over time
     """
     state = st.session_state.npc_state.setdefault(
         npc_key,
@@ -266,28 +267,25 @@ def update_npc_emotion(npc_key: str, user_tone: str):
 
     emotion_order = ["cooperative", "neutral", "wary", "annoyed", "offended"]
 
-    def move_emotion(current, direction):
+    def shift(current, steps):
         idx = emotion_order.index(current)
-        if direction == "up":  # more positive
-            idx = max(0, idx - 1)
-        elif direction == "down":  # more negative
-            idx = min(len(emotion_order) - 1, idx + 1)
+        idx = max(0, min(len(emotion_order) - 1, idx + steps))
         return emotion_order[idx]
 
     if user_tone == "polite":
         state["polite_count"] += 1
-        # Move one step more positive, and recover a bit if they were annoyed
-        state["emotion"] = move_emotion(state["emotion"], "up")
+        # polite helps but not too fast
+        state["emotion"] = shift(state["emotion"], -1)
 
     elif user_tone == "rude":
         state["rude_count"] += 1
-        # Move one step more negative
-        state["emotion"] = move_emotion(state["emotion"], "down")
+        # rude pushes 2 steps more negative — very reactive
+        state["emotion"] = shift(state["emotion"], +2)
 
-    else:
-        # Over time, neutral tone can slowly nudge annoyed back toward wary/neutral
-        if state["emotion"] in ["annoyed", "offended"] and state["interaction_count"] % 3 == 0:
-            state["emotion"] = move_emotion(state["emotion"], "up")
+    else:  # neutral tone
+        # slow natural recovery only after several interactions
+        if state["emotion"] in ["annoyed", "offended"] and state["interaction_count"] % 4 == 0:
+            state["emotion"] = shift(state["emotion"], -1)
 
     st.session_state.npc_state[npc_key] = state
     return state
@@ -331,35 +329,44 @@ def describe_emotional_state(state: dict) -> str:
 
 def classify_question_scope(user_input: str) -> str:
     """
-    Rough categorization of the question:
-    - 'greeting' : just hello / pleasantries
-    - 'broad'    : 'tell me everything', 'what do you know', etc.
-    - 'narrow'   : specific question
+    Much stricter categorization:
+    - 'greeting' : any greeting, no outbreak info allowed
+    - 'broad'    : ONLY explicit broad requests like 'tell me everything'
+    - 'narrow'   : direct, specific outbreak questions
     """
     text = user_input.strip().lower()
-    # Greeting only
-    if any(text == g for g in ["hi", "hello", "good morning", "good afternoon", "good evening"]):
-        return "greeting"
-    if text in ["hi dr chen", "hello dr chen", "hi doctor", "hello doctor"]:
+
+    # pure greetings → absolutely no outbreak info
+    greeting_words = ["hi", "hello", "good morning", "good afternoon", "good evening"]
+    if text in greeting_words or text.startswith("hi ") or text.startswith("hello "):
         return "greeting"
 
-    # broad prompts
+    # extremely explicit broad prompts only
     broad_phrases = [
         "tell me everything",
         "tell me what you know",
-        "what do you know",
-        "explain the situation",
+        "explain the whole situation",
         "give me an overview",
-        "what's going on",
-        "what is happening",
-        "what is going on"
+        "summarize everything",
+        "what do you know about this outbreak",
     ]
-    if any(p in text for p in broad_phrases):
+    if any(text == p for p in broad_phrases):
         return "broad"
 
-    # default
-    return "narrow"
+    # vague or small-talk questions should be treated as greeting
+    vague_phrases = [
+        "how are things",
+        "how is everything",
+        "what's going on",
+        "what is going on",
+        "what is happening",
+        "how have you been",
+        "how's your day",
+    ]
+    if any(p in text for p in vague_phrases):
+        return "greeting"
 
+    return "narrow"
 
 def get_npc_response(npc_key: str, user_input: str) -> str:
     """Call Anthropic using npc_truth + epidemiologic context, with memory & emotional state."""
@@ -369,6 +376,10 @@ def get_npc_response(npc_key: str, user_input: str) -> str:
 
     truth = st.session_state.truth
     npc_truth = truth["npc_truth"][npc_key]
+
+    # Conversation history = memory
+    history = st.session_state.interview_history.get(npc_key, [])
+    meaningful_questions = sum(1 for m in history if m["role"] == "user")
 
     # Determine question scope & user tone
     question_scope = classify_question_scope(user_input)
@@ -381,10 +392,6 @@ def get_npc_response(npc_key: str, user_input: str) -> str:
     if npc_key not in st.session_state.revealed_clues:
         st.session_state.revealed_clues[npc_key] = []
 
-    # Conversation history = memory; we pass it in messages
-    history = st.session_state.interview_history.get(npc_key, [])
-
-    # Build system prompt
     system_prompt = f"""
 You are {npc_truth['name']}, the {npc_truth['role']} in Sidero Valley.
 
@@ -394,13 +401,26 @@ Personality:
 Your current emotional state toward the investigation team:
 {emotional_description}
 
+The investigator has asked about {meaningful_questions} meaningful questions so far in this conversation.
+
 Outbreak context (for your awareness; DO NOT recite this unless directly asked about those details):
 {epi_context}
+
+EARLY CONVERSATION RULE:
+- If the investigator has asked fewer than 2 meaningful questions so far, you should NOT share multiple outbreak facts at once.
+- Keep your early answers short and focused until they show clear, professional inquiry.
+
+INFORMATION DISCLOSURE RULES BASED ON EMOTION:
+- If you feel COOPERATIVE: you may volunteer small helpful context when appropriate.
+- If you feel NEUTRAL: answer normally but do NOT volunteer extra details.
+- If you feel WARY: be cautious; give minimal direct answers and avoid side details.
+- If you feel ANNOYED: give short answers and avoid volunteering information unless they explicitly ask.
+- If you feel OFFENDED: respond very briefly and share only essential facts needed for public health.
 
 CONVERSATION BEHAVIOR:
 - Speak like a real person from this district: natural, informal, sometimes imperfect.
 - Vary sentence length and structure; avoid sounding scripted or overly polished.
-- You remember what has already been discussed in this conversation.
+- You remember what has already been discussed with this investigator.
 - You may briefly refer back to earlier questions ("Like I mentioned before...") instead of repeating everything.
 - If the user is polite and respectful, you tend to be warmer and more open.
 - If the user is rude or demanding, you become more guarded and give shorter, cooler answers.
@@ -410,8 +430,8 @@ CONVERSATION BEHAVIOR:
 
 QUESTION SCOPE:
 - If the user just greets you, respond with a normal greeting and ask how you can help. Do NOT share outbreak facts yet.
-- If the user asks a narrow question, answer in 1–3 sentences.
-- If the user asks a broad question like "what do you know" or "tell me everything," you may answer in more detail (up to about 5–7 sentences) and provide a thoughtful overview.
+- If the user asks a narrow, specific question, answer in 1–3 sentences.
+- If the user asks a broad question like "what do you know" or "tell me everything", you may answer in more detail (up to about 5–7 sentences) and provide a thoughtful overview.
 
 ALWAYS REVEAL (gradually, not all at once):
 {npc_truth['always_reveal']}
@@ -443,15 +463,9 @@ INFORMATION RULES:
             conditional_to_use.append(clue)
             st.session_state.revealed_clues[npc_key].append(clue)
 
-    # For broad questions, we allow more clues to be used in a single answer
-    # For narrow ones, just a few
-    if question_scope == "broad":
-        # already permissive above; nothing extra needed
-        pass
-    else:
-        # For narrow questions, keep at most 1 new conditional clue
-        if len(conditional_to_use) > 1:
-            conditional_to_use = conditional_to_use[:1]
+    # For narrow questions, keep at most 1 new conditional clue
+    if question_scope != "broad" and len(conditional_to_use) > 1:
+        conditional_to_use = conditional_to_use[:1]
 
     if conditional_to_use:
         system_prompt += (
@@ -677,7 +691,6 @@ def day_task_list(day: int):
 
     if st.session_state.advance_missing_tasks:
         st.warning("To advance to the next day, you still need to:\n- " + "\n- ".join(st.session_state.advance_missing_tasks))
-
 
 # =========================
 # VIEWS

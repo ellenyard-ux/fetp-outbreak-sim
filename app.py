@@ -347,7 +347,6 @@ def view_interviews():
                     st.session_state.budget -= cost
                     st.session_state.current_npc = npc_key
                     st.session_state.interview_history.setdefault(npc_key, [])
-                    st.experimental_rerun()
                 else:
                     st.error("Insufficient budget for this interview.")
 

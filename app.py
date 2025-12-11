@@ -3,6 +3,7 @@ import anthropic
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
 
 from je_logic import (
     load_truth_data,
@@ -102,6 +103,20 @@ def init_session_state():
 
     # For messaging when advance-day fails
     st.session_state.setdefault("advance_missing_tasks", [])
+    
+    # Initial hypotheses (Day 1)
+    st.session_state.setdefault("initial_hypotheses", [])
+    st.session_state.setdefault("hypotheses_documented", False)
+    
+    # Investigation notebook
+    st.session_state.setdefault("notebook_entries", [])
+    
+    # NPC unlocking system (One Health)
+    st.session_state.setdefault("npcs_unlocked", ["dr_chen", "nurse_joy", "mama_kofi", "foreman_rex", "teacher_grace"])
+    st.session_state.setdefault("one_health_triggered", False)
+    st.session_state.setdefault("vet_unlocked", False)
+    st.session_state.setdefault("env_officer_unlocked", False)
+    st.session_state.setdefault("questions_asked_about", set())
 
 
 # =========================
@@ -368,6 +383,48 @@ def classify_question_scope(user_input: str) -> str:
 
     return "narrow"
 
+
+def check_npc_unlock_triggers(user_input: str) -> str:
+    """
+    Check if user's question should unlock additional NPCs.
+    Returns a notification message if unlock occurred, else empty string.
+    """
+    text = user_input.lower()
+    notification = ""
+    
+    # Animal/pig triggers → unlock Vet Amina
+    animal_triggers = ['animal', 'pig', 'livestock', 'pigs', 'swine', 'cattle', 'farm animal', 'piglet']
+    if any(trigger in text for trigger in animal_triggers):
+        st.session_state.questions_asked_about.add('animals')
+        if not st.session_state.vet_unlocked:
+            st.session_state.vet_unlocked = True
+            st.session_state.one_health_triggered = True
+            if 'vet_amina' not in st.session_state.npcs_unlocked:
+                st.session_state.npcs_unlocked.append('vet_amina')
+            notification = "🔓 **New Contact Unlocked:** Vet Amina (District Veterinary Officer) - Your question about animals opened a One Health perspective!"
+    
+    # Mosquito/environment triggers → unlock Mr. Osei
+    env_triggers = ['mosquito', 'mosquitoes', 'vector', 'breeding', 'standing water', 'environment', 'rice paddy', 'irrigation', 'wetland']
+    if any(trigger in text for trigger in env_triggers):
+        st.session_state.questions_asked_about.add('environment')
+        if not st.session_state.env_officer_unlocked:
+            st.session_state.env_officer_unlocked = True
+            st.session_state.one_health_triggered = True
+            if 'mr_osei' not in st.session_state.npcs_unlocked:
+                st.session_state.npcs_unlocked.append('mr_osei')
+            notification = "🔓 **New Contact Unlocked:** Mr. Osei (Environmental Health Officer) - Your question about environmental factors opened a new perspective!"
+    
+    # Healer triggers (for earlier cases)
+    healer_triggers = ['traditional', 'healer', 'clinic', 'private', 'early case', 'first case', 'before hospital']
+    if any(trigger in text for trigger in healer_triggers):
+        st.session_state.questions_asked_about.add('traditional')
+        if 'healer_marcus' not in st.session_state.npcs_unlocked:
+            st.session_state.npcs_unlocked.append('healer_marcus')
+            notification = "🔓 **New Contact Unlocked:** Healer Marcus (Private Clinic) - You discovered there may be unreported cases!"
+    
+    return notification
+
+
 def get_npc_response(npc_key: str, user_input: str) -> str:
     """Call Anthropic using npc_truth + epidemiologic context, with memory & emotional state."""
     api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
@@ -620,26 +677,71 @@ def sidebar_navigation():
 
     st.sidebar.markdown("---")
 
-    labels = ["Overview / Briefing", "Interviews", "Data & Study Design", "Lab & Environment", "Interventions & Outcome"]
-    internal = ["overview", "interviews", "study", "lab", "outcome"]
-    current_label = labels[internal.index(st.session_state.current_view)] if st.session_state.current_view in internal else labels[0]
+    # Navigation with spot map added
+    labels = ["Overview / Briefing", "Interviews", "Spot Map", "Data & Study Design", "Lab & Environment", "Interventions & Outcome"]
+    internal = ["overview", "interviews", "spotmap", "study", "lab", "outcome"]
+    
+    if st.session_state.current_view in internal:
+        current_idx = internal.index(st.session_state.current_view)
+    else:
+        current_idx = 0
 
-    choice = st.sidebar.radio("Go to:", labels, index=labels.index(current_label))
+    choice = st.sidebar.radio("Go to:", labels, index=current_idx)
     st.session_state.current_view = internal[labels.index(choice)]
 
     st.sidebar.markdown("---")
-    # Advance day button
-    if st.sidebar.button("Advance to next day"):
-        can_advance, missing = check_day_prerequisites(st.session_state.current_day, st.session_state)
-        if can_advance:
-            if st.session_state.current_day < 5:
+    
+    # Investigation Notebook
+    with st.sidebar.expander("📓 Investigation Notebook"):
+        st.caption("Record your observations, questions, and insights here.")
+        
+        new_note = st.text_area("Add a note:", height=80, key="new_note_input")
+        if st.button("Save Note", key="save_note_btn"):
+            if new_note.strip():
+                from datetime import datetime
+                entry = {
+                    "timestamp": datetime.now().strftime("%H:%M"),
+                    "day": st.session_state.current_day,
+                    "note": new_note.strip()
+                }
+                st.session_state.notebook_entries.append(entry)
+                st.success("Note saved!")
+                st.rerun()
+        
+        if st.session_state.notebook_entries:
+            st.markdown("**Your Notes:**")
+            for entry in reversed(st.session_state.notebook_entries[-10:]):  # Show last 10
+                st.markdown(f"*Day {entry['day']} @ {entry['timestamp']}*")
+                st.markdown(f"> {entry['note']}")
+                st.markdown("---")
+    
+    # One Health Progress Tracker
+    with st.sidebar.expander("🌍 One Health Integration"):
+        st.markdown(f"{'✅' if st.session_state.vet_unlocked else '🔒'} Veterinary perspective")
+        st.markdown(f"{'✅' if st.session_state.env_officer_unlocked else '🔒'} Environmental perspective")
+        
+        # Check for animal/mosquito samples
+        has_animal_samples = any('pig' in s.get('sample_type', '') for s in st.session_state.lab_samples_submitted)
+        has_vector_samples = any('mosquito' in s.get('sample_type', '') for s in st.session_state.lab_samples_submitted)
+        
+        st.markdown(f"{'✅' if has_animal_samples else '🔒'} Animal samples collected")
+        st.markdown(f"{'✅' if has_vector_samples else '🔒'} Vector samples collected")
+
+    st.sidebar.markdown("---")
+    
+    # Advance day button (at bottom)
+    if st.session_state.current_day < 5:
+        if st.sidebar.button(f"⏭️ Advance to Day {st.session_state.current_day + 1}", use_container_width=True):
+            can_advance, missing = check_day_prerequisites(st.session_state.current_day, st.session_state)
+            if can_advance:
                 st.session_state.current_day += 1
                 st.session_state.advance_missing_tasks = []
+                st.rerun()
             else:
-                st.sidebar.success("Already at Day 5.")
-        else:
-            st.session_state.advance_missing_tasks = missing
-            st.sidebar.warning("Cannot advance yet. See missing tasks on Overview.")
+                st.session_state.advance_missing_tasks = missing
+                st.sidebar.warning("Cannot advance yet. See missing tasks on Overview.")
+    else:
+        st.sidebar.success("📋 Final Day - Complete your briefing!")
 
 
 def day_briefing_text(day: int) -> str:
@@ -674,9 +776,10 @@ def day_task_list(day: int):
     """Show tasks and whether they are completed."""
     st.markdown("### Key tasks for today")
     if day == 1:
-        st.checkbox("Write a working case definition", value=st.session_state.case_definition_written, disabled=True)
-        st.checkbox("Complete at least 2 interviews", value=len(st.session_state.interview_history) >= 2, disabled=True)
         st.checkbox("Review line list and epi curve", value=st.session_state.line_list_viewed, disabled=True)
+        st.checkbox("Write a working case definition", value=st.session_state.case_definition_written, disabled=True)
+        st.checkbox("Document initial hypotheses", value=st.session_state.hypotheses_documented, disabled=True)
+        st.checkbox("Complete at least 2 interviews", value=len(st.session_state.interview_history) >= 2, disabled=True)
     elif day == 2:
         st.checkbox("Choose a study design", value=st.session_state.decisions.get("study_design") is not None, disabled=True)
         st.checkbox("Submit questionnaire", value=st.session_state.questionnaire_submitted, disabled=True)
@@ -755,6 +858,56 @@ def view_overview():
     st.markdown("### Map of Sidero Valley")
     map_fig = make_village_map(truth)
     st.plotly_chart(map_fig, use_container_width=True)
+    
+    # Day 1: Case Definition and Initial Hypotheses
+    if st.session_state.current_day == 1:
+        st.markdown("---")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 📝 Case Definition")
+            
+            with st.form("case_definition_form"):
+                st.markdown("**Clinical criteria:**")
+                clinical = st.text_area("What symptoms/signs define a case?", height=80)
+                
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    person = st.text_input("**Person:** Who? (age, characteristics)")
+                with col_b:
+                    place = st.text_input("**Place:** Where?")
+                
+                time_period = st.text_input("**Time:** When?")
+                
+                if st.form_submit_button("Save Case Definition"):
+                    full_def = f"Clinical: {clinical}\nPerson: {person}\nPlace: {place}\nTime: {time_period}"
+                    st.session_state.decisions["case_definition_text"] = full_def
+                    st.session_state.decisions["case_definition"] = {"clinical_AES": True}
+                    st.session_state.case_definition_written = True
+                    st.success("✅ Case definition saved!")
+            
+            if st.session_state.case_definition_written:
+                st.info("✓ Case definition recorded")
+        
+        with col2:
+            st.markdown("### 💡 Initial Hypotheses")
+            st.caption("Based on what you know so far, what might be causing this outbreak?")
+            
+            with st.form("hypotheses_form"):
+                h1 = st.text_input("Hypothesis 1:")
+                h2 = st.text_input("Hypothesis 2:")
+                h3 = st.text_input("Hypothesis 3:")
+                h4 = st.text_input("Hypothesis 4 (optional):")
+                
+                if st.form_submit_button("Save Hypotheses"):
+                    hypotheses = [h for h in [h1, h2, h3, h4] if h.strip()]
+                    st.session_state.initial_hypotheses = hypotheses
+                    st.session_state.hypotheses_documented = True
+                    st.success(f"✅ {len(hypotheses)} hypotheses saved!")
+            
+            if st.session_state.hypotheses_documented:
+                st.info(f"✓ {len(st.session_state.initial_hypotheses)} hypotheses recorded")
 
 
 def view_interviews():
@@ -762,35 +915,79 @@ def view_interviews():
     npc_truth = truth["npc_truth"]
 
     st.header("👥 Interviews")
-    st.info("Interview community members and officials. Each interview costs budget; some unlock One Health perspectives.")
+    st.info(f"💰 Budget: ${st.session_state.budget} | Interview community members and officials to gather information.")
 
+    # Group NPCs by availability
+    available_npcs = []
+    locked_npcs = []
+    
+    for npc_key, npc in npc_truth.items():
+        if npc_key in st.session_state.npcs_unlocked:
+            available_npcs.append((npc_key, npc))
+        else:
+            locked_npcs.append((npc_key, npc))
+    
+    # Show available NPCs
+    st.markdown("### Available Contacts")
     cols = st.columns(3)
-    for i, (npc_key, npc) in enumerate(npc_truth.items()):
+    for i, (npc_key, npc) in enumerate(available_npcs):
         with cols[i % 3]:
-            st.markdown(f"**{npc['avatar']} {npc['name']}**")
+            interviewed = npc_key in st.session_state.interview_history
+            status = "✓ Interviewed" if interviewed else ""
+            
+            st.markdown(f"**{npc['avatar']} {npc['name']}** {status}")
             st.caption(f"{npc['role']} — Cost: ${npc['cost']}")
-            if st.button(f"Talk to {npc['name']}", key=f"btn_{npc_key}"):
-                cost = npc.get("cost", 0)
+            
+            btn_label = "Continue" if interviewed else "Talk"
+            if st.button(f"{btn_label}", key=f"btn_{npc_key}"):
+                cost = 0 if interviewed else npc.get("cost", 0)
                 if st.session_state.budget >= cost:
-                    st.session_state.budget -= cost
+                    if not interviewed:
+                        st.session_state.budget -= cost
                     st.session_state.current_npc = npc_key
                     st.session_state.interview_history.setdefault(npc_key, [])
+                    st.rerun()
                 else:
                     st.error("Insufficient budget for this interview.")
+    
+    # Show locked NPCs (without hints about how to unlock)
+    if locked_npcs:
+        st.markdown("### Other Contacts")
+        st.caption("Some contacts may become available as your investigation progresses.")
+        cols = st.columns(3)
+        for i, (npc_key, npc) in enumerate(locked_npcs):
+            with cols[i % 3]:
+                st.markdown(f"**🔒 {npc['name']}**")
+                st.caption(f"{npc['role']}")
+                st.caption("*Not yet available*")
 
+    # Active conversation
     npc_key = st.session_state.current_npc
-    if npc_key:
+    if npc_key and npc_key in npc_truth:
         npc = npc_truth[npc_key]
         st.markdown("---")
         st.subheader(f"Talking to {npc['name']} ({npc['role']})")
+        
+        col1, col2 = st.columns([1, 5])
+        with col1:
+            if st.button("🔙 End Interview"):
+                st.session_state.current_npc = None
+                st.rerun()
 
         history = st.session_state.interview_history.get(npc_key, [])
         for msg in history:
-            with st.chat_message(msg["role"]):
-                st.write(msg["content"])
+            if msg["role"] == "user":
+                with st.chat_message("user"):
+                    st.write(msg["content"])
+            else:
+                with st.chat_message("assistant", avatar=npc["avatar"]):
+                    st.write(msg["content"])
 
         user_q = st.chat_input("Ask your question...")
         if user_q:
+            # Check for NPC unlock triggers BEFORE getting response
+            unlock_notification = check_npc_unlock_triggers(user_q)
+            
             history.append({"role": "user", "content": user_q})
             st.session_state.interview_history[npc_key] = history
 
@@ -798,10 +995,17 @@ def view_interviews():
                 st.write(user_q)
 
             with st.chat_message("assistant", avatar=npc["avatar"]):
-                reply = get_npc_response(npc_key, user_q)
+                with st.spinner("..."):
+                    reply = get_npc_response(npc_key, user_q)
                 st.write(reply)
+            
             history.append({"role": "assistant", "content": reply})
             st.session_state.interview_history[npc_key] = history
+            
+            # Show unlock notification if any
+            if unlock_notification:
+                st.success(unlock_notification)
+                st.rerun()
 
 
 def view_study_design():
@@ -909,6 +1113,110 @@ def view_lab_and_environment():
         st.dataframe(pd.DataFrame(st.session_state.lab_results))
 
 
+def view_spot_map():
+    """Geographic spot map of cases."""
+    st.header("📍 Spot Map - Geographic Distribution of Cases")
+    
+    truth = st.session_state.truth
+    individuals = truth["individuals"]
+    households = truth["households"]
+    villages = truth["villages"]
+    
+    # Get symptomatic cases
+    cases = individuals[individuals["symptomatic_AES"] == True].copy()
+    
+    if len(cases) == 0:
+        st.warning("No cases to display on map.")
+        return
+    
+    # Merge with household and village info
+    hh_vil = households.merge(villages[["village_id", "village_name"]], on="village_id", how="left")
+    cases = cases.merge(hh_vil[["hh_id", "village_name", "village_id"]], on="hh_id", how="left")
+    
+    # Assign coordinates with jitter for visualization
+    village_coords = {
+        'V1': {'lat': 5.55, 'lon': -0.20, 'name': 'Nalu Village'},
+        'V2': {'lat': 5.52, 'lon': -0.15, 'name': 'Kabwe Village'},
+        'V3': {'lat': 5.58, 'lon': -0.12, 'name': 'Tamu Village'}
+    }
+    
+    # Add coordinates with jitter
+    np.random.seed(42)
+    cases['lat'] = cases['village_id'].apply(
+        lambda v: village_coords.get(v, {}).get('lat', 5.55) + np.random.uniform(-0.012, 0.012)
+    )
+    cases['lon'] = cases['village_id'].apply(
+        lambda v: village_coords.get(v, {}).get('lon', -0.18) + np.random.uniform(-0.012, 0.012)
+    )
+    
+    # Color by severity
+    cases['severity'] = cases['severe_neuro'].map({True: 'Severe', False: 'Mild'})
+    
+    # Create map
+    fig = px.scatter_mapbox(
+        cases,
+        lat='lat',
+        lon='lon',
+        color='severity',
+        color_discrete_map={'Severe': '#e74c3c', 'Mild': '#f39c12'},
+        size_max=15,
+        hover_data=['age', 'sex', 'village_name', 'onset_date', 'outcome'],
+        zoom=12,
+        height=500
+    )
+    
+    # Add village markers
+    for vid, coords in village_coords.items():
+        fig.add_trace(go.Scattermapbox(
+            lat=[coords['lat']],
+            lon=[coords['lon']],
+            mode='markers+text',
+            marker=dict(size=20, color='blue', opacity=0.4),
+            text=[coords['name']],
+            textposition='top center',
+            name=coords['name'],
+            showlegend=False
+        ))
+    
+    fig.update_layout(
+        mapbox_style="carto-positron",
+        margin={"r": 0, "t": 0, "l": 0, "b": 0}
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Summary statistics
+    st.markdown("---")
+    st.markdown("#### Geographic Summary")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    village_counts = cases['village_id'].value_counts()
+    
+    with col1:
+        n = village_counts.get('V1', 0)
+        st.metric("Nalu Village", f"{n} cases")
+    
+    with col2:
+        n = village_counts.get('V2', 0)
+        st.metric("Kabwe Village", f"{n} cases")
+    
+    with col3:
+        n = village_counts.get('V3', 0)
+        st.metric("Tamu Village", f"{n} cases")
+    
+    # Interpretation prompts
+    with st.expander("🤔 Spot Map Interpretation Questions"):
+        st.markdown("""
+        Consider these questions as you review the geographic distribution:
+        
+        1. **Clustering:** Do cases cluster in specific areas? What might explain this?
+        2. **Village comparison:** Why might some villages have more cases than others?
+        3. **Environmental features:** What is located near the case clusters?
+        4. **Hypothesis generation:** What geographic exposures might explain this pattern?
+        """)
+
+
 def view_interventions_and_outcome():
     st.header("📉 Interventions & Outcome")
 
@@ -966,6 +1274,8 @@ def main():
         view_overview()
     elif view == "interviews":
         view_interviews()
+    elif view == "spotmap":
+        view_spot_map()
     elif view == "study":
         view_study_design()
     elif view == "lab":

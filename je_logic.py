@@ -701,31 +701,45 @@ def check_day_prerequisites(current_day, session_state):
     """
     Check if prerequisites are met to advance to next day.
     Returns (can_advance: bool, missing: list of strings)
+    
+    session_state can be either a dict or streamlit session_state object
     """
     missing = []
     
+    # Helper to safely get values from either dict or session_state
+    def get_val(key, default=None):
+        if hasattr(session_state, 'get'):
+            return session_state.get(key, default)
+        else:
+            return getattr(session_state, key, default)
+    
     if current_day == 1:
-        # Day 1 → Day 2: Need case definition + at least 2 interviews
-        if not session_state.get("case_definition_written"):
+        # Day 1 → Day 2: Need case definition + hypotheses + at least 2 interviews
+        if not get_val("case_definition_written", False):
             missing.append("Write a case definition")
-        if len(session_state.get("interview_history", {})) < 2:
+        if not get_val("hypotheses_documented", False):
+            missing.append("Document initial hypotheses")
+        interview_history = get_val("interview_history", {})
+        if len(interview_history) < 2:
             missing.append("Complete at least 2 interviews")
     
     elif current_day == 2:
         # Day 2 → Day 3: Need study design + questionnaire
-        if not session_state.get("study_design_chosen"):
+        decisions = get_val("decisions", {})
+        if not decisions.get("study_design"):
             missing.append("Choose a study design")
-        if not session_state.get("questionnaire_submitted"):
+        if not get_val("questionnaire_submitted", False):
             missing.append("Submit questionnaire")
     
     elif current_day == 3:
         # Day 3 → Day 4: Need to complete analysis
-        if not session_state.get("descriptive_analysis_done"):
+        if not get_val("descriptive_analysis_done", False):
             missing.append("Complete descriptive analysis")
     
     elif current_day == 4:
         # Day 4 → Day 5: Need lab samples
-        if len(session_state.get("lab_samples_submitted", [])) < 1:
+        lab_samples = get_val("lab_samples_submitted", [])
+        if len(lab_samples) < 1:
             missing.append("Submit at least one lab sample")
     
     return len(missing) == 0, missing

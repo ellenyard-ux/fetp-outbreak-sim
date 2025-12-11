@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+import io
 
 from je_logic import (
     load_truth_data,
@@ -13,6 +14,255 @@ from je_logic import (
     evaluate_interventions,
     check_day_prerequisites,
 )
+
+# =========================
+# TRANSLATION SYSTEM
+# =========================
+
+TRANSLATIONS = {
+    "en": {
+        "title": "JE Outbreak Investigation – Sidero Valley",
+        "day": "Day",
+        "budget": "Budget",
+        "time_remaining": "Time remaining",
+        "hours": "hours",
+        "lab_credits": "Lab credits",
+        "progress": "Progress",
+        "go_to": "Go to",
+        "overview": "Overview / Briefing",
+        "casefinding": "Case Finding",
+        "descriptive": "Descriptive Epi",
+        "interviews": "Interviews",
+        "spotmap": "Spot Map",
+        "study": "Data & Study Design",
+        "lab": "Lab & Environment",
+        "outcome": "Interventions & Outcome",
+        "villages": "Village Profiles",
+        "notebook": "Investigation Notebook",
+        "advance_day": "Advance to Day",
+        "key_tasks": "Key tasks for today",
+        "key_outputs": "Key outputs for today",
+        "day1_briefing": "Day 1 focuses on reviewing what is known about the situation.",
+        "day2_briefing": "Day 2 focuses on hypothesis generation and study design. You will design an analytic study and develop a questionnaire to collect data.",
+        "day3_briefing": "Day 3 is dedicated to data collection and cleaning. You will administer your questionnaire and prepare your dataset for analysis.",
+        "day4_briefing": "Day 4 focuses on analysis and laboratory investigations. You will analyze your data and collect samples for testing.",
+        "day5_briefing": "Day 5 focuses on recommendations and communication. You will integrate all evidence and present your findings.",
+        "review_line_list": "Review the line list",
+        "review_clinic_records": "Review clinic records for additional cases",
+        "describe_cases": "Describe the cases (person, place, time)",
+        "conduct_interviews": "Conduct hypothesis-generating interviews",
+        "find_additional_cases": "Find additional cases",
+        "develop_case_def": "Develop working case definition",
+        "develop_hypotheses": "Develop 1 or more hypotheses",
+        "begin_investigation": "Begin investigation",
+        "save": "Save",
+        "submit": "Submit",
+        "download": "Download",
+    },
+    "es": {
+        "title": "Investigación de Brote de EJ – Valle de Sidero",
+        "day": "Día",
+        "budget": "Presupuesto",
+        "time_remaining": "Tiempo restante",
+        "hours": "horas",
+        "lab_credits": "Créditos de laboratorio",
+        "progress": "Progreso",
+        "go_to": "Ir a",
+        "overview": "Resumen / Briefing",
+        "casefinding": "Búsqueda de Casos",
+        "descriptive": "Epi Descriptiva",
+        "interviews": "Entrevistas",
+        "spotmap": "Mapa de Puntos",
+        "study": "Datos y Diseño",
+        "lab": "Lab y Ambiente",
+        "outcome": "Intervenciones",
+        "villages": "Perfiles de Aldeas",
+        "notebook": "Cuaderno de Investigación",
+        "advance_day": "Avanzar al Día",
+        "key_tasks": "Tareas clave para hoy",
+        "key_outputs": "Productos clave para hoy",
+        "day1_briefing": "El Día 1 se enfoca en revisar lo que se conoce sobre la situación.",
+        "day2_briefing": "El Día 2 se enfoca en la generación de hipótesis y el diseño del estudio.",
+        "day3_briefing": "El Día 3 está dedicado a la recolección y limpieza de datos.",
+        "day4_briefing": "El Día 4 se enfoca en el análisis y las investigaciones de laboratorio.",
+        "day5_briefing": "El Día 5 se enfoca en recomendaciones y comunicación.",
+        "review_line_list": "Revisar el listado de casos",
+        "review_clinic_records": "Revisar registros clínicos para casos adicionales",
+        "describe_cases": "Describir los casos (persona, lugar, tiempo)",
+        "conduct_interviews": "Realizar entrevistas generadoras de hipótesis",
+        "find_additional_cases": "Encontrar casos adicionales",
+        "develop_case_def": "Desarrollar definición de caso",
+        "develop_hypotheses": "Desarrollar 1 o más hipótesis",
+        "begin_investigation": "Iniciar investigación",
+        "save": "Guardar",
+        "submit": "Enviar",
+        "download": "Descargar",
+    },
+    "fr": {
+        "title": "Investigation d'Épidémie d'EJ – Vallée de Sidero",
+        "day": "Jour",
+        "budget": "Budget",
+        "time_remaining": "Temps restant",
+        "hours": "heures",
+        "lab_credits": "Crédits de labo",
+        "progress": "Progrès",
+        "go_to": "Aller à",
+        "overview": "Aperçu / Briefing",
+        "casefinding": "Recherche de Cas",
+        "descriptive": "Épi Descriptive",
+        "interviews": "Entretiens",
+        "spotmap": "Carte des Points",
+        "study": "Données et Conception",
+        "lab": "Labo et Environnement",
+        "outcome": "Interventions",
+        "villages": "Profils des Villages",
+        "notebook": "Carnet d'Investigation",
+        "advance_day": "Passer au Jour",
+        "key_tasks": "Tâches clés pour aujourd'hui",
+        "key_outputs": "Produits clés pour aujourd'hui",
+        "day1_briefing": "Le Jour 1 se concentre sur l'examen de ce qui est connu sur la situation.",
+        "day2_briefing": "Le Jour 2 se concentre sur la génération d'hypothèses et la conception de l'étude.",
+        "day3_briefing": "Le Jour 3 est consacré à la collecte et au nettoyage des données.",
+        "day4_briefing": "Le Jour 4 se concentre sur l'analyse et les investigations de laboratoire.",
+        "day5_briefing": "Le Jour 5 se concentre sur les recommandations et la communication.",
+        "review_line_list": "Examiner la liste des cas",
+        "review_clinic_records": "Examiner les dossiers cliniques pour des cas supplémentaires",
+        "describe_cases": "Décrire les cas (personne, lieu, temps)",
+        "conduct_interviews": "Mener des entretiens générateurs d'hypothèses",
+        "find_additional_cases": "Trouver des cas supplémentaires",
+        "develop_case_def": "Développer une définition de cas",
+        "develop_hypotheses": "Développer 1 ou plusieurs hypothèses",
+        "begin_investigation": "Commencer l'investigation",
+        "save": "Enregistrer",
+        "submit": "Soumettre",
+        "download": "Télécharger",
+    }
+}
+
+
+def t(key: str) -> str:
+    """Get translated string for current language."""
+    lang = st.session_state.get("language", "en")
+    return TRANSLATIONS.get(lang, TRANSLATIONS["en"]).get(key, key)
+
+
+# =========================
+# VILLAGE BRIEFING DOCUMENTS  
+# =========================
+
+VILLAGE_PROFILES = {
+    "nalu": {
+        "name": "Nalu Village",
+        "population": 1850,
+        "households": 340,
+        "description": {
+            "en": """
+**Nalu Village** is the largest settlement in Sidero Valley, located along the main river 
+that feeds the extensive rice paddy system. The village economy is centered on rice 
+cultivation and pig farming.
+
+**Key Facts:**
+- **Population:** 1,850 (2024 census)
+- **Households:** ~340
+- **Main livelihoods:** Rice farming (65%), pig rearing (45%), fishing (20%)
+- **Health facility:** Nalu Health Center (1 nurse, 2 community health workers)
+- **Schools:** 1 primary school (enrollment: 380)
+- **Water source:** River, hand-dug wells, 2 boreholes
+- **Sanitation:** Mix of pit latrines and open defecation
+
+**Geographic Features:**
+- Surrounded by irrigated rice paddies on three sides
+- Pig cooperative with ~200 pigs located 500m from village center
+- Seasonal flooding during rainy season (May-September)
+- Dense mosquito populations, especially near paddies
+
+**Health Indicators (District Health Office, 2024):**
+- Under-5 mortality: 45 per 1,000 live births
+- Malaria incidence: High (endemic)
+- JE vaccination coverage: ~35% of children under 15
+- Nearest hospital: District Hospital (12 km)
+""",
+            "es": """
+**Aldea de Nalu** es el asentamiento más grande del Valle de Sidero...
+""",
+            "fr": """
+**Village de Nalu** est le plus grand établissement de la Vallée de Sidero...
+"""
+        },
+        "images": ["rice_paddies", "pig_farm", "village_scene"]
+    },
+    "kabwe": {
+        "name": "Kabwe Village",
+        "population": 920,
+        "households": 175,
+        "description": {
+            "en": """
+**Kabwe Village** is a medium-sized farming community located 3 km northeast of Nalu, 
+on slightly higher ground. Many residents work in both Kabwe and Nalu.
+
+**Key Facts:**
+- **Population:** 920 (2024 census)
+- **Households:** ~175
+- **Main livelihoods:** Mixed farming (maize, vegetables), some rice, pig rearing
+- **Health facility:** None (served by Nalu Health Center)
+- **Schools:** 1 primary school (enrollment: 165), children attend secondary in Nalu
+- **Water source:** 3 boreholes, seasonal stream
+- **Sanitation:** Pit latrines (60%), open defecation (40%)
+
+**Geographic Features:**
+- Higher elevation than Nalu (less flooding)
+- Several households keep pigs near rice paddy edges
+- Path to Nalu passes through paddy fields
+- Children often play near irrigation channels
+
+**Health Indicators:**
+- Similar to Nalu; residents use Nalu Health Center
+- JE vaccination coverage: ~40% of children under 15
+- Many children walk through paddies to school in Nalu
+""",
+            "es": "**Aldea de Kabwe** es una comunidad agrícola de tamaño mediano...",
+            "fr": "**Village de Kabwe** est une communauté agricole de taille moyenne..."
+        },
+        "images": ["mixed_farming", "village_path", "children_school"]
+    },
+    "tamu": {
+        "name": "Tamu Village",
+        "population": 650,
+        "households": 125,
+        "description": {
+            "en": """
+**Tamu Village** is a smaller, more remote community located 5 km west of Nalu, 
+in the foothills away from the main rice-growing areas.
+
+**Key Facts:**
+- **Population:** 650 (2024 census)
+- **Households:** ~125
+- **Main livelihoods:** Upland farming (cassava, yams), small-scale livestock, charcoal
+- **Health facility:** Community health volunteer only
+- **Schools:** 1 small primary school (enrollment: 95)
+- **Water source:** Spring-fed wells, rainwater collection
+- **Sanitation:** Pit latrines (45%), open defecation (55%)
+
+**Geographic Features:**
+- Higher elevation, drier terrain
+- **No rice paddies** in immediate vicinity
+- **Few pigs** - mostly goats and chickens
+- Less standing water, fewer mosquitoes reported
+- More forested areas nearby
+
+**Health Indicators:**
+- Lower malaria burden than valley villages
+- JE vaccination coverage: ~55% (recent campaign reached this area)
+- Residents occasionally travel to Nalu for market/health services
+- Less interaction with rice paddy environment
+""",
+            "es": "**Aldea de Tamu** es una comunidad más pequeña y remota...",
+            "fr": "**Village de Tamu** est une communauté plus petite et plus éloignée..."
+        },
+        "images": ["upland_farming", "village_remote", "forest_edge"]
+    }
+}
+
 
 # =========================
 # INITIALIZATION
@@ -58,9 +308,13 @@ def init_session_state():
         if st.session_state.current_view == "alert":
             st.session_state.current_view = "overview"
 
-    # Resources
+    # Resources - budget AND time
     st.session_state.setdefault("budget", 1000)
+    st.session_state.setdefault("time_remaining", 8)  # hours per day
     st.session_state.setdefault("lab_credits", 20)
+    
+    # Language setting
+    st.session_state.setdefault("language", "en")
 
     # Decisions and artifacts
     if "decisions" not in st.session_state:
@@ -72,6 +326,7 @@ def init_session_state():
             "sample_size": {"cases": 15, "controls_per_case": 2},
             "lab_orders": [],
             "questionnaire_raw": [],
+            "questionnaire_file": None,  # For uploaded XLS
             "final_diagnosis": "",
             "recommendations": [],
         }
@@ -1079,6 +1334,21 @@ def make_epi_curve(truth: dict) -> go.Figure:
 # =========================
 
 def sidebar_navigation():
+    # Language selector at very top
+    st.sidebar.markdown("### 🌐 Language")
+    lang_options = {"en": "English", "es": "Español", "fr": "Français"}
+    selected_lang = st.sidebar.selectbox(
+        "Select language:",
+        options=list(lang_options.keys()),
+        format_func=lambda x: lang_options[x],
+        index=list(lang_options.keys()).index(st.session_state.get("language", "en")),
+        key="lang_selector"
+    )
+    if selected_lang != st.session_state.language:
+        st.session_state.language = selected_lang
+        st.rerun()
+    
+    st.sidebar.markdown("---")
     st.sidebar.title("Sidero Valley JE Simulation")
 
     if not st.session_state.alert_acknowledged:
@@ -1087,14 +1357,16 @@ def sidebar_navigation():
         st.sidebar.info("Review the alert on the main screen to begin the investigation.")
         return
 
+    # Resources display with time
     st.sidebar.markdown(
-        f"**Day:** {st.session_state.current_day} / 5\n\n"
-        f"**Budget:** ${st.session_state.budget}\n"
-        f"**Lab credits:** {st.session_state.lab_credits}"
+        f"**{t('day')}:** {st.session_state.current_day} / 5\n\n"
+        f"**{t('budget')}:** ${st.session_state.budget}\n\n"
+        f"**{t('time_remaining')}:** {st.session_state.time_remaining} {t('hours')}\n\n"
+        f"**{t('lab_credits')}:** {st.session_state.lab_credits}"
     )
 
     # Progress indicator
-    st.sidebar.markdown("### Progress")
+    st.sidebar.markdown(f"### {t('progress')}")
     for day in range(1, 6):
         if day < st.session_state.current_day:
             status = "✅"
@@ -1102,30 +1374,30 @@ def sidebar_navigation():
             status = "🟡"
         else:
             status = "⬜"
-        st.sidebar.markdown(f"{status} Day {day}")
+        st.sidebar.markdown(f"{status} {t('day')} {day}")
 
     st.sidebar.markdown("---")
 
     # Navigation - day-appropriate options
-    labels = ["Overview / Briefing", "Case Finding", "Descriptive Epi", "Interviews", "Spot Map", "Data & Study Design", "Lab & Environment", "Interventions & Outcome"]
-    internal = ["overview", "casefinding", "descriptive", "interviews", "spotmap", "study", "lab", "outcome"]
+    labels = [t("overview"), t("casefinding"), t("descriptive"), t("villages"), t("interviews"), t("spotmap"), t("study"), t("lab"), t("outcome")]
+    internal = ["overview", "casefinding", "descriptive", "villages", "interviews", "spotmap", "study", "lab", "outcome"]
     
     if st.session_state.current_view in internal:
         current_idx = internal.index(st.session_state.current_view)
     else:
         current_idx = 0
 
-    choice = st.sidebar.radio("Go to:", labels, index=current_idx)
+    choice = st.sidebar.radio(t("go_to"), labels, index=current_idx)
     st.session_state.current_view = internal[labels.index(choice)]
 
     st.sidebar.markdown("---")
     
     # Investigation Notebook
-    with st.sidebar.expander("📓 Investigation Notebook"):
+    with st.sidebar.expander(f"📓 {t('notebook')}"):
         st.caption("Record your observations, questions, and insights here.")
         
         new_note = st.text_area("Add a note:", height=80, key="new_note_input")
-        if st.button("Save Note", key="save_note_btn"):
+        if st.button(t("save"), key="save_note_btn"):
             if new_note.strip():
                 from datetime import datetime
                 entry = {
@@ -1140,27 +1412,15 @@ def sidebar_navigation():
         if st.session_state.notebook_entries:
             st.markdown("**Your Notes:**")
             for entry in reversed(st.session_state.notebook_entries[-10:]):  # Show last 10
-                st.markdown(f"*Day {entry['day']} @ {entry['timestamp']}*")
+                st.markdown(f"*{t('day')} {entry['day']} @ {entry['timestamp']}*")
                 st.markdown(f"> {entry['note']}")
                 st.markdown("---")
-    
-    # One Health Progress Tracker
-    with st.sidebar.expander("🌍 One Health Integration"):
-        st.markdown(f"{'✅' if st.session_state.vet_unlocked else '🔒'} Veterinary perspective")
-        st.markdown(f"{'✅' if st.session_state.env_officer_unlocked else '🔒'} Environmental perspective")
-        
-        # Check for animal/mosquito samples
-        has_animal_samples = any('pig' in s.get('sample_type', '') for s in st.session_state.lab_samples_submitted)
-        has_vector_samples = any('mosquito' in s.get('sample_type', '') for s in st.session_state.lab_samples_submitted)
-        
-        st.markdown(f"{'✅' if has_animal_samples else '🔒'} Animal samples collected")
-        st.markdown(f"{'✅' if has_vector_samples else '🔒'} Vector samples collected")
 
     st.sidebar.markdown("---")
     
     # Advance day button (at bottom)
     if st.session_state.current_day < 5:
-        if st.sidebar.button(f"⏭️ Advance to Day {st.session_state.current_day + 1}", use_container_width=True):
+        if st.sidebar.button(f"⏭️ {t('advance_day')} {st.session_state.current_day + 1}", use_container_width=True):
             can_advance, missing = check_day_prerequisites(st.session_state.current_day, st.session_state)
             if can_advance:
                 st.session_state.current_day += 1
@@ -1174,57 +1434,59 @@ def sidebar_navigation():
 
 
 def day_briefing_text(day: int) -> str:
-    if day == 1:
-        return (
-            "Day 1 focuses on detection and initial description of the outbreak. "
-            "Your goals are to understand the basic pattern (time, place, person), "
-            "draft a working case definition, and begin hypothesis-generating interviews."
-        )
-    if day == 2:
-        return (
-            "Day 2 focuses on hypothesis generation and study design. "
-            "You will design an analytic study and develop a questionnaire to collect data."
-        )
-    if day == 3:
-        return (
-            "Day 3 is dedicated to data cleaning and analysis. "
-            "You will work with your generated dataset to describe the outbreak and identify risk factors."
-        )
-    if day == 4:
-        return (
-            "Day 4 focuses on laboratory and environmental investigations. "
-            "You will decide which human, animal, and environmental samples to collect and how to test them."
-        )
-    return (
-        "Day 5 focuses on recommendations and communication. "
-        "You will integrate all evidence and present your findings and interventions to leadership."
-    )
+    return t(f"day{day}_briefing")
 
 
 def day_task_list(day: int):
-    """Show tasks and whether they are completed."""
-    st.markdown("### Key tasks for today")
-    if day == 1:
-        st.checkbox("Review initial cases", value=st.session_state.line_list_viewed, disabled=True)
-        st.checkbox("Review clinic records for additional cases", value=st.session_state.clinic_records_reviewed, disabled=True)
-        st.checkbox("Perform descriptive epidemiology", value=st.session_state.descriptive_epi_viewed, disabled=True)
-        st.checkbox("Write a working case definition", value=st.session_state.case_definition_written, disabled=True)
-        st.checkbox("Document initial hypotheses", value=st.session_state.hypotheses_documented, disabled=True)
-        st.checkbox("Complete at least 2 interviews", value=len(st.session_state.interview_history) >= 2, disabled=True)
-    elif day == 2:
-        st.checkbox("Choose a study design", value=st.session_state.decisions.get("study_design") is not None, disabled=True)
-        st.checkbox("Submit questionnaire", value=st.session_state.questionnaire_submitted, disabled=True)
-        st.checkbox("Generate study dataset", value=st.session_state.generated_dataset is not None, disabled=True)
-    elif day == 3:
-        st.checkbox("Complete descriptive analysis", value=st.session_state.descriptive_analysis_done, disabled=True)
-    elif day == 4:
-        st.checkbox("Submit at least one lab sample", value=len(st.session_state.lab_samples_submitted) > 0, disabled=True)
-    else:
-        st.checkbox("Enter final diagnosis", value=bool(st.session_state.decisions.get("final_diagnosis")), disabled=True)
-        st.checkbox("Record main recommendations", value=bool(st.session_state.decisions.get("recommendations")), disabled=True)
-
-    if st.session_state.advance_missing_tasks:
-        st.warning("To advance to the next day, you still need to:\n- " + "\n- ".join(st.session_state.advance_missing_tasks))
+    """Show tasks and key outputs side by side."""
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"### {t('key_tasks')}")
+        if day == 1:
+            st.markdown(f"- {t('review_line_list')}")
+            st.markdown(f"- {t('review_clinic_records')}")
+            st.markdown(f"- {t('describe_cases')}")
+            st.markdown(f"- {t('conduct_interviews')}")
+        elif day == 2:
+            st.markdown("- Choose a study design")
+            st.markdown("- Develop questionnaire")
+            st.markdown("- Plan data collection")
+        elif day == 3:
+            st.markdown("- Administer questionnaire")
+            st.markdown("- Enter and clean data")
+            st.markdown("- Begin analysis")
+        elif day == 4:
+            st.markdown("- Complete data analysis")
+            st.markdown("- Collect laboratory samples")
+            st.markdown("- Conduct environmental assessment")
+        else:
+            st.markdown("- Finalize diagnosis")
+            st.markdown("- Prepare recommendations")
+            st.markdown("- Brief leadership")
+    
+    with col2:
+        st.markdown(f"### {t('key_outputs')}")
+        if day == 1:
+            st.markdown(f"- {t('find_additional_cases')}")
+            st.markdown(f"- {t('develop_case_def')}")
+            st.markdown(f"- {t('develop_hypotheses')}")
+        elif day == 2:
+            st.markdown("- Study protocol")
+            st.markdown("- Finalized questionnaire")
+            st.markdown("- Sample size calculation")
+        elif day == 3:
+            st.markdown("- Clean dataset")
+            st.markdown("- Preliminary descriptive stats")
+        elif day == 4:
+            st.markdown("- Analytical results (OR, 95% CI)")
+            st.markdown("- Laboratory confirmation")
+            st.markdown("- Environmental findings")
+        else:
+            st.markdown("- Final diagnosis")
+            st.markdown("- Recommendations report")
+            st.markdown("- Briefing presentation")
 
 # =========================
 # VIEWS
@@ -1323,22 +1585,25 @@ def view_overview():
         
         with col2:
             st.markdown("### 💡 Initial Hypotheses")
-            st.caption("Based on what you know so far, what might be causing this outbreak?")
+            st.caption("Based on what you know so far, what might be causing this outbreak? (At least 1 required)")
             
             with st.form("hypotheses_form"):
-                h1 = st.text_input("Hypothesis 1:")
-                h2 = st.text_input("Hypothesis 2:")
-                h3 = st.text_input("Hypothesis 3:")
+                h1 = st.text_input("Hypothesis 1 (required):")
+                h2 = st.text_input("Hypothesis 2 (optional):")
+                h3 = st.text_input("Hypothesis 3 (optional):")
                 h4 = st.text_input("Hypothesis 4 (optional):")
                 
                 if st.form_submit_button("Save Hypotheses"):
                     hypotheses = [h for h in [h1, h2, h3, h4] if h.strip()]
-                    st.session_state.initial_hypotheses = hypotheses
-                    st.session_state.hypotheses_documented = True
-                    st.success(f"✅ {len(hypotheses)} hypotheses saved!")
+                    if len(hypotheses) >= 1:
+                        st.session_state.initial_hypotheses = hypotheses
+                        st.session_state.hypotheses_documented = True
+                        st.success(f"✅ {len(hypotheses)} hypothesis(es) saved!")
+                    else:
+                        st.error("Please enter at least one hypothesis.")
             
             if st.session_state.hypotheses_documented:
-                st.info(f"✓ {len(st.session_state.initial_hypotheses)} hypotheses recorded")
+                st.info(f"✓ {len(st.session_state.initial_hypotheses)} hypothesis(es) recorded")
 
 
 def view_interviews():
@@ -1538,8 +1803,8 @@ def view_case_finding():
 
 
 def view_descriptive_epi():
-    """View for descriptive epidemiology analysis."""
-    st.header("📈 Descriptive Epidemiology")
+    """Interactive descriptive epidemiology dashboard - trainees must run analyses themselves."""
+    st.header("📈 Descriptive Epidemiology - Analysis Workspace")
     
     st.session_state.descriptive_epi_viewed = True
     
@@ -1556,74 +1821,119 @@ def view_descriptive_epi():
     cases = cases.merge(hh_vil[["hh_id", "village_name", "village_id"]], on="hh_id", how="left")
     
     st.markdown("""
-    Descriptive epidemiology summarizes the outbreak by **Person**, **Place**, and **Time**.
-    This helps characterize who is affected and generate hypotheses about the cause.
+    Use this workspace to characterize the outbreak by **Person**, **Place**, and **Time**.
+    You can run analyses here or download the data to analyze on your computer.
     """)
     
-    st.markdown("---")
+    # Data download section
+    st.markdown("### 📥 Download Data")
+    col1, col2, col3 = st.columns(3)
     
-    # Summary metrics
-    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total Cases", len(cases))
+        # Prepare download data
+        download_df = cases[['person_id', 'age', 'sex', 'village_name', 'onset_date', 'severe_neuro', 'outcome']].copy()
+        csv_buffer = io.StringIO()
+        download_df.to_csv(csv_buffer, index=False)
+        
+        st.download_button(
+            label="📊 Download Line List (CSV)",
+            data=csv_buffer.getvalue(),
+            file_name="sidero_valley_line_list.csv",
+            mime="text/csv"
+        )
+    
     with col2:
-        deaths = len(cases[cases['outcome'] == 'died'])
-        cfr = deaths / len(cases) * 100 if len(cases) > 0 else 0
-        st.metric("Deaths", deaths, f"CFR: {cfr:.1f}%")
+        # Excel download
+        excel_buffer = io.BytesIO()
+        download_df.to_excel(excel_buffer, index=False, sheet_name='Line List')
+        
+        st.download_button(
+            label="📊 Download Line List (Excel)",
+            data=excel_buffer.getvalue(),
+            file_name="sidero_valley_line_list.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    
     with col3:
-        median_age = cases['age'].median()
-        st.metric("Median Age", f"{median_age:.0f} years")
-    with col4:
-        date_range = f"{cases['onset_date'].min()} to {cases['onset_date'].max()}"
-        st.metric("Date Range", date_range)
+        st.metric("Total Records", len(cases))
     
     st.markdown("---")
     
-    # Three columns for Person, Place, Time
-    tab1, tab2, tab3 = st.tabs(["👤 Person", "📍 Place", "📅 Time"])
+    # Interactive Analysis Section
+    st.markdown("### 🔬 Run Analyses")
+    st.caption("Select the analyses you want to perform. Results will appear below.")
     
-    with tab1:
-        st.markdown("### Person Characteristics")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        run_person = st.checkbox("👤 Person characteristics (age, sex, outcomes)")
+        run_place = st.checkbox("📍 Place analysis (cases by village, attack rates)")
+    
+    with col2:
+        run_time = st.checkbox("📅 Time analysis (epidemic curve)")
+        run_crosstab = st.checkbox("📊 Custom cross-tabulation")
+    
+    st.markdown("---")
+    
+    # PERSON ANALYSIS
+    if run_person:
+        st.markdown("## 👤 Person Analysis")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("#### Age Distribution")
+            st.markdown("### Age Distribution")
             
-            # Age histogram
-            fig = go.Figure()
-            fig.add_trace(go.Histogram(
-                x=cases['age'],
-                nbinsx=15,
-                marker_color='#3498db'
-            ))
-            fig.update_layout(
-                xaxis_title="Age (years)",
-                yaxis_title="Number of cases",
-                height=300,
-                margin=dict(l=10, r=10, t=10, b=10)
+            # Let them choose how to display age
+            age_display = st.radio(
+                "How to display age?",
+                ["Histogram (continuous)", "Age groups (categorical)"],
+                key="age_display"
             )
-            st.plotly_chart(fig, use_container_width=True)
             
-            # Age group table
-            bins = [0, 4, 9, 14, 19, 49, 100]
-            labels = ['0-4', '5-9', '10-14', '15-19', '20-49', '50+']
-            cases['age_group'] = pd.cut(cases['age'], bins=bins, labels=labels, right=True)
-            age_table = cases['age_group'].value_counts().sort_index()
-            
-            st.markdown("**Cases by Age Group:**")
-            age_df = pd.DataFrame({
-                'Age Group': age_table.index,
-                'Cases': age_table.values,
-                '%': (age_table.values / len(cases) * 100).round(1)
-            })
-            st.dataframe(age_df, hide_index=True)
+            if age_display == "Histogram (continuous)":
+                bin_width = st.slider("Bin width (years)", 1, 10, 5)
+                fig = go.Figure()
+                fig.add_trace(go.Histogram(
+                    x=cases['age'],
+                    xbins=dict(size=bin_width),
+                    marker_color='#3498db'
+                ))
+                fig.update_layout(
+                    xaxis_title="Age (years)",
+                    yaxis_title="Number of cases",
+                    height=300,
+                    margin=dict(l=10, r=10, t=10, b=10)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Stats
+                st.markdown(f"**Mean age:** {cases['age'].mean():.1f} years")
+                st.markdown(f"**Median age:** {cases['age'].median():.0f} years")
+                st.markdown(f"**Range:** {cases['age'].min()} - {cases['age'].max()} years")
+            else:
+                # Let them define age groups
+                st.markdown("Define age groups:")
+                age_cuts = st.text_input("Age breaks (comma-separated)", "0,5,10,15,20,50,100")
+                try:
+                    bins = [int(x.strip()) for x in age_cuts.split(",")]
+                    labels = [f"{bins[i]}-{bins[i+1]-1}" for i in range(len(bins)-1)]
+                    cases['age_group'] = pd.cut(cases['age'], bins=bins, labels=labels, right=False)
+                    
+                    age_table = cases['age_group'].value_counts().sort_index()
+                    age_df = pd.DataFrame({
+                        'Age Group': age_table.index,
+                        'Cases (n)': age_table.values,
+                        'Percent (%)': (age_table.values / len(cases) * 100).round(1)
+                    })
+                    st.dataframe(age_df, hide_index=True)
+                except:
+                    st.error("Invalid age breaks. Use comma-separated numbers like: 0,5,15,50,100")
         
         with col2:
-            st.markdown("#### Sex Distribution")
+            st.markdown("### Sex Distribution")
             
             sex_counts = cases['sex'].value_counts()
-            
             fig = go.Figure(data=[go.Pie(
                 labels=sex_counts.index,
                 values=sex_counts.values,
@@ -1632,24 +1942,30 @@ def view_descriptive_epi():
             fig.update_layout(height=250, margin=dict(l=10, r=10, t=10, b=10))
             st.plotly_chart(fig, use_container_width=True)
             
-            st.markdown("**Cases by Sex:**")
-            for sex, count in sex_counts.items():
-                pct = count / len(cases) * 100
-                st.markdown(f"- {sex}: {count} ({pct:.1f}%)")
+            sex_df = pd.DataFrame({
+                'Sex': sex_counts.index,
+                'Cases (n)': sex_counts.values,
+                'Percent (%)': (sex_counts.values / len(cases) * 100).round(1)
+            })
+            st.dataframe(sex_df, hide_index=True)
             
-            st.markdown("#### Outcomes")
+            st.markdown("### Outcomes")
             outcome_counts = cases['outcome'].value_counts()
-            for outcome, count in outcome_counts.items():
-                pct = count / len(cases) * 100
-                st.markdown(f"- {outcome}: {count} ({pct:.1f}%)")
+            outcome_df = pd.DataFrame({
+                'Outcome': outcome_counts.index,
+                'Cases (n)': outcome_counts.values,
+                'Percent (%)': (outcome_counts.values / len(cases) * 100).round(1)
+            })
+            st.dataframe(outcome_df, hide_index=True)
     
-    with tab2:
-        st.markdown("### Place - Geographic Distribution")
+    # PLACE ANALYSIS
+    if run_place:
+        st.markdown("## 📍 Place Analysis")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("#### Cases by Village")
+            st.markdown("### Cases by Village")
             
             village_counts = cases['village_name'].value_counts()
             
@@ -1667,38 +1983,56 @@ def view_descriptive_epi():
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            st.markdown("#### Attack Rates by Village")
+            st.markdown("### Attack Rates")
+            st.caption("Enter population to calculate attack rate")
             
-            # Calculate attack rates
-            village_pop = villages.set_index('village_name')['population_size'].to_dict()
-            
-            attack_rates = []
+            # Let them enter populations or use defaults
+            village_pops = {}
             for village in village_counts.index:
-                pop = village_pop.get(village, 500)
-                cases_n = village_counts[village]
-                ar = cases_n / pop * 1000
-                attack_rates.append({
-                    'Village': village,
-                    'Cases': cases_n,
-                    'Population': pop,
-                    'Attack Rate (per 1000)': round(ar, 1)
-                })
+                default_pop = villages[villages['village_name'] == village]['population_size'].values
+                default_pop = default_pop[0] if len(default_pop) > 0 else 1000
+                village_pops[village] = st.number_input(
+                    f"Population of {village}",
+                    min_value=100,
+                    value=int(default_pop),
+                    key=f"pop_{village}"
+                )
             
-            ar_df = pd.DataFrame(attack_rates)
-            st.dataframe(ar_df, hide_index=True)
-            
-            st.markdown("#### Village Characteristics")
-            st.dataframe(
-                villages[['village_name', 'has_rice_paddies', 'pig_density', 'JE_vacc_coverage']],
-                hide_index=True
-            )
+            if st.button("Calculate Attack Rates"):
+                attack_rates = []
+                for village in village_counts.index:
+                    cases_n = village_counts[village]
+                    pop = village_pops[village]
+                    ar = cases_n / pop * 1000
+                    attack_rates.append({
+                        'Village': village,
+                        'Cases': cases_n,
+                        'Population': pop,
+                        'AR (per 1,000)': round(ar, 1)
+                    })
+                
+                ar_df = pd.DataFrame(attack_rates)
+                st.dataframe(ar_df, hide_index=True)
     
-    with tab3:
-        st.markdown("### Time - Epidemic Curve")
+    # TIME ANALYSIS
+    if run_time:
+        st.markdown("## 📅 Time Analysis - Epidemic Curve")
         
-        # Epi curve
         if 'onset_date' in cases.columns:
-            counts = cases.groupby('onset_date').size().reset_index(name='cases')
+            # Let them choose interval
+            interval = st.selectbox(
+                "Time interval for epi curve:",
+                ["Day", "Week"],
+                key="epi_interval"
+            )
+            
+            if interval == "Day":
+                counts = cases.groupby('onset_date').size().reset_index(name='cases')
+            else:
+                cases['week'] = pd.to_datetime(cases['onset_date']).dt.isocalendar().week
+                counts = cases.groupby('week').size().reset_index(name='cases')
+                counts = counts.rename(columns={'week': 'onset_date'})
+            
             counts = counts.sort_values('onset_date')
             
             fig = go.Figure()
@@ -1708,7 +2042,7 @@ def view_descriptive_epi():
                 marker_color='#e74c3c'
             ))
             fig.update_layout(
-                xaxis_title="Onset Date",
+                xaxis_title="Onset Date" if interval == "Day" else "Week",
                 yaxis_title="Number of Cases",
                 height=350,
                 margin=dict(l=10, r=10, t=10, b=10)
@@ -1717,42 +2051,36 @@ def view_descriptive_epi():
             
             col1, col2 = st.columns(2)
             with col1:
-                st.markdown("**Temporal Summary:**")
-                st.markdown(f"- First case onset: {cases['onset_date'].min()}")
-                st.markdown(f"- Last case onset: {cases['onset_date'].max()}")
-                st.markdown(f"- Peak date: {counts.loc[counts['cases'].idxmax(), 'onset_date']}")
-            
+                st.markdown("**Summary:**")
+                st.markdown(f"- First case: {cases['onset_date'].min()}")
+                st.markdown(f"- Last case: {cases['onset_date'].max()}")
+                st.markdown(f"- Peak: {counts.loc[counts['cases'].idxmax(), 'onset_date']}")
             with col2:
-                st.markdown("**Epi Curve Interpretation:**")
-                st.markdown("""
-                - **Point source:** Sharp rise and fall
-                - **Propagated:** Multiple peaks
-                - **Continuous:** Plateau pattern
-                """)
+                st.markdown("**Interpretation questions:**")
+                st.markdown("- What type of curve is this?")
+                st.markdown("- Is the outbreak ongoing?")
+    
+    # CUSTOM CROSSTAB
+    if run_crosstab:
+        st.markdown("## 📊 Custom Cross-tabulation")
         
-        # Cases by village over time
-        st.markdown("#### Cases by Village Over Time")
-        if 'onset_date' in cases.columns:
-            pivot = cases.groupby(['onset_date', 'village_name']).size().unstack(fill_value=0)
+        available_vars = ['age_group', 'sex', 'village_name', 'severe_neuro', 'outcome']
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            row_var = st.selectbox("Row variable:", available_vars, key="row_var")
+        with col2:
+            col_var = st.selectbox("Column variable:", [v for v in available_vars if v != row_var], key="col_var")
+        
+        if st.button("Generate Cross-tabulation"):
+            # Make sure age_group exists
+            if row_var == 'age_group' or col_var == 'age_group':
+                bins = [0, 5, 10, 15, 20, 50, 100]
+                labels = ['0-4', '5-9', '10-14', '15-19', '20-49', '50+']
+                cases['age_group'] = pd.cut(cases['age'], bins=bins, labels=labels, right=False)
             
-            fig = go.Figure()
-            colors = {'Nalu Village': '#e74c3c', 'Kabwe Village': '#f39c12', 'Tamu Village': '#27ae60'}
-            for col in pivot.columns:
-                fig.add_trace(go.Bar(
-                    x=pivot.index,
-                    y=pivot[col],
-                    name=col,
-                    marker_color=colors.get(col, '#3498db')
-                ))
-            
-            fig.update_layout(
-                barmode='stack',
-                xaxis_title="Onset Date",
-                yaxis_title="Number of Cases",
-                height=300,
-                margin=dict(l=10, r=10, t=10, b=10)
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            crosstab = pd.crosstab(cases[row_var], cases[col_var], margins=True, margins_name='Total')
+            st.dataframe(crosstab)
     
     st.markdown("---")
     
@@ -1884,6 +2212,98 @@ def view_lab_and_environment():
         st.dataframe(pd.DataFrame(st.session_state.lab_results))
 
 
+def view_village_profiles():
+    """Display village briefing documents with stats and images."""
+    st.header("🏘️ Village Profiles - Sidero Valley")
+    
+    st.markdown("""
+    These background documents provide official information about each village in the investigation area.
+    Review these to understand the local context before conducting interviews.
+    """)
+    
+    lang = st.session_state.get("language", "en")
+    
+    tabs = st.tabs(["Nalu Village", "Kabwe Village", "Tamu Village"])
+    
+    for i, (village_key, village) in enumerate(VILLAGE_PROFILES.items()):
+        with tabs[i]:
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                # Get description in current language, fallback to English
+                desc = village["description"].get(lang, village["description"]["en"])
+                st.markdown(desc)
+            
+            with col2:
+                # Placeholder images - in production, these would be actual images
+                st.markdown("### 📸 Photos")
+                
+                if village_key == "nalu":
+                    st.markdown("""
+                    **Rice Paddies Near Village**
+                    
+                    *Irrigated rice fields surround the village on three sides. 
+                    Standing water is present year-round.*
+                    """)
+                    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Rice_paddy_field.jpg/320px-Rice_paddy_field.jpg", 
+                             caption="Rice paddies (representative)", use_container_width=True)
+                    
+                    st.markdown("""
+                    **Pig Cooperative**
+                    
+                    *~200 pigs housed 500m from village center*
+                    """)
+                    
+                elif village_key == "kabwe":
+                    st.markdown("""
+                    **Mixed Farming Area**
+                    
+                    *Households practice both rice and upland farming.*
+                    """)
+                    
+                    st.markdown("""
+                    **Path to Nalu**
+                    
+                    *Children walk through paddy fields to school.*
+                    """)
+                    
+                elif village_key == "tamu":
+                    st.markdown("""
+                    **Upland Terrain**
+                    
+                    *Higher elevation, no rice paddies nearby.*
+                    """)
+                    
+                    st.markdown("""
+                    **Forested Areas**
+                    
+                    *More forest cover, fewer standing water sources.*
+                    """)
+            
+            # Quick stats summary
+            st.markdown("---")
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Population", f"{village['population']:,}")
+            with col2:
+                st.metric("Households", f"{village['households']:,}")
+            with col3:
+                # Estimated stats
+                if village_key == "nalu":
+                    st.metric("JE Vacc Coverage", "~35%")
+                elif village_key == "kabwe":
+                    st.metric("JE Vacc Coverage", "~40%")
+                else:
+                    st.metric("JE Vacc Coverage", "~55%")
+            with col4:
+                if village_key == "nalu":
+                    st.metric("Pig Density", "High")
+                elif village_key == "kabwe":
+                    st.metric("Pig Density", "Medium")
+                else:
+                    st.metric("Pig Density", "Low")
+
+
 def view_spot_map():
     """Geographic spot map of cases."""
     st.header("📍 Spot Map - Geographic Distribution of Cases")
@@ -1904,6 +2324,11 @@ def view_spot_map():
     hh_vil = households.merge(villages[["village_id", "village_name"]], on="village_id", how="left")
     cases = cases.merge(hh_vil[["hh_id", "village_name", "village_id"]], on="hh_id", how="left")
     
+    # Debug: check columns
+    if "village_id" not in cases.columns:
+        st.error("village_id not found in merged data. Available columns: " + ", ".join(cases.columns))
+        return
+    
     # Assign coordinates with jitter for visualization
     village_coords = {
         'V1': {'lat': 5.55, 'lon': -0.20, 'name': 'Nalu Village'},
@@ -1911,14 +2336,18 @@ def view_spot_map():
         'V3': {'lat': 5.58, 'lon': -0.12, 'name': 'Tamu Village'}
     }
     
-    # Add coordinates with jitter
+    # Add coordinates with jitter - use vectorized approach
     np.random.seed(42)
-    cases['lat'] = cases['village_id'].apply(
-        lambda v: village_coords.get(v, {}).get('lat', 5.55) + np.random.uniform(-0.012, 0.012)
-    )
-    cases['lon'] = cases['village_id'].apply(
-        lambda v: village_coords.get(v, {}).get('lon', -0.18) + np.random.uniform(-0.012, 0.012)
-    )
+    n_cases = len(cases)
+    
+    def get_coords(vid, coord_type):
+        default = 5.55 if coord_type == 'lat' else -0.18
+        if pd.isna(vid):
+            return default
+        return village_coords.get(str(vid), {}).get(coord_type, default)
+    
+    cases['lat'] = cases['village_id'].apply(lambda v: get_coords(v, 'lat')) + np.random.uniform(-0.012, 0.012, n_cases)
+    cases['lon'] = cases['village_id'].apply(lambda v: get_coords(v, 'lon')) + np.random.uniform(-0.012, 0.012, n_cases)
     
     # Color by severity
     cases['severity'] = cases['severe_neuro'].map({True: 'Severe', False: 'Mild'})
@@ -2047,6 +2476,8 @@ def main():
         view_case_finding()
     elif view == "descriptive":
         view_descriptive_epi()
+    elif view == "villages":
+        view_village_profiles()
     elif view == "interviews":
         view_interviews()
     elif view == "spotmap":

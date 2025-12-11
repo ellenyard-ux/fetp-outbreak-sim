@@ -42,7 +42,7 @@ TRANSLATIONS = {
         "advance_day": "Advance to Day",
         "key_tasks": "Key tasks for today",
         "key_outputs": "Key outputs for today",
-        "day1_briefing": "Day 1 focuses on reviewing what is known about the situation.",
+        "day1_briefing": "Day 1 focuses on understanding the current situation. Review the cases that have been reported, search for additional cases that may have been missed, and characterize the outbreak by person, place, and time. Talk to key informants to generate hypotheses about potential causes. By the end of the day, you should have a working case definition and at least one hypothesis to test.",
         "day2_briefing": "Day 2 focuses on hypothesis generation and study design. You will design an analytic study and develop a questionnaire to collect data.",
         "day3_briefing": "Day 3 is dedicated to data collection and cleaning. You will administer your questionnaire and prepare your dataset for analysis.",
         "day4_briefing": "Day 4 focuses on analysis and laboratory investigations. You will analyze your data and collect samples for testing.",
@@ -262,15 +262,13 @@ cultivation and pig farming.
 - **Sanitation:** Mix of pit latrines and open defecation
 
 **Geographic Features:**
+- Located along the main river
 - Surrounded by irrigated rice paddies on three sides
-- Pig cooperative with ~200 pigs located 500m from village center
-- Seasonal flooding during rainy season (May-September)
-- Dense mosquito populations, especially near paddies
+- Pig cooperative located near village center
 
-**Health Indicators (District Health Office, 2024):**
+**Health Information (District Health Office, 2024):**
 - Under-5 mortality: 45 per 1,000 live births
-- Malaria incidence: High (endemic)
-- JE vaccination coverage: ~35% of children under 15
+- Top health concerns: Malaria, diarrheal diseases
 - Nearest hospital: District Hospital (12 km)
 """,
             "es": """
@@ -301,15 +299,13 @@ on slightly higher ground. Many residents work in both Kabwe and Nalu.
 - **Sanitation:** Pit latrines (60%), open defecation (40%)
 
 **Geographic Features:**
-- Higher elevation than Nalu (less flooding)
-- Several households keep pigs near rice paddy edges
-- Path to Nalu passes through paddy fields
-- Children often play near irrigation channels
+- Higher elevation than Nalu
+- Mixed agricultural zone with both rice and upland crops
+- Path to Nalu passes through agricultural areas
 
-**Health Indicators:**
-- Similar to Nalu; residents use Nalu Health Center
-- JE vaccination coverage: ~40% of children under 15
-- Many children walk through paddies to school in Nalu
+**Health Information:**
+- Residents use Nalu Health Center
+- Top health concerns: Malaria, respiratory infections
 """,
             "es": "**Aldea de Kabwe** es una comunidad agrícola de tamaño mediano...",
             "fr": "**Village de Kabwe** est une communauté agricole de taille moyenne..."
@@ -336,16 +332,14 @@ in the foothills away from the main rice-growing areas.
 
 **Geographic Features:**
 - Higher elevation, drier terrain
-- **No rice paddies** in immediate vicinity
-- **Few pigs** - mostly goats and chickens
-- Less standing water, fewer mosquitoes reported
+- Upland farming area (no rice cultivation)
+- Primarily goats and chickens for livestock
 - More forested areas nearby
 
-**Health Indicators:**
-- Lower malaria burden than valley villages
-- JE vaccination coverage: ~55% (recent campaign reached this area)
+**Health Information:**
 - Residents occasionally travel to Nalu for market/health services
-- Less interaction with rice paddy environment
+- Top health concerns: Respiratory infections, malnutrition
+- Community health volunteer provides basic care
 """,
             "es": "**Aldea de Tamu** es una comunidad más pequeña y remota...",
             "fr": "**Village de Tamu** est une communauté plus petite et plus éloignée..."
@@ -1561,24 +1555,43 @@ def day_task_list(day: int):
     with col2:
         st.markdown(f"### {t('key_outputs')}")
         if day == 1:
-            st.markdown(f"- {t('find_additional_cases')}")
-            st.markdown(f"- {t('develop_case_def')}")
-            st.markdown(f"- {t('develop_hypotheses')}")
+            # Checkboxes for Day 1 outputs
+            cases_found = st.session_state.clinic_records_reviewed
+            st.checkbox(t('find_additional_cases'), value=cases_found, disabled=True)
+            
+            case_def_done = st.session_state.case_definition_written
+            st.checkbox(t('develop_case_def'), value=case_def_done, disabled=True)
+            
+            hypotheses_done = st.session_state.hypotheses_documented
+            st.checkbox(t('develop_hypotheses'), value=hypotheses_done, disabled=True)
         elif day == 2:
-            st.markdown("- Study protocol")
-            st.markdown("- Finalized questionnaire")
-            st.markdown("- Sample size calculation")
+            study_done = st.session_state.decisions.get("study_design") is not None
+            st.checkbox("Study protocol", value=study_done, disabled=True)
+            
+            quest_done = st.session_state.questionnaire_submitted
+            st.checkbox("Finalized questionnaire", value=quest_done, disabled=True)
+            
+            st.checkbox("Sample size calculation", value=False, disabled=True)
         elif day == 3:
-            st.markdown("- Clean dataset")
-            st.markdown("- Preliminary descriptive stats")
+            dataset_done = st.session_state.generated_dataset is not None
+            st.checkbox("Clean dataset", value=dataset_done, disabled=True)
+            
+            st.checkbox("Preliminary descriptive stats", value=st.session_state.descriptive_analysis_done, disabled=True)
         elif day == 4:
-            st.markdown("- Analytical results (OR, 95% CI)")
-            st.markdown("- Laboratory confirmation")
-            st.markdown("- Environmental findings")
+            st.checkbox("Analytical results (OR, 95% CI)", value=False, disabled=True)
+            
+            lab_done = len(st.session_state.lab_samples_submitted) > 0
+            st.checkbox("Laboratory confirmation", value=lab_done, disabled=True)
+            
+            st.checkbox("Environmental findings", value=False, disabled=True)
         else:
-            st.markdown("- Final diagnosis")
-            st.markdown("- Recommendations report")
-            st.markdown("- Briefing presentation")
+            final_dx = bool(st.session_state.decisions.get("final_diagnosis"))
+            st.checkbox("Final diagnosis", value=final_dx, disabled=True)
+            
+            recs_done = bool(st.session_state.decisions.get("recommendations"))
+            st.checkbox("Recommendations report", value=recs_done, disabled=True)
+            
+            st.checkbox("Briefing presentation", value=False, disabled=True)
 
 # =========================
 # VIEWS
@@ -1979,15 +1992,15 @@ def view_descriptive_epi():
         )
     
     with col2:
-        # Excel download
-        excel_buffer = io.BytesIO()
-        download_df.to_excel(excel_buffer, index=False, sheet_name='Line List')
+        # Tab-separated download as alternative
+        tsv_buffer = io.StringIO()
+        download_df.to_csv(tsv_buffer, index=False, sep='\t')
         
         st.download_button(
-            label="📊 Download Line List (Excel)",
-            data=excel_buffer.getvalue(),
-            file_name="sidero_valley_line_list.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            label="📊 Download Line List (TSV)",
+            data=tsv_buffer.getvalue(),
+            file_name="sidero_valley_line_list.tsv",
+            mime="text/tab-separated-values"
         )
     
     with col3:
@@ -2441,12 +2454,11 @@ def view_village_profiles():
             <line x1="340" y1="155" x2="340" y2="140"/>
             <line x1="370" y1="145" x2="370" y2="130"/>
         </g>
-        <!-- Mosquitoes -->
-        <text x="180" y="115" font-size="12">🦟</text>
-        <text x="320" y="105" font-size="10">🦟</text>
-        <text x="60" y="110" font-size="11">🦟</text>
+        <!-- Birds flying -->
+        <text x="180" y="50" font-size="10">🐦</text>
+        <text x="280" y="45" font-size="8">🐦</text>
         <!-- Label -->
-        <text x="200" y="190" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Rice Paddies - Standing Water Year-Round</text>
+        <text x="200" y="190" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Rice Paddies - Irrigated Fields</text>
     </svg>
     '''
     
@@ -2527,8 +2539,6 @@ def view_village_profiles():
         <!-- Small pig pen -->
         <rect x="380" y="150" width="15" height="15" fill="#8B4513"/>
         <ellipse cx="387" cy="160" rx="5" ry="4" fill="#FFB6C1"/>
-        <!-- Mosquito (fewer) -->
-        <text x="80" y="135" font-size="10">🦟</text>
         <!-- Label -->
         <text x="200" y="190" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Mixed Farming - Rice Paddies & Upland Crops</text>
     </svg>
@@ -2600,7 +2610,7 @@ def view_village_profiles():
         <rect x="370" y="95" width="8" height="35" fill="#8B4513"/>
         <circle cx="374" cy="85" r="22" fill="#2E8B57"/>
         <!-- Label -->
-        <text x="200" y="190" text-anchor="middle" font-size="14" fill="#333" font-weight="bold">Upland Terrain - No Rice Paddies, Few Pigs</text>
+        <text x="200" y="190" text-anchor="middle" font-size="14" fill="#333" font-weight="bold">Upland Terrain - Cassava & Yam Farming</text>
     </svg>
     '''
     
@@ -2681,7 +2691,7 @@ def view_village_profiles():
                 elif village_key == "tamu":
                     st.markdown("**Upland Terrain**")
                     st.markdown(tamu_upland_svg, unsafe_allow_html=True)
-                    st.caption("Higher elevation with cassava/yam farming, goats not pigs")
+                    st.caption("Higher elevation with cassava and yam farming")
                     
                     st.markdown("---")
                     st.markdown("**Forested Areas**")
@@ -2696,20 +2706,21 @@ def view_village_profiles():
             with col2:
                 st.metric("Households", f"{village['households']:,}")
             with col3:
-                # Estimated stats
+                # Main livelihood
                 if village_key == "nalu":
-                    st.metric("JE Vacc Coverage", "~35%")
+                    st.metric("Main Livelihood", "Rice farming")
                 elif village_key == "kabwe":
-                    st.metric("JE Vacc Coverage", "~40%")
+                    st.metric("Main Livelihood", "Mixed farming")
                 else:
-                    st.metric("JE Vacc Coverage", "~55%")
+                    st.metric("Main Livelihood", "Upland crops")
             with col4:
+                # Health facility
                 if village_key == "nalu":
-                    st.metric("Pig Density", "High")
+                    st.metric("Health Facility", "Health Center")
                 elif village_key == "kabwe":
-                    st.metric("Pig Density", "Medium")
+                    st.metric("Health Facility", "None")
                 else:
-                    st.metric("Pig Density", "Low")
+                    st.metric("Health Facility", "CHV only")
 
 
 def view_spot_map():
@@ -2728,14 +2739,26 @@ def view_spot_map():
         st.warning("No cases to display on map.")
         return
     
-    # Merge with household and village info
-    hh_vil = households.merge(villages[["village_id", "village_name"]], on="village_id", how="left")
-    cases = cases.merge(hh_vil[["hh_id", "village_name", "village_id"]], on="hh_id", how="left")
+    # Merge with household info first (to get village_id from households)
+    # households already has village_id, so we just need village_name from villages
+    hh_with_village = households.merge(
+        villages[["village_id", "village_name"]], 
+        on="village_id", 
+        how="left"
+    )
     
-    # Debug: check columns
-    if "village_id" not in cases.columns:
-        st.error("village_id not found in merged data. Available columns: " + ", ".join(cases.columns))
-        return
+    # Now merge cases with household info - only bring in hh_id, village_id, village_name
+    cases = cases.merge(
+        hh_with_village[["hh_id", "village_id", "village_name"]], 
+        on="hh_id", 
+        how="left",
+        suffixes=('', '_hh')
+    )
+    
+    # Use village_id from households if the merge created duplicates
+    if 'village_id_hh' in cases.columns:
+        cases['village_id'] = cases['village_id_hh']
+        cases = cases.drop(columns=['village_id_hh'])
     
     # Assign coordinates with jitter for visualization
     village_coords = {

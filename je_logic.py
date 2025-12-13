@@ -841,49 +841,51 @@ def _apply_missingness(series: pd.Series, missing_rate: float, rng: np.random.Ra
     return out
 
 
+
 def render_dataset_from_xlsform(master_df: pd.DataFrame, questionnaire: Dict[str, Any],
                                 unlocked_domains: Optional[set] = None,
                                 random_seed: int = 42) -> pd.DataFrame:
-    """Render trainee-visible dataset columns based on XLSForm question types + mappings."""
+    """Render trainee-visible dataset columns based on XLSForm question types + mappings.
+
+    Key behaviors:
+    - Uses LLM-derived mappings (q['render']['mapped_var']) to pull values from the truth/master dataset.
+    - If a question is **unmapped**, uses the stored LLM generator spec (q['render']['unmapped_spec'])
+      to synthesize plausible values **without per-row LLM calls**.
+    - Output column names are the trainee's XLSForm *question names*.
+    - unlocked_domains is accepted for backwards compatibility but is not used (no interview→domain gating).
+    """
     rng = np.random.RandomState(random_seed)
-    unlocked_domains = unlocked_domains or set()
 
-    out = master_df[["person_id", "hh_id", "village_id", "case_status"]].copy()
+    # Minimal identifiers always included
+    base_cols = [c for c in ["person_id", "hh_id", "village_id", "case_status"] if c in master_df.columns]
+    out = master_df[base_cols].copy()
 
-    for q in questionnaire.get("questions", []):
+    questions = questionnaire.get("questions", []) or []
+    for idx, q in enumerate(questions):
         base = q.get("base_type")
         if base not in SUPPORTED_XLSFORM_BASE_TYPES:
             continue
 
         qname = q.get("name")
+        if not qname:
+            continue
+
         mapped = q.get("mapped_var")
-        domain = q.get("domain") or (CANONICAL_SCHEMA.get(mapped, {}).get("domain") if mapped else None)
 
-        missing_rate = q.get("render", {}).get("missing_base", 0.05)
-        if domain and (domain not in unlocked_domains) and (domain not in {"demographics"}):
-            missing_rate = max(missing_rate, 0.30)
-
-        # If unmapped, try LLM-backed synthetic generation (if spec available)
-        spec_obj = (q.get("render") or {}).get("unmapped_spec") or None
-        if (not mapped) or (mapped not in CANONICAL_SCHEMA):
-            if spec_obj:
-                # Apply domain-based missingness penalty on top of spec missingness
-                mr = float(spec_obj.get("missing_rate", 0.12))
-                mr = max(mr, float(missing_rate))
-                q2 = copy.deepcopy(q)
-                q2.setdefault("render", {})["unmapped_spec"] = {**spec_obj, "missing_rate": mr}
-                seed = random_seed + (abs(hash(str(qname))) % 10000)
-                out[qname] = _generate_unmapped_column(out, q2, random_seed=seed)
+        # Unmapped → synthesize values (if a spec exists)
+        if (not mapped) or (mapped not in CANONICAL_SCHEMA) or (CANONICAL_SCHEMA.get(mapped, {}).get("column") not in master_df.columns):
+            spec_obj = (q.get("render") or {}).get("unmapped_spec")
+            if isinstance(spec_obj, dict) and spec_obj:
+                # use a different seed per question for stability
+                out[qname] = _generate_unmapped_column(out, q, random_seed=random_seed + 1000 + idx)
             else:
                 out[qname] = np.nan
             continue
 
         truth_col = CANONICAL_SCHEMA[mapped]["column"]
-        if truth_col not in master_df.columns:
-            out[qname] = np.nan
-            continue
-
         values = master_df[truth_col].copy()
+
+        missing_rate = float((q.get("render") or {}).get("missing_base", 0.05))
 
         if base == "text":
             if mapped == "occupation":
@@ -911,436 +913,415 @@ def render_dataset_from_xlsform(master_df: pd.DataFrame, questionnaire: Dict[str
             out[qname] = _apply_missingness(rendered, missing_rate, rng)
 
         elif base == "select_one":
-            choices = q.get("choices", [])
-            choice_map = q.get("render", {}).get("choice_map", {})
-            if CANONICAL_SCHEMA[mapped].get("value_type") == "bool" and choice_map:
+            choices = q.get("choices", []) or []
+            choice_map = (q.get("render") or {}).get("choice_map", {}) or {}
+            vt = CANONICAL_SCHEMA[mapped].get("value_type")
+
+            if vt == "bool" and choice_map:
                 rendered = values.astype(bool).map({True: choice_map.get("true"), False: choice_map.get("false")})
-            elif CANONICAL_SCHEMA[mapped].get("value_type") == "category" and choice_map:
+            elif vt == "category" and choice_map:
                 rendered = _apply_choice_map_with_fallback(values, choice_map, choices)
             else:
                 opt_l = {str(c.get("name")).lower(): c.get("name") for c in choices if c.get("name")}
                 rendered = values.astype(str).map(lambda v: opt_l.get(str(v).lower(), np.nan))
+
             out[qname] = _apply_missingness(rendered, missing_rate, rng)
 
         elif base == "select_multiple":
-            cvm = q.get("render", {}).get("choice_var_map", {})
-            if not cvm:
-                out[qname] = np.nan
-                continue
-            selected = []
-            for choice_name, canon in cvm.items():
-                col = CANONICAL_SCHEMA.get(canon, {}).get("column")
-                sel = master_df[col].astype(bool).values if col in master_df.columns else np.zeros(len(master_df), dtype=bool)
-                selected.append((choice_name, sel))
-            rows = []
-            for i in range(len(master_df)):
-                chosen = [cn for cn, mask in selected if mask[i]]
-                rows.append(" ".join(chosen))
-            rendered = pd.Series(rows)
-            out[qname] = _apply_missingness(rendered, missing_rate, rng)
+            # Use choice_var_map heuristic where available; else generate sparse random selection.
+            choices = q.get("choices", []) or []
+            choice_var_map = (q.get("render") or {}).get("choice_var_map", {}) or {}
+            choice_names = [c.get("name") for c in choices if c.get("name")]
+            if not choice_names:
+                out[qname] = _apply_missingness(pd.Series([""] * len(master_df)), missing_rate, rng)
+            else:
+                selected_strings = []
+                for row_i in range(len(master_df)):
+                    sel = []
+                    for nm in choice_names:
+                        mapped_var = choice_var_map.get(nm)
+                        if mapped_var and mapped_var in CANONICAL_SCHEMA and CANONICAL_SCHEMA[mapped_var]["column"] in master_df.columns:
+                            v = master_df.loc[master_df.index[row_i], CANONICAL_SCHEMA[mapped_var]["column"]]
+                            # bool-ish trigger
+                            if isinstance(v, (bool, np.bool_)) and bool(v):
+                                if rng.rand() < 0.85:
+                                    sel.append(nm)
+                            elif pd.notna(v) and str(v).lower() in {"1", "true", "yes"}:
+                                if rng.rand() < 0.85:
+                                    sel.append(nm)
+                        else:
+                            # small baseline chance
+                            if rng.rand() < 0.05:
+                                sel.append(nm)
+                    # cap to keep realistic
+                    if len(sel) > 3:
+                        sel = list(rng.choice(sel, size=3, replace=False))
+                    selected_strings.append(" ".join(sel) if sel else "")
+                out[qname] = _apply_missingness(pd.Series(selected_strings, index=master_df.index), missing_rate, rng)
+
+        else:
+            out[qname] = np.nan
 
     return out
 
-def apply_case_definition(individuals_df, criteria):
-    """
-    Filter individuals based on case definition criteria.
-    
-    criteria example:
-    {
-        "clinical_AES": True,
-        "min_onset_date": "2025-06-01",
-        "max_onset_date": "2025-06-30",
-        "villages": ["V1", "V2"],
-        "min_age": 0,
-        "max_age": 100
-    }
-    """
-    df = individuals_df.copy()
-    
-    if criteria.get("clinical_AES", True):
-        df = df[df["symptomatic_AES"] == True]
-    
-    if criteria.get("min_onset_date"):
-        df = df[df["onset_date"] >= criteria["min_onset_date"]]
-    
-    if criteria.get("max_onset_date"):
-        df = df[df["onset_date"] <= criteria["max_onset_date"]]
-    
-    if criteria.get("villages"):
-        df = df[df["village_id"].isin(criteria["villages"])]
-    
-    if "min_age" in criteria:
-        df = df[df["age"] >= criteria["min_age"]]
-    
-    if "max_age" in criteria:
-        df = df[df["age"] <= criteria["max_age"]]
-    
-    return df
+def _age_group(age: Any) -> str:
+    try:
+        a = float(age)
+    except Exception:
+        return "unk"
+    if a < 5:
+        return "0-4"
+    if a < 15:
+        return "5-14"
+    if a < 30:
+        return "15-29"
+    if a < 45:
+        return "30-44"
+    if a < 60:
+        return "45-59"
+    return "60+"
 
+def ensure_reported_to_hospital(individuals_df: pd.DataFrame, random_seed: int = 42) -> pd.DataFrame:
+    """Create a realistic 'reported_to_hospital' proxy if not already present."""
+    if "reported_to_hospital" in individuals_df.columns:
+        return individuals_df
+
+    rng = np.random.default_rng(random_seed)
+
+    # Base healthcare-seeking + severity gradient (tunable)
+    village_factor = individuals_df.get("village_id", pd.Series(["V2"] * len(individuals_df))).map(
+        {"V1": 0.08, "V2": 0.05, "V3": 0.02}
+    ).fillna(0.04)
+
+    symptomatic = individuals_df.get("symptomatic_AES", pd.Series([False] * len(individuals_df))).astype(bool)
+    severe = individuals_df.get("severe_neuro", pd.Series([False] * len(individuals_df))).astype(bool)
+    vaccinated = individuals_df.get("JE_vaccinated", pd.Series([False] * len(individuals_df))).astype(bool)
+
+    p = (
+        0.04
+        + village_factor
+        + symptomatic.astype(float) * 0.20
+        + severe.astype(float) * 0.35
+        - vaccinated.astype(float) * 0.06
+    )
+    p = np.clip(p.to_numpy(dtype=float), 0.01, 0.95)
+
+    reported = rng.random(len(individuals_df)) < p
+    out = individuals_df.copy()
+    out["reported_to_hospital"] = reported
+    return out
+
+
+def _eligible_controls_pool(
+    individuals_df: pd.DataFrame,
+    cases_df: pd.DataFrame,
+    households_df: pd.DataFrame,
+    control_source: str,
+    include_symptomatic_noncase: bool,
+    eligible_villages: Optional[List[str]],
+    control_age_range: Optional[Dict[str, int]],
+    random_seed: int,
+) -> pd.DataFrame:
+    """Build the eligible pool for controls under different sources (community/neighborhood/clinic)."""
+    df = individuals_df.copy()
+
+    # Define non-cases
+    if include_symptomatic_noncase:
+        non_cases = df[df.get("symptomatic_AES", False).astype(bool) == False].copy()
+    else:
+        non_cases = df[df.get("symptomatic_AES", False).astype(bool) == False].copy()
+
+    # Village eligibility default = same villages as selected cases
+    if not eligible_villages:
+        eligible_villages = sorted(list(set(cases_df["village_id"].dropna().astype(str).tolist())))
+
+    non_cases = non_cases[non_cases["village_id"].isin(eligible_villages)].copy()
+
+    # Age eligibility
+    if control_age_range and isinstance(control_age_range, dict):
+        amin = int(control_age_range.get("min", 0))
+        amax = int(control_age_range.get("max", 120))
+        non_cases = non_cases[(non_cases["age"] >= amin) & (non_cases["age"] <= amax)].copy()
+
+    # Control source behavior
+    control_source = (control_source or "community").lower()
+
+    if control_source in {"clinic", "hospital", "hospital_controls"}:
+        non_cases = ensure_reported_to_hospital(non_cases, random_seed=random_seed)
+        non_cases = non_cases[non_cases["reported_to_hospital"] == True].copy()
+
+    elif control_source in {"neighborhood", "neighbourhood", "near"}:
+        # Approximate neighborhood: prefer households numerically close to case households (HH###).
+        rng = np.random.default_rng(random_seed)
+        case_hh = set(cases_df["hh_id"].dropna().astype(str).tolist())
+        # If no parseable HH IDs, fall back to same-village community.
+        def _hh_num(hh: str) -> Optional[int]:
+            m = re.search(r"(\d+)", str(hh))
+            return int(m.group(1)) if m else None
+
+        case_nums = [n for n in (_hh_num(h) for h in case_hh) if n is not None]
+        if case_nums:
+            # score households by closeness to any case HH number
+            hh_nums = non_cases["hh_id"].astype(str).apply(_hh_num)
+            # compute distance to closest case hh
+            closest = []
+            for n in hh_nums:
+                if n is None:
+                    closest.append(999)
+                else:
+                    closest.append(min(abs(n - cn) for cn in case_nums))
+            non_cases = non_cases.copy()
+            non_cases["_hh_dist"] = closest
+            # weight selection toward closer households
+            non_cases["_w"] = np.exp(-np.clip(non_cases["_hh_dist"].to_numpy(dtype=float), 0, 50) / 8.0)
+            # Keep pool but store weights for later sampling
+        else:
+            non_cases["_w"] = 1.0
+
+    else:
+        # Community
+        non_cases["_w"] = 1.0
+
+    return non_cases
+
+
+def _apply_nonresponse_and_replacements(
+    selected: pd.DataFrame,
+    pool: pd.DataFrame,
+    target_n: int,
+    nonresponse_rate: float,
+    allow_replacement: bool,
+    match_keys: Optional[List[str]],
+    random_seed: int,
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Apply nonresponse; optionally replace with similar individuals from the remaining pool."""
+    rng = np.random.default_rng(random_seed)
+    selected = selected.copy()
+
+    # Mark response
+    nonresponse_rate = float(np.clip(nonresponse_rate, 0.0, 0.95))
+    responded = rng.random(len(selected)) >= nonresponse_rate
+    selected["responded"] = responded
+
+    responded_df = selected[selected["responded"] == True].copy()
+    nonresp_df = selected[selected["responded"] == False].copy()
+
+    report = {
+        "selected": int(len(selected)),
+        "responded": int(len(responded_df)),
+        "nonresponded": int(len(nonresp_df)),
+        "replaced": 0,
+        "replacement_relaxed": 0,
+    }
+
+    if not allow_replacement:
+        final = responded_df.copy()
+        return final, report
+
+    need = max(0, int(target_n) - int(len(responded_df)))
+    if need == 0:
+        return responded_df.copy(), report
+
+    remaining_pool = pool.copy()
+    # Exclude anyone already selected
+    if "person_id" in remaining_pool.columns:
+        remaining_pool = remaining_pool[~remaining_pool["person_id"].isin(set(selected["person_id"].tolist()))].copy()
+
+    replacements = []
+    relaxed = 0
+
+    def _sample_from(dfsub: pd.DataFrame, k: int) -> pd.DataFrame:
+        if dfsub.empty or k <= 0:
+            return dfsub.head(0)
+        if "_w" in dfsub.columns:
+            w = dfsub["_w"].to_numpy(dtype=float)
+            w = np.clip(w, 1e-6, None)
+            w = w / w.sum()
+            idx = rng.choice(dfsub.index.to_numpy(), size=min(k, len(dfsub)), replace=False, p=w)
+            return dfsub.loc[idx].copy()
+        return dfsub.sample(n=min(k, len(dfsub)), random_state=random_seed)
+
+    # Try strict matching first
+    if match_keys:
+        # Build a flexible candidate subset by matching on the most important keys
+        strict_keys = list(match_keys)
+        # If any keys missing in pool, drop them
+        strict_keys = [k for k in strict_keys if k in remaining_pool.columns and k in responded_df.columns]
+
+        if strict_keys:
+            # Frequency-match to the distribution in responded_df
+            for _, grp in responded_df.groupby(strict_keys):
+                if len(replacements) >= need:
+                    break
+                cond = True
+                for k in strict_keys:
+                    cond = cond & (remaining_pool[k] == grp.iloc[0][k])
+                cand = remaining_pool[cond].copy()
+                take = min(int(len(grp)), need - len(replacements))
+                samp = _sample_from(cand, take)
+                if not samp.empty:
+                    replacements.append(samp)
+
+    if replacements:
+        rep_df = pd.concat(replacements, ignore_index=True)
+    else:
+        rep_df = remaining_pool.head(0)
+
+    if len(rep_df) < need:
+        # Relax: sample from any remaining
+        relaxed = need - len(rep_df)
+        extra = _sample_from(remaining_pool[~remaining_pool.index.isin(set(rep_df.index))], relaxed)
+        if not extra.empty:
+            rep_df = pd.concat([rep_df, extra], ignore_index=True)
+
+    if not rep_df.empty:
+        rep_df = rep_df.head(need).copy()
+        rep_df["responded"] = True
+        rep_df["replaced_flag"] = True
+        report["replaced"] = int(len(rep_df))
+        report["replacement_relaxed"] = int(relaxed)
+
+    final = pd.concat([responded_df, rep_df], ignore_index=True)
+    final["replaced_flag"] = final.get("replaced_flag", False).fillna(False)
+    return final, report
 
 
 def generate_study_dataset(individuals_df, households_df, decisions, random_seed=42):
     """
-    Generate a trainee-visible dataset based on their study design, sampling plan, and questionnaire.
+    Generate a trainee-visible dataset based on their study design, sampling decisions, and questionnaire.
 
-    Supports:
-    - Case-control with more realistic case/control sampling (sources + matching + eligibility)
-    - Simple retrospective cohort (configurable villages/age)
-    - XLSForm-driven questionnaire rendering (type-aware; includes unmapped generators)
+    Sampling enhancements:
+    - Trainees can manually select cases/controls by person_id (decisions['selected_cases'], decisions['selected_controls'])
+    - Supports clinic controls (healthcare-seeking proxy), neighborhood controls (approximate), and community controls
+    - Applies nonresponse (5–25% typical) and optional replacement sampling
+    - Produces a sampling frame report when decisions['return_sampling_report'] is True
 
-    decisions may include:
-      - case_definition: dict (see apply_case_definition)
-      - study_design: {"type": "case_control"|"cohort", ...}
-      - sampling_plan: dict (case_source, control_source, matching, eligibility, etc.)
-      - sample_size: dict (cases, controls_per_case, total)
-      - questionnaire_xlsform: parsed + mapped XLSForm object (preferred)
+    Questionnaire enhancements:
+    - XLSForm-driven mode (preferred): decisions['questionnaire_xlsform'] produced by parse_xlsform + LLM mapping.
+    - Legacy mode is still supported.
     """
-    rng = np.random.default_rng(random_seed)
+    np.random.seed(random_seed)
 
-    def _age_group(a: Any) -> str:
-        try:
-            a = float(a)
-        except Exception:
-            return "unknown"
-        if a < 5:
-            return "0-4"
-        if a < 10:
-            return "5-9"
-        if a < 15:
-            return "10-14"
-        if a < 25:
-            return "15-24"
-        return "25+"
+    # Ensure reported_to_hospital is available for clinic-control logic
+    individuals_df = ensure_reported_to_hospital(individuals_df, random_seed=random_seed)
 
-    def _derive_reported_to_hospital(df: pd.DataFrame, base_p: float = 0.08) -> pd.Series:
-        """
-        Proxy for whether an individual is captured by the hospital line list.
-        - Much higher for symptomatic AES and severe neuro cases
-        - Slight village gradient
-        - Small background probability for non-cases (other hospital visits)
-        """
-        v_mult = df.get("village_id", "").map({"V1": 1.15, "V2": 1.0, "V3": 0.85}).fillna(1.0)
-        severe = df.get("severe_neuro", False).astype(bool)
-        aes = df.get("symptomatic_AES", False).astype(bool)
-        age = pd.to_numeric(df.get("age", np.nan), errors="coerce").fillna(0)
-
-        p = np.full(len(df), base_p, dtype=float)
-        # AES cases more likely to appear
-        p = p + np.where(aes, 0.45, 0.0)
-        p = p + np.where(severe & aes, 0.35, 0.0)
-        # Children more likely brought in
-        p = p + np.where(aes & (age < 15), 0.08, 0.0)
-        # Village multiplier
-        p = np.clip(p * v_mult.to_numpy(), 0.01, 0.98)
-        return rng.random(len(df)) < p
-
-    def _sample_cases(cases_pool: pd.DataFrame, plan: Dict[str, Any], n_cases: int) -> Tuple[pd.DataFrame, str]:
-        case_source = (plan.get("case_source") or "hospital").lower()
-        case_sampling = (plan.get("case_sampling") or "simple_random").lower()
-
-        pool = cases_pool.copy()
-
-        # Hospital vs active case finding
-        if case_source in {"hospital", "hospital_line_list", "passive"}:
-            if "reported_to_hospital" not in pool.columns:
-                pool["reported_to_hospital"] = _derive_reported_to_hospital(pool, base_p=0.02)
-            pool = pool[pool["reported_to_hospital"] == True].copy()
-            sampled_from = "hospital"
-        else:
-            sampled_from = "active_case_finding"
-
-        if len(pool) == 0:
-            # Fallback: if hospital capture yields nothing, revert to all eligible
-            pool = cases_pool.copy()
-            sampled_from = "active_case_finding_fallback"
-
-        # Sampling style
-        if case_sampling in {"all", "all_eligible", "census"}:
-            out = pool.copy()
-        elif case_sampling in {"consecutive", "consecutive_recent", "recent"}:
-            if "onset_date" in pool.columns:
-                tmp = pool.copy()
-                tmp["_onset_sort"] = pd.to_datetime(tmp["onset_date"], errors="coerce")
-                tmp = tmp.sort_values("_onset_sort", ascending=False)
-                out = tmp.head(n=min(n_cases, len(tmp))).drop(columns=["_onset_sort"])
-            else:
-                out = pool.sample(n=min(n_cases, len(pool)), random_state=random_seed).copy()
-        else:
-            out = pool.sample(n=min(n_cases, len(pool)), random_state=random_seed).copy()
-
-        return out, sampled_from
-
-    def _build_control_pool(individuals: pd.DataFrame,
-                            case_ids: List[str],
-                            plan: Dict[str, Any],
-                            case_def_ids: Optional[set] = None) -> pd.DataFrame:
-        # Controls generally should NOT meet the case definition.
-        # By default we also exclude symptomatic_AES cases entirely.
-        pool = individuals.copy()
-        if case_def_ids is not None:
-            pool = pool[~pool["person_id"].isin(case_def_ids)].copy()
-        else:
-            pool = pool[~pool["person_id"].isin(case_ids)].copy()
-
-        include_symptomatic_noncase = bool(plan.get("include_symptomatic_noncase", False))
-        if not include_symptomatic_noncase and "symptomatic_AES" in pool.columns:
-            pool = pool[pool["symptomatic_AES"] == False].copy()
-
-        return pool
-
-    def _sample_controls_individual_matching(control_pool: pd.DataFrame,
-                                            cases: pd.DataFrame,
-                                            plan: Dict[str, Any],
-                                            n_per_case: int) -> Tuple[pd.DataFrame, str]:
-        control_source = (plan.get("control_source") or "community").lower()
-        match = plan.get("matching", {}) or {}
-        match_village = bool(match.get("match_village", True))
-        match_age_group = bool(match.get("match_age_group", True))
-        match_sex = bool(match.get("match_sex", False))
-
-        # Determine source and potential bias
-        pool = control_pool.copy()
-        sampled_from = "community"
-        if control_source in {"hospital", "facility"}:
-            if "reported_to_hospital" not in pool.columns:
-                pool["reported_to_hospital"] = _derive_reported_to_hospital(pool, base_p=0.07)
-            pool = pool[pool["reported_to_hospital"] == True].copy()
-            sampled_from = "hospital_controls"
-        elif control_source in {"neighborhood", "neighbourhood"}:
-            # Overmatching proxy: prioritize households similar to cases
-            sampled_from = "neighborhood_controls"
-            if "hh_id" in cases.columns and "hh_id" in pool.columns:
-                case_hhs = set(cases["hh_id"].dropna().astype(str).tolist())
-                # Upweight same-household first
-                pool["_w"] = np.where(pool["hh_id"].astype(str).isin(case_hhs), 6.0, 1.0)
-            else:
-                pool["_w"] = 1.0
-        else:
-            pool["_w"] = 1.0
-
-        # Precompute match strata
-        cases = cases.copy()
-        pool = pool.copy()
-        cases["_age_group"] = cases["age"].apply(_age_group) if "age" in cases.columns else "unknown"
-        pool["_age_group"] = pool["age"].apply(_age_group) if "age" in pool.columns else "unknown"
-
-        selected_controls = []
-        used_ids = set()
-
-        for _, c in cases.iterrows():
-            cand = pool[~pool["person_id"].isin(list(used_ids))].copy()
-            level = "strict"
-
-            if match_village and "village_id" in cand.columns:
-                cand = cand[cand["village_id"] == c.get("village_id")]
-
-            if match_age_group and "_age_group" in cand.columns:
-                cand = cand[cand["_age_group"] == c.get("_age_group")]
-
-            if match_sex and "sex" in cand.columns:
-                cand = cand[cand["sex"] == c.get("sex")]
-
-            # Relaxation ladder if empty
-            if len(cand) == 0 and match_sex:
-                level = "relaxed_sex"
-                cand = pool[~pool["person_id"].isin(list(used_ids))].copy()
-                if match_village and "village_id" in cand.columns:
-                    cand = cand[cand["village_id"] == c.get("village_id")]
-                if match_age_group and "_age_group" in cand.columns:
-                    cand = cand[cand["_age_group"] == c.get("_age_group")]
-
-            if len(cand) == 0 and match_age_group:
-                level = "relaxed_age"
-                cand = pool[~pool["person_id"].isin(list(used_ids))].copy()
-                if match_village and "village_id" in cand.columns:
-                    cand = cand[cand["village_id"] == c.get("village_id")]
-
-            if len(cand) == 0 and match_village:
-                level = "relaxed_village"
-                cand = pool[~pool["person_id"].isin(list(used_ids))].copy()
-
-            if len(cand) == 0:
-                break
-
-            # Weighted or uniform selection
-            w = cand.get("_w", pd.Series(np.ones(len(cand))))
-            w = np.asarray(w, dtype=float)
-            if np.any(w < 0) or np.all(w == 0):
-                w = np.ones(len(cand))
-            w = w / w.sum()
-
-            take_n = min(n_per_case, len(cand))
-            chosen_idx = rng.choice(cand.index.to_numpy(), size=take_n, replace=False, p=w)
-            chosen = cand.loc[chosen_idx].copy()
-            chosen["matched_case_id"] = c.get("person_id")
-            chosen["match_level"] = level
-            selected_controls.append(chosen)
-
-            for pid in chosen["person_id"].tolist():
-                used_ids.add(pid)
-
-        if not selected_controls:
-            return pool.head(0).copy(), sampled_from
-
-        controls = pd.concat(selected_controls, ignore_index=True)
-        # Cleanup helper columns
-        for col in ["_w", "_age_group"]:
-            if col in controls.columns:
-                controls = controls.drop(columns=[col], errors="ignore")
-        return controls, sampled_from
-
-    def _sample_controls_frequency_matching(control_pool: pd.DataFrame,
-                                           cases: pd.DataFrame,
-                                           plan: Dict[str, Any],
-                                           n_controls: int) -> Tuple[pd.DataFrame, str]:
-        control_source = (plan.get("control_source") or "community").lower()
-        pool = control_pool.copy()
-        sampled_from = "community"
-
-        if control_source in {"hospital", "facility"}:
-            if "reported_to_hospital" not in pool.columns:
-                pool["reported_to_hospital"] = _derive_reported_to_hospital(pool, base_p=0.07)
-            pool = pool[pool["reported_to_hospital"] == True].copy()
-            sampled_from = "hospital_controls"
-        elif control_source in {"neighborhood", "neighbourhood"}:
-            sampled_from = "neighborhood_controls"
-            if "hh_id" in cases.columns and "hh_id" in pool.columns:
-                case_hhs = set(cases["hh_id"].dropna().astype(str).tolist())
-                pool["_w"] = np.where(pool["hh_id"].astype(str).isin(case_hhs), 6.0, 1.0)
-            else:
-                pool["_w"] = 1.0
-        else:
-            pool["_w"] = 1.0
-
-        cases = cases.copy()
-        cases["_age_group"] = cases["age"].apply(_age_group) if "age" in cases.columns else "unknown"
-        pool["_age_group"] = pool["age"].apply(_age_group) if "age" in pool.columns else "unknown"
-
-        # Target proportions by stratum (village x age_group)
-        strata = cases.groupby(["village_id", "_age_group"], dropna=False).size()
-        if strata.sum() == 0:
-            # fallback simple
-            chosen = pool.sample(n=min(n_controls, len(pool)), random_state=random_seed).copy()
-            chosen["match_level"] = "frequency_none"
-            chosen["matched_case_id"] = None
-            return chosen.drop(columns=["_w", "_age_group"], errors="ignore"), sampled_from
-
-        targets = (strata / strata.sum() * n_controls).round().astype(int).to_dict()
-        chosen_parts = []
-        used = set()
-
-        for (v, ag), tgt in targets.items():
-            if tgt <= 0:
-                continue
-            cand = pool[(pool["village_id"] == v) & (pool["_age_group"] == ag) & (~pool["person_id"].isin(list(used)))]
-            if len(cand) == 0:
-                continue
-            w = np.asarray(cand["_w"], dtype=float)
-            w = w / w.sum()
-            take_n = min(tgt, len(cand))
-            idx = rng.choice(cand.index.to_numpy(), size=take_n, replace=False, p=w)
-            part = cand.loc[idx].copy()
-            part["match_level"] = "frequency"
-            part["matched_case_id"] = None
-            chosen_parts.append(part)
-            used.update(part["person_id"].tolist())
-
-        if chosen_parts:
-            chosen = pd.concat(chosen_parts, ignore_index=True)
-        else:
-            chosen = pool.sample(n=min(n_controls, len(pool)), random_state=random_seed).copy()
-            chosen["match_level"] = "frequency_fallback"
-            chosen["matched_case_id"] = None
-
-        return chosen.drop(columns=["_w", "_age_group"], errors="ignore"), sampled_from
-
-    # ---------------------------------------------------------------------
-    # Core selection logic
-    # ---------------------------------------------------------------------
-    individuals_df = individuals_df.copy()
-    households_df = households_df.copy()
-
-    plan: Dict[str, Any] = decisions.get("sampling_plan", {}) or {}
-
-    # Case pool based on case definition
+    # Determine case pool based on case definition (currently clinical_AES proxy)
     case_criteria = decisions.get("case_definition", {"clinical_AES": True})
     cases_pool = apply_case_definition(individuals_df, case_criteria)
-    case_def_ids = set(cases_pool["person_id"].astype(str).tolist()) if "person_id" in cases_pool.columns else set()
 
     study_design = decisions.get("study_design", {"type": "case_control"})
-    design_type = (study_design.get("type") or "case_control").lower()
+    design_type = study_design.get("type", "case_control")
 
-    # Sample according to design
+    sampling_plan = decisions.get("sampling_plan", {}) or {}
+    nonresponse_rate = float(sampling_plan.get("nonresponse_rate", decisions.get("nonresponse_rate", 0.0) or 0.0))
+    allow_replacement = bool(sampling_plan.get("allow_replacement", sampling_plan.get("replacement", False)))
+
+    sampling_report: Dict[str, Any] = {"design": design_type, "random_seed": random_seed}
+
+    # -------------------------
+    # Select sample according to design
+    # -------------------------
     if design_type == "case_control":
-        n_cases = int(decisions.get("sample_size", {}).get("cases", plan.get("n_cases", 15)))
-        controls_per_case = int(decisions.get("sample_size", {}).get("controls_per_case", study_design.get("controls_per_case", plan.get("controls_per_case", 2))))
-        cases, case_source = _sample_cases(cases_pool, plan, n_cases=n_cases)
+        # Targets
+        n_cases_target = int(decisions.get("sample_size", {}).get("cases", sampling_plan.get("n_cases", 15)))
+        controls_per_case = int(study_design.get("controls_per_case", sampling_plan.get("controls_per_case", 2)))
+        control_target = None  # set after actual case count
 
-        # Build control pool with eligibility constraints
-        control_pool = _build_control_pool(individuals_df, case_ids=cases["person_id"].astype(str).tolist(), plan=plan, case_def_ids=case_def_ids)
+        # Manual selections (preferred when present)
+        selected_case_ids = decisions.get("selected_cases") or decisions.get("selected_case_ids") or []
+        selected_control_ids = decisions.get("selected_controls") or decisions.get("selected_control_ids") or []
 
-        # Eligibility: by villages and age range (defaults to same villages as cases)
-        eligible_villages = plan.get("eligible_villages")
-        if eligible_villages:
-            control_pool = control_pool[control_pool["village_id"].isin(list(eligible_villages))].copy()
+        if selected_case_ids:
+            cases_selected = cases_pool[cases_pool["person_id"].isin(selected_case_ids)].copy()
         else:
-            if "village_id" in cases.columns and "village_id" in control_pool.columns:
-                control_pool = control_pool[control_pool["village_id"].isin(cases["village_id"].unique().tolist())].copy()
+            cases_selected = cases_pool.sample(n=min(n_cases_target, len(cases_pool)), random_state=random_seed).copy()
 
-        # control age range
-        c_age = plan.get("control_age_range")
-        if isinstance(c_age, dict):
-            amin = c_age.get("min", None)
-            amax = c_age.get("max", None)
-            if amin is not None:
-                control_pool = control_pool[control_pool["age"] >= int(amin)]
-            if amax is not None:
-                control_pool = control_pool[control_pool["age"] <= int(amax)]
+        # Determine control eligibility pool based on source
+        control_source = (sampling_plan.get("control_source", "community") or "community")
+        eligible_villages = sampling_plan.get("eligible_villages", None)
+        include_symptomatic_noncase = bool(sampling_plan.get("include_symptomatic_noncase", False))
+        control_age_range = sampling_plan.get("control_age_range", None)
+
+        controls_pool = _eligible_controls_pool(
+            individuals_df=individuals_df,
+            cases_df=cases_selected,
+            households_df=households_df,
+            control_source=control_source,
+            include_symptomatic_noncase=include_symptomatic_noncase,
+            eligible_villages=eligible_villages,
+            control_age_range=control_age_range,
+            random_seed=random_seed,
+        )
+
+        # Compute required number of controls
+        control_target = int(len(cases_selected) * controls_per_case)
+
+        if selected_control_ids:
+            controls_selected = controls_pool[controls_pool["person_id"].isin(selected_control_ids)].copy()
         else:
-            # default: same as case definition bounds if present
-            if "min_age" in case_criteria:
-                control_pool = control_pool[control_pool["age"] >= int(case_criteria["min_age"])]
-            if "max_age" in case_criteria:
-                control_pool = control_pool[control_pool["age"] <= int(case_criteria["max_age"])]
+            # Auto-sample controls from pool (weighted if neighborhood)
+            controls_selected = controls_pool.sample(n=min(control_target, len(controls_pool)), random_state=random_seed).copy()
 
-        matching_type = (plan.get("matching_type") or "individual").lower()
-        if matching_type in {"frequency", "frequency_match"}:
-            total_controls = min(len(control_pool), len(cases) * controls_per_case)
-            controls, control_source = _sample_controls_frequency_matching(control_pool, cases, plan, n_controls=total_controls)
-        else:
-            controls, control_source = _sample_controls_individual_matching(control_pool, cases, plan, n_per_case=controls_per_case)
+        # Add match helpers
+        cases_selected["age_group"] = cases_selected["age"].apply(_age_group)
+        controls_selected["age_group"] = controls_selected["age"].apply(_age_group)
 
-        cases = cases.copy()
-        controls = controls.copy()
+        # Apply nonresponse + replacement separately to cases and controls
+        # Cases: replacements should also be cases (from cases_pool minus selected)
+        cases_final, cases_rep = _apply_nonresponse_and_replacements(
+            selected=cases_selected,
+            pool=cases_pool,
+            target_n=min(n_cases_target, len(cases_pool)) if not selected_case_ids else int(len(cases_selected)),
+            nonresponse_rate=nonresponse_rate,
+            allow_replacement=allow_replacement,
+            match_keys=["village_id", "age_group"],
+            random_seed=random_seed + 1,
+        )
 
-        cases["case_status"] = 1
-        controls["case_status"] = 0
-        cases["sample_role"] = "case"
-        controls["sample_role"] = "control"
-        cases["sampling_source"] = case_source
-        controls["sampling_source"] = control_source
+        # Controls: replacements from controls_pool
+        controls_final, controls_rep = _apply_nonresponse_and_replacements(
+            selected=controls_selected,
+            pool=controls_pool,
+            target_n=control_target if not selected_control_ids else int(len(controls_selected)),
+            nonresponse_rate=nonresponse_rate,
+            allow_replacement=allow_replacement,
+            match_keys=["village_id", "age_group"],
+            random_seed=random_seed + 2,
+        )
 
-        study_df = pd.concat([cases, controls], ignore_index=True)
+        cases_final["case_status"] = 1
+        controls_final["case_status"] = 0
+        cases_final["sample_role"] = "case"
+        controls_final["sample_role"] = "control"
+        controls_final["sampling_source"] = control_source
+        cases_final["sampling_source"] = sampling_plan.get("case_source", "cases_pool")
+
+        study_df = pd.concat([cases_final, controls_final], ignore_index=True)
+
+        sampling_report.update({
+            "case_pool_n": int(len(cases_pool)),
+            "control_pool_n": int(len(controls_pool)),
+            "cases_target": int(n_cases_target),
+            "controls_target": int(control_target),
+            "cases_selected_n": int(len(cases_selected)),
+            "controls_selected_n": int(len(controls_selected)),
+            "cases_after_nonresponse_n": int(len(cases_final)),
+            "controls_after_nonresponse_n": int(len(controls_final)),
+            "cases_nonresponse": cases_rep,
+            "controls_nonresponse": controls_rep,
+        })
 
     elif design_type == "cohort":
-        cohort_plan = decisions.get("cohort_plan", {}) or {}
-        cohort_villages = cohort_plan.get("villages", ["V1", "V2"])
-        age_max = int(cohort_plan.get("age_max", 15))
+        # Placeholder cohort sampling (unchanged) — can be upgraded later to allow manual selection.
         cohort = individuals_df[
-            (individuals_df["age"] <= age_max) &
-            (individuals_df["village_id"].isin(cohort_villages))
+            (individuals_df["age"] <= 15) &
+            (individuals_df["village_id"].isin(["V1", "V2"]))
         ].copy()
-        # Optional: sample size (if they don't census)
-        if cohort_plan.get("sampling") in {"random", "sample"}:
-            n_total = int(cohort_plan.get("total", min(250, len(cohort))))
-            cohort = cohort.sample(n=min(n_total, len(cohort)), random_state=random_seed).copy()
-
         cohort["case_status"] = cohort["symptomatic_AES"].astype(int)
         cohort["sample_role"] = "cohort_member"
-        cohort["sampling_source"] = str(cohort_plan.get("source", "village_cohort"))
-        cohort["matched_case_id"] = None
-        cohort["match_level"] = None
+        cohort["sampling_source"] = "village_cohort"
         study_df = cohort
+        sampling_report.update({"cohort_n": int(len(cohort))})
 
     else:
         sample_size = int(decisions.get("sample_size", {}).get("total", 100))
@@ -1348,10 +1329,11 @@ def generate_study_dataset(individuals_df, households_df, decisions, random_seed
         study_df["case_status"] = study_df["symptomatic_AES"].astype(int)
         study_df["sample_role"] = "sample"
         study_df["sampling_source"] = "simple_random"
-        study_df["matched_case_id"] = None
-        study_df["match_level"] = None
+        sampling_report.update({"sample_n": int(len(study_df))})
 
-    # Add household-level and derived columns
+    # -------------------------
+    # Add household-level and derived columns needed by canonical schema
+    # -------------------------
     hh_lookup = households_df.set_index("hh_id").to_dict("index")
 
     study_df["pigs_near_home"] = study_df["hh_id"].apply(
@@ -1365,24 +1347,28 @@ def generate_study_dataset(individuals_df, households_df, decisions, random_seed
         lambda hh: (hh_lookup.get(hh, {}).get("rice_field_distance_m", 200) or 200) < 100
     )
 
-    # Household source columns needed for canonical schema
     study_df["pigs_owned"] = study_df["hh_id"].apply(lambda hh: hh_lookup.get(hh, {}).get("pigs_owned", np.nan))
     study_df["pig_pen_distance_m"] = study_df["hh_id"].apply(lambda hh: hh_lookup.get(hh, {}).get("pig_pen_distance_m", np.nan))
     study_df["rice_field_distance_m"] = study_df["hh_id"].apply(lambda hh: hh_lookup.get(hh, {}).get("rice_field_distance_m", np.nan))
     study_df["JE_vaccination_children"] = study_df["hh_id"].apply(lambda hh: hh_lookup.get(hh, {}).get("JE_vaccination_children", np.nan))
 
-    # XLSForm-driven mode
+    # -------------------------
+    # XLSForm-driven questionnaire rendering (preferred)
+    # -------------------------
     questionnaire = decisions.get("questionnaire_xlsform")
     if isinstance(questionnaire, dict) and questionnaire.get("questions"):
-        # If unlocked_domains is not set (or blank), do NOT penalize missingness by domain.
-        if decisions.get("unlocked_domains"):
-            unlocked = set(decisions.get("unlocked_domains", []) or [])
-        else:
-            unlocked = {m.get("domain") for m in CANONICAL_SCHEMA.values() if m.get("domain")}
+        # unlocked_domains is no longer used for gating questionnaire elements, but kept for backward compatibility
+        unlocked = set(decisions.get("unlocked_domains", []) or [])
         questionnaire = prepare_question_render_plan(questionnaire)
-        return render_dataset_from_xlsform(study_df, questionnaire, unlocked_domains=unlocked, random_seed=random_seed)
+        df_out = render_dataset_from_xlsform(study_df, questionnaire, unlocked_domains=unlocked, random_seed=random_seed)
 
-    # Legacy mode
+        if decisions.get("return_sampling_report"):
+            return df_out, sampling_report
+        return df_out
+
+    # -------------------------
+    # Legacy questionnaire mode (keyword mapping)
+    # -------------------------
     mapped_cols = decisions.get("mapped_columns", [])
     col_mapping = {
         "age": "age",
@@ -1401,7 +1387,7 @@ def generate_study_dataset(individuals_df, households_df, decisions, random_seed
         "outcome": "outcome",
     }
 
-    base_cols = ["person_id", "hh_id", "village_id", "case_status", "sample_role", "sampling_source", "matched_case_id", "match_level"]
+    base_cols = ["person_id", "hh_id", "village_id", "case_status", "sample_role", "sampling_source"]
     available_cols = base_cols.copy()
 
     for col in mapped_cols:
@@ -1417,8 +1403,10 @@ def generate_study_dataset(individuals_df, households_df, decisions, random_seed
     available_cols = list(dict.fromkeys([c for c in available_cols if c in study_df.columns]))
     final_df = study_df[available_cols].copy()
     final_df = inject_data_noise(final_df)
-    return final_df
 
+    if decisions.get("return_sampling_report"):
+        return final_df, sampling_report
+    return final_df
 
 def inject_data_noise(df, missing_rate=0.08, error_rate=0.02, random_seed=42):
     """
@@ -2066,267 +2054,566 @@ def _sample_date(start_ymd: str, end_ymd: str) -> str:
 # LABORATORY SIMULATION
 # ============================================================================
 
+
 LAB_TESTS = {
-    "JE_IgM_CSF": {"sensitivity": 0.85, "specificity": 0.98, "cost": 2, "days": 3},
-    "JE_IgM_serum": {"sensitivity": 0.80, "specificity": 0.95, "cost": 1, "days": 3},
-    "JE_PCR_CSF": {"sensitivity": 0.40, "specificity": 0.99, "cost": 3, "days": 4},
-    "JE_PCR_mosquito": {"sensitivity": 0.95, "specificity": 0.98, "cost": 2, "days": 5},
-    "JE_IgG_pig": {"sensitivity": 0.90, "specificity": 0.95, "cost": 1, "days": 4},
-    "bacterial_culture": {"sensitivity": 0.70, "specificity": 0.99, "cost": 1, "days": 3},
-    "water_quality": {"sensitivity": 0.95, "specificity": 0.90, "cost": 1, "days": 2}
+    # Human
+    "JE_IgM_CSF": {"sensitivity": 0.85, "specificity": 0.98, "cost": 2, "days": 3, "inconclusive_rate": 0.06},
+    "JE_IgM_serum": {"sensitivity": 0.80, "specificity": 0.95, "cost": 1, "days": 3, "inconclusive_rate": 0.08},
+    "JE_PCR_CSF": {"sensitivity": 0.40, "specificity": 0.99, "cost": 3, "days": 4, "inconclusive_rate": 0.10},
+
+    # Vector / animal
+    "JE_PCR_mosquito": {"sensitivity": 0.95, "specificity": 0.98, "cost": 2, "days": 5, "inconclusive_rate": 0.12},
+    "JE_IgG_pig": {"sensitivity": 0.90, "specificity": 0.95, "cost": 1, "days": 4, "inconclusive_rate": 0.08},
+
+    # Aliases (UI-friendly labels that map to canonical tests)
+    "JE_Ab_pig": {"alias_for": "JE_IgG_pig"},
+    "JE_PCR_mosquito_pool": {"alias_for": "JE_PCR_mosquito"},
+
+    # Differential / environmental
+    "bacterial_culture": {"sensitivity": 0.70, "specificity": 0.99, "cost": 1, "days": 3, "inconclusive_rate": 0.10},
+    "water_quality": {"sensitivity": 0.95, "specificity": 0.90, "cost": 1, "days": 2, "inconclusive_rate": 0.08},
 }
 
+def _resolve_lab_test(test_name: str) -> Tuple[str, Dict[str, Any]]:
+    """Return (canonical_test_name, params) resolving aliases."""
+    if not test_name:
+        return test_name, {}
+    params = LAB_TESTS.get(test_name, {}) or {}
+    if isinstance(params, dict) and params.get("alias_for"):
+        canonical = str(params["alias_for"])
+        return canonical, (LAB_TESTS.get(canonical, {}) or {})
+    return test_name, params
 
 def process_lab_order(order, lab_samples_truth, random_seed=None):
+    """Create a lab order record with realistic delay + imperfect tests.
+
+    This function is intentionally **non-interactive**:
+    - It computes the hidden final result immediately (using truth + Se/Sp + an inconclusive rate),
+      but returns it as **PENDING** until the simulated day reaches ready_day.
+    - This allows the UI to show a queue of pending tests without re-calling the LLM or
+      doing per-row generation.
+
+    Expected order keys (extras are ignored):
+        sample_type: str (e.g., 'human_CSF')
+        village_id: str (e.g., 'V1')
+        test: str (e.g., 'JE_IgM_CSF' or alias like 'JE_Ab_pig')
+        source_description: str
+        placed_day: int (optional; default 1)
+        queue_delay_days: int (optional; default 0; used to model backlog)
     """
-    Process a lab order and return results based on truth + test performance.
-    
-    order = {
-        "sample_type": "human_CSF",
-        "village_id": "V1",
-        "test": "JE_IgM_CSF",
-        "source_description": "Case DH-01"
-    }
-    """
-    if random_seed:
-        np.random.seed(random_seed)
-    
-    test_params = LAB_TESTS.get(order["test"], {"sensitivity": 0.80, "specificity": 0.95})
-    
-    # Find matching truth
+    if random_seed is not None:
+        np.random.seed(int(random_seed))
+
+    placed_day = int(order.get("placed_day", 1) or 1)
+    queue_delay = int(order.get("queue_delay_days", 0) or 0)
+
+    canonical_test, test_params = _resolve_lab_test(order.get("test", ""))
+    if not test_params:
+        test_params = {"sensitivity": 0.80, "specificity": 0.95, "cost": 1, "days": 3, "inconclusive_rate": 0.10}
+
+    # Truth linkage (village + sample type)
     matching = lab_samples_truth[
-        (lab_samples_truth["sample_type"] == order["sample_type"]) &
-        (lab_samples_truth["linked_village_id"] == order["village_id"])
+        (lab_samples_truth["sample_type"] == order.get("sample_type")) &
+        (lab_samples_truth["linked_village_id"] == order.get("village_id"))
     ]
-    
+
     if len(matching) > 0:
-        true_positive = matching.iloc[0]["true_JEV_positive"]
+        true_positive = bool(matching.iloc[0]["true_JEV_positive"])
     else:
-        # Default based on sample type and village
-        if order["village_id"] in ["V1", "V2"]:
-            true_positive = order["sample_type"] in ["human_CSF", "human_serum", "pig_serum", "mosquito_pool"]
+        # Default based on sample type + village
+        if order.get("village_id") in ["V1", "V2"]:
+            true_positive = order.get("sample_type") in ["human_CSF", "human_serum", "pig_serum", "mosquito_pool"]
         else:
             true_positive = False
-    
+
     # Apply test performance
+    sens = float(test_params.get("sensitivity", 0.80))
+    spec = float(test_params.get("specificity", 0.95))
     if true_positive:
-        result_positive = np.random.random() < test_params["sensitivity"]
+        result_positive = np.random.random() < sens
     else:
-        result_positive = np.random.random() > test_params["specificity"]
-    
+        result_positive = np.random.random() > spec
+
+    base_result = "POSITIVE" if result_positive else "NEGATIVE"
+
+    # Inconclusive rate (worse for mosquitoes / degraded samples)
+    inconc = float(test_params.get("inconclusive_rate", 0.10))
+    if str(order.get("sample_type", "")).lower() in {"mosquito_pool", "pig_serum"}:
+        inconc = min(0.25, inconc + 0.05)
+    if np.random.random() < inconc:
+        final_result = "INCONCLUSIVE"
+    else:
+        final_result = base_result
+
+    days_to_result = int(test_params.get("days", 3) or 3)
+    # Inclusive day counting: a 3-day test ordered on Day 2 returns on Day 4 (2 + 3 - 1)
+    ready_day = placed_day + max(days_to_result - 1, 0) + queue_delay
+
     return {
         "sample_id": f"LAB-{np.random.randint(1000, 9999)}",
-        "sample_type": order["sample_type"],
-        "village_id": order["village_id"],
-        "test": order["test"],
-        "result": "POSITIVE" if result_positive else "NEGATIVE",
-        "true_status": true_positive,  # Hidden from trainee
-        "cost": test_params["cost"],
-        "days_to_result": test_params["days"]
+        "sample_type": order.get("sample_type"),
+        "village_id": order.get("village_id"),
+        "test": canonical_test,
+        "test_requested": order.get("test"),
+        "source_description": order.get("source_description", "Unspecified source"),
+        "placed_day": placed_day,
+        "ready_day": int(ready_day),
+        "result": "PENDING",
+        "final_result_hidden": final_result,   # not shown until ready_day
+        "true_status_hidden": bool(true_positive),  # not shown to trainees
+        "cost": int(test_params.get("cost", 1) or 1),
+        "days_to_result": days_to_result,
+        "queue_delay_days": queue_delay,
     }
-
-
 # ============================================================================
 # CONSEQUENCE ENGINE
 # ============================================================================
 
+
 def evaluate_interventions(decisions, interview_history):
+    """Consequence engine with legible 'because' links and light counterfactuals.
+
+    Backwards compatible with the earlier signature, but can consume additional
+    context if provided inside `decisions`:
+
+        decisions['_decision_log']           -> list of decision events
+        decisions['_lab_orders']             -> list of lab order records (pending/final)
+        decisions['_environment_findings']   -> list of environmental inspections/findings
+
+    Returns:
+        {status, narrative, score, max_score, new_cases, outcomes, because, counterfactuals}
     """
-    Calculate outbreak consequences based on trainee decisions.
-    
-    Returns outcome category and narrative.
-    """
+    decision_log = decisions.get("_decision_log", []) or []
+    lab_orders = decisions.get("_lab_orders", decisions.get("lab_orders", [])) or []
+    env_findings = decisions.get("_environment_findings", []) or []
+
+    # Helper: first day a named event occurred
+    def first_day(event_type: str) -> Optional[int]:
+        for ev in decision_log:
+            if ev.get("type") == event_type and ev.get("day") is not None:
+                try:
+                    return int(ev["day"])
+                except Exception:
+                    return None
+        return None
+
+    # Helper: check if any event contains keyword
+    def any_note_contains(kw: str) -> bool:
+        kw = kw.lower()
+        for ev in decision_log:
+            txt = json.dumps(ev, default=str).lower()
+            if kw in txt:
+                return True
+        return False
+
     score = 0
     outcomes = []
-    
+    because = []
+    counterfactuals = []
+
+    # -------------------------
     # Diagnosis
-    diagnosis = decisions.get("final_diagnosis", "")
-    if "japanese encephalitis" in diagnosis.lower() or "je" in diagnosis.lower():
-        score += 20
+    # -------------------------
+    diagnosis = (decisions.get("final_diagnosis") or "").strip()
+    if "japanese encephalitis" in diagnosis.lower() or re.fullmatch(r"je", diagnosis.lower() or ""):
+        score += 25
         outcomes.append("✅ Correct diagnosis: Japanese Encephalitis")
-    else:
+    elif diagnosis:
         score -= 10
         outcomes.append(f"❌ Incorrect diagnosis: {diagnosis}")
-    
-    # One Health approach
-    if "vet_amina" in interview_history:
-        score += 15
-        outcomes.append("✅ Consulted veterinary officer (One Health)")
+        counterfactuals.append("If JE had been suspected earlier, you could have prioritized vector/animal sampling and vaccination messaging sooner.")
     else:
         score -= 5
-        outcomes.append("⚠️ Did not consult veterinary officer")
-    
-    if "mr_osei" in interview_history:
+        outcomes.append("⚠️ No final diagnosis recorded")
+
+    # -------------------------
+    # One Health engagement (via interviews and/or field findings)
+    # -------------------------
+    if "vet_amina" in (interview_history or {}):
         score += 10
-        outcomes.append("✅ Environmental assessment completed")
+        outcomes.append("✅ Consulted veterinary officer (One Health)")
+        because.append("Because you brought in the veterinary officer, your team considered pig/vector links earlier.")
     else:
-        outcomes.append("⚠️ Environmental factors not fully assessed")
-    
-    # Lab strategy
-    lab_orders = decisions.get("lab_orders", [])
-    sample_types = [o.get("sample_type", "") for o in lab_orders]
-    
+        outcomes.append("⚠️ Veterinary perspective not documented")
+
+    if "mr_osei" in (interview_history or {}):
+        score += 6
+        outcomes.append("✅ Environmental assessment consulted")
+    if env_findings:
+        score += 4
+        outcomes.append("✅ Completed at least one environmental site inspection")
+
+    # -------------------------
+    # Questionnaire: mapping coverage + signal content
+    # -------------------------
+    q = decisions.get("questionnaire_xlsform") or {}
+    mapped_vars = []
+    unmapped_n = 0
+    if isinstance(q, dict):
+        for qq in (q.get("questions") or []):
+            mv = (qq.get("render") or {}).get("mapped_var") or qq.get("mapped_var")
+            if mv and mv not in {"unmapped", ""}:
+                mapped_vars.append(str(mv))
+            else:
+                unmapped_n += 1
+
+    # Reward: key domains present (regardless of variable names)
+    key_markers = ["pigs_owned", "pigs_near_home", "uses_mosquito_nets", "evening_outdoor_exposure", "JE_vaccinated", "rice_field_nearby"]
+    key_hits = len({k for k in key_markers if k in set(mapped_vars)})
+    if key_hits >= 4:
+        score += 15
+        outcomes.append("✅ Questionnaire captured key risk-factor domains")
+    elif key_hits >= 2:
+        score += 8
+        outcomes.append("⚡ Questionnaire captured some key domains")
+    else:
+        score -= 5
+        outcomes.append("❌ Questionnaire missed multiple key risk-factor domains")
+
+    if unmapped_n > 0:
+        outcomes.append(f"ℹ️ {unmapped_n} unmapped question(s) were synthesized with the scenario generator")
+        score += 2
+
+    q_day = first_day("questionnaire_submitted")
+    if q_day is not None and q_day <= 2:
+        score += 4
+        because.append(f"Because you finalized the questionnaire on Day {q_day}, you had time to collect/clean data before analysis.")
+    elif q_day is not None:
+        score += 1
+
+    # -------------------------
+    # Lab & environment realism: timing + breadth + backlog consequences
+    # -------------------------
+    def _ready_by_day5(o: Dict[str, Any]) -> bool:
+        try:
+            return int(o.get("ready_day", 99)) <= 5
+        except Exception:
+            return False
+
+    # breadth
+    sample_types = [str(o.get("sample_type", "")) for o in lab_orders]
     has_human = any("human" in s for s in sample_types)
     has_pig = any("pig" in s for s in sample_types)
     has_mosquito = any("mosquito" in s for s in sample_types)
-    
+
     if has_human and has_pig and has_mosquito:
-        score += 20
+        score += 15
         outcomes.append("✅ Comprehensive sampling (human + animal + vector)")
     elif has_human and (has_pig or has_mosquito):
-        score += 10
+        score += 8
         outcomes.append("⚡ Partial One Health sampling")
     elif has_human:
-        score += 5
-        outcomes.append("⚠️ Human samples only - missed animal/vector evidence")
-    
-    # Questionnaire quality
-    questionnaire_vars = decisions.get("mapped_columns", [])
-    good_vars = ["pig", "mosquito", "net", "vaccin", "evening", "outdoor", "dusk"]
-    
-    matches = sum(1 for v in questionnaire_vars for g in good_vars if g in v.lower())
-    
-    if matches >= 5:
-        score += 15
-        outcomes.append("✅ Excellent questionnaire design")
-    elif matches >= 3:
-        score += 8
-        outcomes.append("⚡ Adequate questionnaire")
+        score += 3
+        outcomes.append("⚠️ Human samples only")
+    elif lab_orders:
+        score += 1
+        outcomes.append("⚠️ Non-human samples only")
     else:
-        score -= 5
-        outcomes.append("❌ Poor questionnaire - missed key risk factors")
-    
-    # Recommendations
-    recommendations = ' '.join(decisions.get("recommendations", [])).lower()
-    
+        outcomes.append("⚠️ No lab orders placed")
+
+    # timing: reward early orders that return by Day 5
+    if lab_orders:
+        early = [o for o in lab_orders if int(o.get("placed_day", 9)) <= 2]
+        ready = [o for o in lab_orders if _ready_by_day5(o)]
+        if early and ready:
+            score += 6
+            because.append("Because you placed key lab orders early, at least some results returned within the exercise timeframe.")
+        elif early:
+            score += 3
+        else:
+            outcomes.append("⚠️ Lab ordering started late (turnaround limited what you learned in time)")
+            counterfactuals.append("If samples had been sent earlier, you would have had confirmatory evidence before final recommendations.")
+
+        # backlog penalty if queue_delay used
+        if any(int(o.get("queue_delay_days", 0) or 0) > 0 for o in lab_orders):
+            score -= 2
+            outcomes.append("⚠️ Lab backlog delayed some results (resource/throughput realism)")
+
+    # -------------------------
+    # Analysis completion (Day 3)
+    # -------------------------
+    analysis_day = first_day("analysis_confirmed")
+    if analysis_day is not None:
+        score += 4
+        because.append(f"Because you completed analysis on Day {analysis_day}, you could justify interventions with data rather than hunches.")
+    else:
+        outcomes.append("⚠️ Analysis completion not documented")
+
+    # -------------------------
+    # Recommendations: content + timing
+    # -------------------------
+    recommendations_text = " ".join(decisions.get("recommendations", []) or []).lower()
+
     rec_scores = {
-        "vaccination": any(w in recommendations for w in ["vaccin", "immuniz"]),
-        "vector_control": any(w in recommendations for w in ["bed net", "bednet", "mosquito net", "larvicid", "spray"]),
-        "pig_management": any(w in recommendations for w in ["pig", "relocat", "pen"]),
-        "surveillance": any(w in recommendations for w in ["surveill", "monitor"]),
-        "education": any(w in recommendations for w in ["educat", "awareness"])
+        "vaccination": any(w in recommendations_text for w in ["vaccin", "immuniz"]),
+        "vector_control": any(w in recommendations_text for w in ["bed net", "bednet", "mosquito net", "larvicid", "spray", "vector"]),
+        "pig_management": any(w in recommendations_text for w in ["pig", "relocat", "pen", "sty"]),
+        "surveillance": any(w in recommendations_text for w in ["surveill", "monitor", "reporting"]),
+        "education": any(w in recommendations_text for w in ["educat", "awareness", "risk communication"]),
     }
-    
     recs_count = sum(rec_scores.values())
-    
     if recs_count >= 4:
-        score += 20
+        score += 18
         outcomes.append("✅ Comprehensive intervention package")
     elif recs_count >= 2:
         score += 10
         outcomes.append("⚡ Partial interventions recommended")
-    else:
-        score -= 10
+    elif recommendations_text:
+        score -= 8
         outcomes.append("❌ Weak interventions")
-    
-    # Penalize wrong approaches
-    if any(w in recommendations for w in ["water", "chlorin", "borehole"]):
+    else:
         score -= 5
-        outcomes.append("❌ Water interventions are not relevant to JE")
-    
-    if any(w in recommendations for w in ["close school", "close market"]):
-        score -= 3
-        outcomes.append("⚠️ Closures not evidence-based for vector-borne disease")
-    
-    # Determine outcome category
-    if score >= 70:
-        status = "SUCCESS"
-        narrative = """**OUTBREAK CONTROLLED**
+        outcomes.append("⚠️ No recommendations recorded")
 
-Your evidence-based recommendations were implemented:
-- Emergency JE vaccination campaign reached 2,500 children
-- Bed nets distributed to high-risk households  
-- Pig cooperative relocated 50m from school
-- Mosquito breeding sites treated
+    # Timing of final briefing
+    rec_day = first_day("recommendations_submitted") or 5
 
-**Result:** New cases dropped to zero within 2 weeks.
-The District Director praised your team's One Health approach."""
+    if rec_scores["vaccination"] and rec_day <= 4:
+        score += 4
+    if rec_scores["vaccination"] and rec_day == 5:
+        counterfactuals.append("If vaccination messaging and microplanning had started by Day 3–4, fewer children would have been exposed before control measures scaled up.")
+
+    # Penalize irrelevant approaches
+    if any(w in recommendations_text for w in ["chlorin", "borehole", "water treatment"]):
+        score -= 4
+        outcomes.append("⚠️ Water interventions are unlikely to address JE transmission")
+    if any(w in recommendations_text for w in ["close school", "close market"]):
+        score -= 2
+        outcomes.append("⚠️ Closures are not strongly evidence-based for this vector-borne scenario")
+
+    # -------------------------
+    # Convert score → projected new cases (simple outcome model)
+    # -------------------------
+    base_new_cases = 10
+    effect = 0.0
+
+    # Interventions reduce onward risk; earlier action is stronger
+    if rec_scores["vaccination"]:
+        effect += 0.45 if rec_day <= 4 else 0.25
+    if rec_scores["vector_control"]:
+        effect += 0.30 if rec_day <= 4 else 0.18
+    if rec_scores["pig_management"]:
+        effect += 0.15 if rec_day <= 4 else 0.10
+
+    # Evidence strength boosts effectiveness (better targeting/credibility)
+    if key_hits >= 4:
+        effect += 0.05
+    if has_human and (has_mosquito or has_pig) and any(_ready_by_day5(o) for o in lab_orders):
+        effect += 0.05
+    if analysis_day is not None:
+        effect += 0.03
+
+    effect = min(max(effect, 0.0), 0.85)
+    new_cases = int(round(base_new_cases * (1.0 - effect)))
+    if new_cases < 0:
         new_cases = 0
-        
-    elif score >= 40:
+
+    # -------------------------
+    # Status + narrative (legible)
+    # -------------------------
+    if score >= 70 and new_cases <= 1:
+        status = "SUCCESS"
+        headline = "**OUTBREAK CONTROLLED**"
+    elif score >= 45 and new_cases <= 4:
         status = "PARTIAL SUCCESS"
-        narrative = """**OUTBREAK PARTIALLY CONTROLLED**
-
-Some recommendations were implemented, but gaps remained:
-- Vaccination campaign was delayed
-- Vector control was incomplete
-- Not all risk factors addressed
-
-**Result:** Cases continued for another week before declining.
-Two additional children were hospitalized but survived."""
-        new_cases = 2
-        
+        headline = "**OUTBREAK PARTIALLY CONTROLLED**"
     else:
         status = "OUTBREAK CONTINUES"
-        narrative = """**OUTBREAK NOT CONTROLLED**
+        headline = "**OUTBREAK CONTINUES**"
 
-Your recommendations missed key interventions:
-- No vaccination campaign initiated
-- Pig cooperative unchanged  
-- Mosquito breeding sites remain
+    # Curate because statements (max 5)
+    because = because[:5]
 
-**Result:** Cases spread to Tamu village.
-Three more children died. Regional investigation launched.
-Mayor blamed the investigation team for "incomplete response"."""
-        new_cases = 8
-    
+    # Curate counterfactuals (max 3)
+    counterfactuals = counterfactuals[:3]
+
+    narrative_lines = [
+        headline,
+        "",
+        "What happened next (simulation):",
+        f"- **Projected new cases (next 2 weeks): {new_cases}**",
+        "",
+        "Key evidence-to-action links:",
+    ]
+    if because:
+        narrative_lines += [f"- {b}" for b in because]
+    else:
+        narrative_lines.append("- (No decision links recorded; add decision logging to strengthen this view.)")
+
+    if counterfactuals:
+        narrative_lines += ["", "Brief counterfactuals (for learning):"] + [f"- {c}" for c in counterfactuals]
+
+    narrative = "\n".join(narrative_lines)
+
     return {
         "status": status,
         "narrative": narrative,
-        "score": score,
+        "score": int(score),
         "max_score": 100,
-        "new_cases": new_cases,
-        "outcomes": outcomes
+        "new_cases": int(new_cases),
+        "outcomes": outcomes,
+        "because": because,
+        "counterfactuals": counterfactuals,
     }
-
-
 # ============================================================================
 # DAY PREREQUISITES
 # ============================================================================
 
+
+# ============================================================================
+# PEDAGOGICAL CONTRACT (Phase 1)
+# ============================================================================
+
+DAY_SPECS: Dict[int, Dict[str, Any]] = {
+    1: {
+        "required_outputs": [
+            "Working case definition saved",
+            "At least one hypothesis documented",
+            "At least 2 hypothesis-generating interviews completed",
+        ],
+        "optional_actions": [
+            "Review clinic records for additional cases",
+            "Describe cases by person/place/time",
+        ],
+        "good_enough": [
+            "Case definition includes clinical + person + place + time elements (draft is fine)",
+            "At least 1 plausible hypothesis stated (can be wrong)",
+            "Interviews show purposeful questioning (not just 'tell me everything')",
+        ],
+        "if_missing": [
+            "You cannot advance: downstream steps depend on a case definition and an initial hypothesis.",
+        ],
+    },
+    2: {
+        "required_outputs": [
+            "Study design selected (case-control or cohort) with a sampling plan",
+            "Questionnaire (XLSForm) uploaded and processed",
+            "Simulated dataset generated and exported for analysis",
+        ],
+        "optional_actions": [
+            "Document data dictionary / variable list",
+            "Note anticipated biases and how you will minimize them",
+        ],
+        "good_enough": [
+            "Study design matches your hypothesis (even if imperfect)",
+            "Questionnaire includes core exposure domains (animals, vector, vaccination, environment)",
+            "Dataset exports successfully and has usable columns",
+        ],
+        "if_missing": [
+            "You cannot advance: Day 3 assumes you have a dataset to analyze.",
+        ],
+    },
+    3: {
+        "required_outputs": [
+            "Analysis completed outside the simulation and confirmed in-app",
+            "Key results summarized (at least 2–3 sentences or bullets)",
+        ],
+        "optional_actions": [
+            "Upload analysis outputs (optional)",
+            "Record key limitations",
+        ],
+        "good_enough": [
+            "You can state the main exposure(s) associated with being a case (direction + rough magnitude)",
+        ],
+        "if_missing": [
+            "You cannot advance: Day 4 decisions should be guided by your analysis.",
+        ],
+    },
+    4: {
+        "required_outputs": [
+            "At least one lab order placed (with awareness of turnaround time)",
+            "At least one environmental action recorded (inspection or vector-related evidence)",
+            "Draft intervention ideas recorded (can be preliminary)",
+        ],
+        "optional_actions": [
+            "Order additional tests to rule out differential diagnoses",
+            "Re-check case definition and line list for missed cases",
+        ],
+        "good_enough": [
+            "You can explain what each sample/test is meant to confirm or rule out",
+            "You can articulate a coherent 'triangulation' story (epi + lab/env)",
+        ],
+        "if_missing": [
+            "You cannot advance: Day 5 briefing requires some evidence trail and a draft plan.",
+        ],
+    },
+    5: {
+        "required_outputs": [
+            "Final diagnosis stated",
+            "Recommendations submitted to MOH director",
+        ],
+        "optional_actions": [
+            "Risk communication plan",
+            "Surveillance strengthening plan",
+        ],
+        "good_enough": [
+            "Recommendations are feasible and aligned to the transmission route",
+        ],
+        "if_missing": [
+            "End-of-exercise outcome may be indeterminate.",
+        ],
+    },
+}
+
+def get_day_spec(day: int) -> Dict[str, Any]:
+    return DAY_SPECS.get(int(day), {})
+
+# ============================================================================
+# DAY PREREQUISITES (gates Day advancement)
+# ============================================================================
+
 def check_day_prerequisites(current_day, session_state):
+    """Check if prerequisites are met to advance to the next day.
+
+    Returns:
+        (can_advance: bool, missing: list[str])
     """
-    Check if prerequisites are met to advance to next day.
-    Returns (can_advance: bool, missing: list of strings)
-    
-    session_state can be either a dict or streamlit session_state object
-    """
-    missing = []
-    
-    # Helper to safely get values from either dict or session_state
+    missing: List[str] = []
+
+    # Helper to safely get values from either dict or streamlit session_state
     def get_val(key, default=None):
         if hasattr(session_state, 'get'):
             return session_state.get(key, default)
-        else:
-            return getattr(session_state, key, default)
-    
-    if current_day == 1:
-        # Day 1 → Day 2: Need case definition + hypotheses + at least 2 interviews
+        return getattr(session_state, key, default)
+
+    day = int(current_day)
+
+    # Common references
+    decisions = get_val("decisions", {}) or {}
+
+    if day == 1:
         if not get_val("case_definition_written", False):
-            missing.append("Write a case definition")
+            missing.append("Save a working case definition (Overview).")
         if not get_val("hypotheses_documented", False):
-            missing.append("Document initial hypotheses")
-        interview_history = get_val("interview_history", {})
+            missing.append("Document at least one hypothesis (Overview).")
+        interview_history = get_val("interview_history", {}) or {}
         if len(interview_history) < 2:
-            missing.append("Complete at least 2 interviews")
-    
-    elif current_day == 2:
-        # Day 2 → Day 3: Need study design + questionnaire
-        decisions = get_val("decisions", {})
+            missing.append("Complete at least 2 hypothesis-generating interviews (Interviews).")
+
+    elif day == 2:
         if not decisions.get("study_design"):
-            missing.append("Choose a study design")
+            missing.append("Select a study design (Data & Study Design).")
         if not get_val("questionnaire_submitted", False):
-            missing.append("Submit questionnaire")
-    
-    elif current_day == 3:
-        # Day 3 → Day 4: Need to complete analysis
-        if not get_val("descriptive_analysis_done", False):
-            missing.append("Complete descriptive analysis")
-    
-    elif current_day == 4:
-        # Day 4 → Day 5: Need lab samples
-        lab_samples = get_val("lab_samples_submitted", [])
-        if len(lab_samples) < 1:
-            missing.append("Submit at least one lab sample")
-    
-    return len(missing) == 0, missing
+            missing.append("Upload and save your questionnaire (XLSForm) (Data & Study Design).")
+        if get_val("generated_dataset", None) is None:
+            missing.append("Generate your simulated dataset for analysis (Data & Study Design).")
+
+    elif day == 3:
+        if not get_val("analysis_confirmed", False):
+            missing.append("Confirm you completed analysis and summarize key results (Overview / Day 3).")
+
+    elif day == 4:
+        # Require at least one lab order (can be pending)
+        lab_orders = get_val("lab_orders", []) or []
+        if len(lab_orders) < 1:
+            missing.append("Place at least one lab order (Lab & Environment).")
+
+        env_findings = get_val("environment_findings", []) or []
+        if len(env_findings) < 1:
+            missing.append("Record at least one environmental action (Lab & Environment).")
+
+        draft = decisions.get("draft_interventions") or []
+        if not draft:
+            missing.append("Record draft interventions (Outcome tab, draft section).")
+
+    return (len(missing) == 0), missing

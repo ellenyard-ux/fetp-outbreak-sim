@@ -6,42 +6,23 @@ import plotly.graph_objects as go
 import plotly.express as px
 import io
 
-# --- Minimal session-state bootstrap (prevents first-load AttributeErrors) ---
-st.session_state.setdefault('decisions', {})
-st.session_state.setdefault('decision_log', [])
-st.session_state.setdefault('day', 1)
-st.session_state.setdefault('language', 'en')
+from je_logic import (
+    load_truth_data,
+    generate_full_population,
+    apply_case_definition,
+    ensure_reported_to_hospital,
+    generate_study_dataset,
+    process_lab_order,
+    evaluate_interventions,
+    check_day_prerequisites,
+    # XLSForm pipeline
+    parse_xlsform,
+    llm_map_xlsform_questions,
+    llm_build_select_one_choice_maps,
+    llm_build_unmapped_answer_generators,
+    prepare_question_render_plan,
+)
 
-
-try:
-    from je_logic import (
-        load_truth_data,
-        generate_full_population,
-        generate_study_dataset,
-        process_lab_order,
-        evaluate_interventions,
-        check_day_prerequisites,
-        parse_xlsform,
-        llm_map_xlsform_questions,
-        llm_build_select_one_choice_maps,
-        llm_build_unmapped_answer_generators,
-        prepare_question_render_plan,
-    )
-except Exception:
-    # Fallback to legacy logic (no XLSForm support)
-    from je_logic import (
-        load_truth_data,
-        generate_full_population,
-        generate_study_dataset,
-        process_lab_order,
-        evaluate_interventions,
-        check_day_prerequisites,
-    )
-    parse_xlsform = None
-    llm_map_xlsform_questions = None
-    llm_build_select_one_choice_maps = None
-    llm_build_unmapped_answer_generators = None
-    prepare_question_render_plan = None
 # =========================
 # TRANSLATION SYSTEM
 # =========================
@@ -2509,238 +2490,329 @@ def view_descriptive_epi():
         """)
 
 
+
 def view_study_design():
     st.header("📊 Data & Study Design")
 
-    # Case definition
-    st.markdown("### Step 1: Case Definition")
-    text = st.text_area(
-        "Write your working case definition:",
-        value=st.session_state.decisions.get("case_definition_text", ""),
-        height=120,
-    )
-    if st.button("Save Case Definition"):
-        st.session_state.decisions["case_definition_text"] = text
-        st.session_state.decisions["case_definition"] = {"clinical_AES": True}
-        st.session_state.case_definition_written = True
-        st.success("Case definition saved.")
+    truth = st.session_state.truth
+    individuals = truth["individuals"]
+    households = truth["households"]
 
-    # Study design
-        st.markdown("### Step 2: Study Design")
-        sd_type = st.radio("Choose a study design:", ["Case-control", "Retrospective cohort"])
+    # Gate: don't let Day 2 artifacts be first interaction
+    prereq_ok = bool(st.session_state.get("case_definition_written")) and bool(st.session_state.get("hypotheses_documented"))
+    if not prereq_ok:
+        st.info("Complete **Day 1** on the **Overview / Briefing** screen first (case definition + at least 1 hypothesis). Then return here for sampling and questionnaire upload.")
 
-        truth = st.session_state.get("truth", {}) or {}
-        villages_df = truth.get("villages", None)
-        village_options = []
-        if villages_df is not None and hasattr(villages_df, "__len__") and len(villages_df) > 0:
-            village_options = villages_df["village_id"].astype(str).tolist()
+    # -------------------------
+    # Step 1: Case definition (read-only here; authored on Overview)
+    # -------------------------
+    st.markdown("### Step 1: Case Definition (from Day 1)")
+    cd_text = st.session_state.decisions.get("case_definition_text", "").strip()
+    if cd_text:
+        st.text_area("Working case definition:", value=cd_text, height=120, disabled=True)
+    else:
+        st.warning("No case definition saved yet. Go to **Overview / Briefing** (Day 1) and save one.")
 
-        if sd_type == "Case-control":
-            # Save study design
-            st.session_state.decisions["study_design"] = {"type": "case_control"}
+    # -------------------------
+    # Step 2: Study design
+    # -------------------------
+    st.markdown("### Step 2: Study Design")
+    sd_type = st.radio("Choose a study design:", ["Case-control", "Retrospective cohort"], horizontal=True)
 
-            with st.expander("Step 2b: Sampling plan (case-control)", expanded=True):
-                col1, col2 = st.columns(2)
-                with col1:
-                    n_cases = st.number_input("Target number of cases to enroll", min_value=5, max_value=200, value=int(st.session_state.decisions.get("sample_size", {}).get("cases", 15)), step=1)
-                with col2:
-                    controls_per_case = st.number_input("Controls per case", min_value=1, max_value=5, value=int(st.session_state.decisions.get("sample_size", {}).get("controls_per_case", 2)), step=1)
+    if sd_type == "Case-control":
+        st.session_state.decisions["study_design"] = {"type": "case_control"}
+    else:
+        st.session_state.decisions["study_design"] = {"type": "cohort"}
 
-                col3, col4 = st.columns(2)
-                with col3:
-                    case_source = st.selectbox(
-                        "Case source",
-                        ["Hospital line list (passive surveillance)", "Active case finding (community)"],
-                        index=0 if (st.session_state.decisions.get("sampling_plan", {}).get("case_source", "hospital") in {"hospital", "hospital_line_list", "passive"}) else 1,
-                    )
-                with col4:
-                    case_sampling = st.selectbox(
-                        "Case sampling approach",
-                        ["Simple random sample", "Consecutive recent cases", "Enroll all eligible (census)"],
-                        index=0,
-                    )
+    # -------------------------
+    # Step 2b: Sampling plan + manual selection (trainee-driven)
+    # -------------------------
+    st.markdown("### Step 2b: Sampling plan & participant selection")
 
-                col5, col6 = st.columns(2)
-                with col5:
-                    control_source = st.selectbox(
-                        "Control source",
-                        ["Community controls", "Neighborhood controls (near cases)", "Hospital controls"],
-                        index=0,
-                    )
-                with col6:
-                    matching_type = st.selectbox(
-                        "Matching approach",
-                        ["Individual matching", "Frequency matching (age x village)"],
-                        index=0,
-                    )
+    # Ensure clinic eligibility proxy exists (used for clinic controls)
+    if "reported_to_hospital" not in individuals.columns:
+        individuals = ensure_reported_to_hospital(individuals, random_seed=42)
+        st.session_state.truth["individuals"] = individuals
 
-                st.markdown("**Matching variables**")
-                mcol1, mcol2, mcol3 = st.columns(3)
-                with mcol1:
-                    match_village = st.checkbox("Match on village", value=True)
-                with mcol2:
-                    match_age_group = st.checkbox("Match on age group", value=True)
-                with mcol3:
-                    match_sex = st.checkbox("Match on sex", value=False)
+    case_criteria = st.session_state.decisions.get("case_definition", {"clinical_AES": True})
+    cases_pool = apply_case_definition(individuals, case_criteria).copy()
+    cases_pool = cases_pool.sort_values(["village_id", "onset_date"], na_position="last")
 
-                st.markdown("**Eligibility / exclusions**")
-                ecol1, ecol2, ecol3 = st.columns(3)
-                with ecol1:
-                    eligible_villages = st.multiselect(
-                        "Eligible villages for controls (leave blank = same villages as cases)",
-                        options=village_options,
-                        default=list(st.session_state.decisions.get("sampling_plan", {}).get("eligible_villages", [])),
-                    )
-                with ecol2:
-                    include_symptomatic_noncase = st.checkbox("Allow symptomatic non-cases as controls", value=bool(st.session_state.decisions.get("sampling_plan", {}).get("include_symptomatic_noncase", False)))
-                with ecol3:
-                    control_age_mode = st.selectbox("Control age range", ["Same as cases (default)", "Specify range"], index=0)
+    existing_cases = st.session_state.decisions.get("selected_cases", []) or []
+    existing_controls = st.session_state.decisions.get("selected_controls", []) or []
 
-                control_age_range = None
-                if control_age_mode == "Specify range":
-                    a1, a2 = st.columns(2)
-                    with a1:
-                        c_age_min = st.number_input("Control minimum age", min_value=0, max_value=100, value=0, step=1)
-                    with a2:
-                        c_age_max = st.number_input("Control maximum age", min_value=0, max_value=100, value=60, step=1)
-                    control_age_range = {"min": int(c_age_min), "max": int(c_age_max)}
+    # Basic sampling targets
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        n_cases_target = st.number_input("Target # cases", min_value=1, max_value=200, value=int(st.session_state.decisions.get("sample_size", {}).get("cases", 20)), step=1)
+    with c2:
+        controls_per_case = st.number_input("Controls per case", min_value=1, max_value=5, value=int(st.session_state.decisions.get("study_design", {}).get("controls_per_case", 2) or 2), step=1)
+    with c3:
+        nonresponse_rate = st.slider("Expected nonresponse", min_value=0, max_value=25, value=int((st.session_state.decisions.get("sampling_plan", {}) or {}).get("nonresponse_rate", 0.0) * 100), step=1)
+    with c4:
+        allow_replacement = st.checkbox("Allow replacement if nonresponse", value=bool((st.session_state.decisions.get("sampling_plan", {}) or {}).get("allow_replacement", True)))
 
-                # Persist decisions used by dataset generation
-                st.session_state.decisions["sample_size"] = {"cases": int(n_cases), "controls_per_case": int(controls_per_case)}
-                st.session_state.decisions["study_design"] = {"type": "case_control", "controls_per_case": int(controls_per_case)}
+    st.session_state.decisions["sample_size"] = {"cases": int(n_cases_target), "controls_per_case": int(controls_per_case)}
+    st.session_state.decisions.setdefault("study_design", {})
+    st.session_state.decisions["study_design"]["controls_per_case"] = int(controls_per_case)
 
-                st.session_state.decisions["sampling_plan"] = {
-                    "case_source": "hospital" if "Hospital" in case_source else "active_case_finding",
-                    "case_sampling": "simple_random" if "Simple random" in case_sampling else ("consecutive_recent" if "Consecutive" in case_sampling else "all_eligible"),
-                    "control_source": "community" if "Community" in control_source else ("neighborhood" if "Neighborhood" in control_source else "hospital"),
-                    "matching_type": "individual" if "Individual" in matching_type else "frequency",
-                    "matching": {
-                        "match_village": bool(match_village),
-                        "match_age_group": bool(match_age_group),
-                        "match_sex": bool(match_sex),
-                    },
-                    "eligible_villages": eligible_villages,
-                    "include_symptomatic_noncase": bool(include_symptomatic_noncase),
-                    "control_age_range": control_age_range,
-                    "controls_per_case": int(controls_per_case),
-                    "n_cases": int(n_cases),
-                }
+    st.caption(f"Eligible cases (based on your case definition proxy): **{len(cases_pool)}**")
 
-        else:
-            st.session_state.decisions["study_design"] = {"type": "cohort"}
+    # ---- CASE SELECTION (manual)
+    with st.form("case_select_form"):
+        st.markdown("#### Select cases")
+        v_filter = st.multiselect("Filter cases by village", sorted(cases_pool["village_id"].dropna().unique().tolist()), default=sorted(cases_pool["village_id"].dropna().unique().tolist()))
+        df_cases = cases_pool[cases_pool["village_id"].isin(v_filter)].copy()
 
-            with st.expander("Step 2b: Sampling plan (retrospective cohort)", expanded=True):
-                cv1, cv2 = st.columns(2)
-                with cv1:
-                    cohort_villages = st.multiselect(
-                        "Cohort villages",
-                        options=village_options,
-                        default=st.session_state.decisions.get("cohort_plan", {}).get("villages", ["V1", "V2"]) if village_options else ["V1", "V2"],
-                    )
-                with cv2:
-                    age_max = st.number_input("Include people age ≤", min_value=1, max_value=80, value=int(st.session_state.decisions.get("cohort_plan", {}).get("age_max", 15)), step=1)
+        show_cols = [c for c in ["person_id", "village_id", "hh_id", "age", "sex", "occupation", "onset_date", "severe_neuro", "outcome", "reported_to_hospital"] if c in df_cases.columns]
+        df_cases = df_cases[show_cols].copy()
+        df_cases.insert(0, "select", df_cases["person_id"].isin(existing_cases))
 
-                sampling_mode = st.selectbox("Cohort enrollment", ["Enroll all eligible (census)", "Random sample"], index=0)
-                total_n = None
-                if sampling_mode == "Random sample":
-                    total_n = st.number_input("Target cohort size", min_value=25, max_value=1500, value=int(st.session_state.decisions.get("cohort_plan", {}).get("total", 250)), step=25)
-
-                st.session_state.decisions["cohort_plan"] = {
-                    "villages": cohort_villages,
-                    "age_max": int(age_max),
-                    "sampling": "random" if sampling_mode == "Random sample" else "census",
-                    "total": int(total_n) if total_n else None,
-                    "source": "village_cohort",
-                }
-    # Questionnaire
-    st.markdown("### Step 3: Questionnaire")
-st.caption("Build your questionnaire in Kobo (or any XLSForm editor), then upload the XLSForm (.xlsx) here. Trainee question names and types will drive the simulated dataset.")
-uploaded = st.file_uploader("Upload XLSForm (.xlsx)", type=["xlsx"], key="xlsform_upload")
-
-if parse_xlsform is None:
-    st.warning("XLSForm support is not available (missing XLSForm functions in je_logic). Using legacy questionnaire mode.")
-    uploaded = None
-
-if uploaded is not None:
-    xls_bytes = uploaded.read()
-    st.session_state.decisions["questionnaire_xlsform_bytes"] = xls_bytes
-
-    try:
-        questionnaire = parse_xlsform(xls_bytes)
-        st.session_state.decisions["questionnaire_xlsform_preview"] = questionnaire
-        preview_rows = []
-        for q in questionnaire.get("questions", []):
-            preview_rows.append({
-                "name": q.get("name"),
-                "type": q.get("type"),
-                "label": q.get("label"),
-                "list_name": q.get("list_name"),
-                "n_choices": len(q.get("choices", []) or []),
-            })
-        if preview_rows:
-            st.dataframe(pd.DataFrame(preview_rows), use_container_width=True)
-        else:
-            st.info("No survey questions detected (notes/groups/calculations are ignored).")
-    except Exception as e:
-        st.error(f"Could not parse this XLSForm. Make sure you uploaded the *form definition* (XLSForm), not a data export. Details: {e}")
-        questionnaire = None
-
-    if questionnaire:
-        api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
-        if not api_key:
-            st.warning("ANTHROPIC_API_KEY not found in Streamlit secrets. LLM mapping cannot run until it is configured.")
-        if st.button("Run LLM mapping & save questionnaire", key="save_xlsform_questionnaire"):
-            if not api_key:
-                st.error("Missing ANTHROPIC_API_KEY in Streamlit secrets.")
-            else:
-                try:
-                    questionnaire = llm_map_xlsform_questions(questionnaire, api_key=api_key)
-                    questionnaire = llm_build_select_one_choice_maps(questionnaire, api_key=api_key)
-                    questionnaire = llm_build_unmapped_answer_generators(questionnaire, api_key=api_key)
-                    questionnaire = prepare_question_render_plan(questionnaire)
-
-                    # Store in decisions for dataset generation
-                    st.session_state.decisions["questionnaire_xlsform"] = questionnaire
-                    st.session_state.questionnaire_submitted = True
-
-                    # Questionnaire is not constrained by interview "unlocks" in this version.
-
-                    st.session_state.decisions.pop("unlocked_domains", None)
-
-                    st.success("Questionnaire uploaded, mapped, and saved. Your dataset will now be generated using your XLSForm question names and types.")
-                except Exception as e:
-                    st.error(f"Failed to map/save questionnaire: {e}")
-
-# Facilitator-only mapping review (optional)
-saved_q = st.session_state.decisions.get("questionnaire_xlsform")
-if isinstance(saved_q, dict) and saved_q.get("questions"):
-    with st.expander("Facilitator mapping review (optional)", expanded=False):
-        rows = []
-        for q in saved_q.get("questions", []):
-            r = q.get("render", {}) or {}
-            rows.append({
-                "question_name": q.get("name"),
-                "type": q.get("type"),
-                "label": q.get("label"),
-                "mapped_var": r.get("mapped_var"),
-                "confidence": r.get("confidence"),
-                "domain": r.get("domain"),
-                "rationale": r.get("rationale"),
-                "unmapped": r.get("mapped_var") in (None, "", "unmapped"),
-            })
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
-
-    # Dataset generation
-    st.markdown("### Step 4: Generate Simulated Study Dataset")
-    if st.button("Generate Dataset"):
-        truth = st.session_state.truth
-        df = generate_study_dataset(
-            truth["individuals"], truth["households"], st.session_state.decisions
+        edited = st.data_editor(
+            df_cases,
+            hide_index=True,
+            use_container_width=True,
+            column_config={"select": st.column_config.CheckboxColumn("Select")},
+            disabled=[c for c in df_cases.columns if c != "select"],
         )
-        st.session_state.generated_dataset = df
-        st.session_state.descriptive_analysis_done = True  # simple proxy
-        st.success("Dataset generated. Preview below; export for analysis as needed.")
-        st.dataframe(df.head())
+
+        submitted = st.form_submit_button("Save selected cases")
+        if submitted:
+            selected = edited[edited["select"] == True]["person_id"].astype(str).tolist()
+            if len(selected) < 1:
+                st.error("Select at least 1 case.")
+            else:
+                st.session_state.decisions["selected_cases"] = selected
+                st.success(f"Saved **{len(selected)}** selected cases.")
+                st.rerun()
+
+    selected_cases = st.session_state.decisions.get("selected_cases", []) or []
+    if selected_cases:
+        st.info(f"Current case selection: **{len(selected_cases)}** cases selected. Target was {int(n_cases_target)}.")
+
+    # ---- CONTROL SOURCE + ELIGIBILITY
+    st.markdown("#### Controls: source & eligibility")
+    control_source_label = st.selectbox(
+        "Control source",
+        ["Community controls", "Neighborhood controls (near cases)", "Clinic controls (healthcare-seeking)"],
+        index=0,
+    )
+    control_source = "community"
+    if "Neighborhood" in control_source_label:
+        control_source = "neighborhood"
+    elif "Clinic" in control_source_label:
+        control_source = "clinic"
+
+    eligible_villages_default = sorted(list(set(cases_pool[cases_pool["person_id"].isin(selected_cases)]["village_id"].dropna().astype(str).tolist()))) if selected_cases else sorted(cases_pool["village_id"].dropna().unique().tolist())
+    eligible_villages = st.multiselect("Eligible villages for controls", options=sorted(individuals["village_id"].dropna().unique().tolist()), default=eligible_villages_default)
+
+    include_symptomatic_noncase = st.checkbox("Allow symptomatic non-cases as controls (rare)", value=bool((st.session_state.decisions.get("sampling_plan", {}) or {}).get("include_symptomatic_noncase", False)))
+
+    # Optional age eligibility for controls
+    age_mode = st.radio("Control age rule", ["No restriction", "Specify range"], horizontal=True, index=0)
+    control_age_range = None
+    if age_mode == "Specify range":
+        a1, a2 = st.columns(2)
+        with a1:
+            cmin = st.number_input("Control minimum age", min_value=0, max_value=100, value=0, step=1)
+        with a2:
+            cmax = st.number_input("Control maximum age", min_value=0, max_value=100, value=60, step=1)
+        control_age_range = {"min": int(cmin), "max": int(cmax)}
+
+    # Pool for control candidates
+    # (We build a manageable candidate set to avoid huge data_editor tables.)
+    def _build_control_pool():
+        pool = individuals.copy()
+        # non-cases only (by default)
+        pool = pool[pool.get("symptomatic_AES", False).astype(bool) == False].copy()
+        pool = pool[pool["village_id"].isin(eligible_villages)].copy()
+        if control_age_range:
+            pool = pool[(pool["age"] >= int(control_age_range["min"])) & (pool["age"] <= int(control_age_range["max"]))].copy()
+        if control_source == "clinic":
+            pool = pool[pool.get("reported_to_hospital", False).astype(bool) == True].copy()
+        # neighborhood handled in je_logic with weights; here we just show same-village candidates
+        return pool
+
+    controls_pool = _build_control_pool()
+    needed_controls = int(len(selected_cases) * int(controls_per_case)) if selected_cases else int(n_cases_target) * int(controls_per_case)
+    st.caption(f"Eligible controls in pool: **{len(controls_pool)}** | Recommended controls to select: **{needed_controls}**")
+
+    # Candidate sampling for UI
+    if "controls_candidate_ids" not in st.session_state:
+        st.session_state.controls_candidate_ids = []
+    if "controls_candidate_seed" not in st.session_state:
+        st.session_state.controls_candidate_seed = 0
+
+    cbtn1, cbtn2 = st.columns([1, 3])
+    with cbtn1:
+        if st.button("🔄 Refresh control candidates"):
+            st.session_state.controls_candidate_seed += 1
+            st.session_state.controls_candidate_ids = []
+            st.rerun()
+
+    # Build candidate list (sample to keep UI snappy)
+    rng = np.random.default_rng(100 + int(st.session_state.controls_candidate_seed))
+    if not st.session_state.controls_candidate_ids:
+        cand_n = min(350, len(controls_pool))
+        if cand_n > 0:
+            cand_ids = controls_pool.sample(n=cand_n, random_state=100 + int(st.session_state.controls_candidate_seed))["person_id"].astype(str).tolist()
+            st.session_state.controls_candidate_ids = cand_ids
+
+    cand_controls = controls_pool[controls_pool["person_id"].astype(str).isin(st.session_state.controls_candidate_ids)].copy()
+    show_cols_c = [c for c in ["person_id", "village_id", "hh_id", "age", "sex", "occupation", "reported_to_hospital"] if c in cand_controls.columns]
+    cand_controls = cand_controls[show_cols_c].copy()
+    cand_controls.insert(0, "select", cand_controls["person_id"].astype(str).isin(existing_controls))
+
+    with st.form("controls_select_form"):
+        st.markdown("#### Select controls (from a candidate list)")
+        edited_c = st.data_editor(
+            cand_controls,
+            hide_index=True,
+            use_container_width=True,
+            column_config={"select": st.column_config.CheckboxColumn("Select")},
+            disabled=[c for c in cand_controls.columns if c != "select"],
+        )
+        sub_c = st.form_submit_button("Save selected controls")
+        if sub_c:
+            selected_c = edited_c[edited_c["select"] == True]["person_id"].astype(str).tolist()
+            if len(selected_c) < 1:
+                st.error("Select at least 1 control.")
+            else:
+                st.session_state.decisions["selected_controls"] = selected_c
+                st.success(f"Saved **{len(selected_c)}** selected controls.")
+                st.rerun()
+
+    selected_controls = st.session_state.decisions.get("selected_controls", []) or []
+    if selected_controls:
+        st.info(f"Current control selection: **{len(selected_controls)}** controls selected. Recommended: {needed_controls}.")
+
+    # Persist sampling plan (used by dataset generator)
+    st.session_state.decisions["sampling_plan"] = {
+        "control_source": control_source,
+        "eligible_villages": eligible_villages,
+        "include_symptomatic_noncase": bool(include_symptomatic_noncase),
+        "control_age_range": control_age_range,
+        "nonresponse_rate": float(nonresponse_rate) / 100.0,
+        "allow_replacement": bool(allow_replacement),
+        "controls_per_case": int(controls_per_case),
+        "n_cases": int(n_cases_target),
+    }
+
+    # -------------------------
+    # Step 3: Questionnaire (XLSForm upload) — gated
+    # -------------------------
+    st.markdown("### Step 3: Questionnaire (XLSForm upload)")
+
+    if not prereq_ok:
+        st.warning("Questionnaire upload is locked until you have a saved case definition and at least 1 hypothesis (Day 1).")
+    else:
+        st.caption("Build your questionnaire in Kobo (or any XLSForm editor), export as XLSForm (.xlsx), then upload it here.")
+        uploaded = st.file_uploader("Upload XLSForm (.xlsx)", type=["xlsx"], key="xlsform_upload")
+
+        if uploaded is not None:
+            xls_bytes = uploaded.read()
+            st.session_state.decisions["questionnaire_xlsform_bytes"] = xls_bytes
+
+            try:
+                questionnaire = parse_xlsform(xls_bytes)
+                st.session_state.decisions["questionnaire_xlsform_preview"] = questionnaire
+
+                preview_rows = []
+                for q in questionnaire.get("questions", []):
+                    preview_rows.append({
+                        "name": q.get("name"),
+                        "type": q.get("type"),
+                        "label": q.get("label"),
+                        "list_name": q.get("list_name"),
+                        "n_choices": len(q.get("choices", []) or []),
+                    })
+                if preview_rows:
+                    st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
+                else:
+                    st.info("No survey questions detected (notes/groups/calculations are ignored).")
+            except Exception as e:
+                st.error(f"Could not parse this XLSForm. Make sure you uploaded the *form definition* (XLSForm), not a data export. Details: {e}")
+                questionnaire = None
+
+            if questionnaire:
+                api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
+                if not api_key:
+                    st.warning("ANTHROPIC_API_KEY not found in Streamlit secrets. LLM mapping cannot run until it is configured.")
+
+                if st.button("Run LLM mapping & save questionnaire", key="save_xlsform_questionnaire"):
+                    if not api_key:
+                        st.error("Missing ANTHROPIC_API_KEY in Streamlit secrets.")
+                    else:
+                        try:
+                            questionnaire = llm_map_xlsform_questions(questionnaire, api_key=api_key)
+                            questionnaire = llm_build_select_one_choice_maps(questionnaire, api_key=api_key)
+                            questionnaire = llm_build_unmapped_answer_generators(questionnaire, api_key=api_key)
+                            questionnaire = prepare_question_render_plan(questionnaire)
+
+                            st.session_state.decisions["questionnaire_xlsform"] = questionnaire
+                            st.session_state.questionnaire_submitted = True
+                            st.success("Questionnaire uploaded, mapped, and saved.")
+                        except Exception as e:
+                            st.error(f"Failed to map/save questionnaire: {e}")
+
+        # Facilitator mapping review (optional)
+        saved_q = st.session_state.decisions.get("questionnaire_xlsform")
+        if isinstance(saved_q, dict) and saved_q.get("questions"):
+            with st.expander("Facilitator mapping review (optional)", expanded=False):
+                rows = []
+                for q in saved_q.get("questions", []):
+                    r = q.get("render", {}) or {}
+                    rows.append({
+                        "question_name": q.get("name"),
+                        "type": q.get("type"),
+                        "label": q.get("label"),
+                        "mapped_var": r.get("mapped_var"),
+                        "confidence": r.get("confidence"),
+                        "domain": r.get("domain"),
+                        "rationale": r.get("rationale"),
+                        "unmapped": r.get("mapped_var") in (None, "", "unmapped"),
+                    })
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    # -------------------------
+    # Step 4: Generate dataset (requires questionnaire + selections)
+    # -------------------------
+    st.markdown("### Step 4: Generate simulated study dataset")
+
+    can_generate = bool(st.session_state.decisions.get("questionnaire_xlsform")) and bool(st.session_state.decisions.get("selected_cases")) and bool(st.session_state.decisions.get("selected_controls"))
+    if not can_generate:
+        st.info("To generate the dataset, you need: (1) saved XLSForm questionnaire, (2) selected cases, and (3) selected controls.")
+        return
+
+    if st.button("Generate Dataset", type="primary"):
+        try:
+            decisions = dict(st.session_state.decisions)
+            decisions["return_sampling_report"] = True
+            df, report = generate_study_dataset(individuals, households, decisions)
+
+            st.session_state.generated_dataset = df
+            st.session_state.sampling_report = report
+            st.session_state.descriptive_analysis_done = True  # proxy
+            st.success("Dataset generated. Preview below; export for analysis as needed.")
+
+            with st.expander("Sampling frame summary", expanded=True):
+                st.json({
+                    "case_pool_n": report.get("case_pool_n"),
+                    "control_pool_n": report.get("control_pool_n"),
+                    "cases_selected_n": report.get("cases_selected_n"),
+                    "controls_selected_n": report.get("controls_selected_n"),
+                    "cases_after_nonresponse_n": report.get("cases_after_nonresponse_n"),
+                    "controls_after_nonresponse_n": report.get("controls_after_nonresponse_n"),
+                    "nonresponse_rate": st.session_state.decisions.get("sampling_plan", {}).get("nonresponse_rate"),
+                    "allow_replacement": st.session_state.decisions.get("sampling_plan", {}).get("allow_replacement"),
+                    "control_source": st.session_state.decisions.get("sampling_plan", {}).get("control_source"),
+                })
+
+            st.dataframe(df.head(30), use_container_width=True)
+
+        except Exception as e:
+            st.error(f"Dataset generation failed: {e}")
+
 
 
 def view_lab_and_environment():

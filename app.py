@@ -6,23 +6,70 @@ import plotly.graph_objects as go
 import plotly.express as px
 import io
 
-from je_logic import (
-    load_truth_data,
-    generate_full_population,
-    apply_case_definition,
-    ensure_reported_to_hospital,
-    generate_study_dataset,
-    process_lab_order,
-    evaluate_interventions,
-    check_day_prerequisites,
-    # XLSForm pipeline
-    parse_xlsform,
-    llm_map_xlsform_questions,
-    llm_build_select_one_choice_maps,
-    llm_build_unmapped_answer_generators,
-    prepare_question_render_plan,
-)
+# Robust import: avoid hard failures from `from je_logic import ...` if the deployed module is stale/mismatched.
+try:
+    import je_logic as jl
+except Exception as e:
+    st.error(
+        "Failed to import je_logic.py. "
+        "This usually means the file is missing from the repo, not committed/pushed, "
+        "or it has an import/syntax error.
 
+"
+        f"Error: {e!r}"
+    )
+    st.stop()
+
+# Core logic (required)
+_missing_required = []
+for _name in [
+    "load_truth_data",
+    "generate_full_population",
+    "apply_case_definition",
+    "ensure_reported_to_hospital",
+    "generate_study_dataset",
+    "process_lab_order",
+    "evaluate_interventions",
+    "check_day_prerequisites",
+]:
+    if not hasattr(jl, _name):
+        _missing_required.append(_name)
+
+if _missing_required:
+    st.error(
+        "Your je_logic.py is missing required functions expected by app.py:
+"
+        + "
+".join(f"- {_n}" for _n in _missing_required)
+        + "
+
+Fix: make sure you replaced je_logic.py with the updated version and pushed it to Streamlit Cloud."
+    )
+    st.stop()
+
+load_truth_data = jl.load_truth_data
+generate_full_population = jl.generate_full_population
+apply_case_definition = jl.apply_case_definition
+ensure_reported_to_hospital = jl.ensure_reported_to_hospital
+generate_study_dataset = jl.generate_study_dataset
+process_lab_order = jl.process_lab_order
+evaluate_interventions = jl.evaluate_interventions
+check_day_prerequisites = jl.check_day_prerequisites
+
+# XLSForm pipeline (optional but recommended)
+parse_xlsform = getattr(jl, "parse_xlsform", None)
+llm_map_xlsform_questions = getattr(jl, "llm_map_xlsform_questions", None)
+llm_build_select_one_choice_maps = getattr(jl, "llm_build_select_one_choice_maps", None)
+llm_build_unmapped_answer_generators = getattr(jl, "llm_build_unmapped_answer_generators", None)
+prepare_question_render_plan = getattr(jl, "prepare_question_render_plan", None)
+
+XLSFORM_AVAILABLE = all([
+    callable(parse_xlsform),
+    callable(llm_map_xlsform_questions),
+    callable(llm_build_select_one_choice_maps),
+    callable(llm_build_unmapped_answer_generators),
+    callable(prepare_question_render_plan),
+])
 # =========================
 # TRANSLATION SYSTEM
 # =========================

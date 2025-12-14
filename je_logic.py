@@ -400,6 +400,10 @@ def apply_case_definition(individuals_df: pd.DataFrame, case_criteria: dict) -> 
     """
     df = individuals_df.copy()
     
+    # Handle None or empty case_criteria - default to clinical AES
+    if not case_criteria:
+        case_criteria = {"clinical_AES": True}
+    
     # Default: use symptomatic_AES as proxy for clinical AES criteria
     if case_criteria.get("clinical_AES", False):
         df = df[df["symptomatic_AES"] == True]

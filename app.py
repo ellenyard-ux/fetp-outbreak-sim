@@ -3424,7 +3424,9 @@ def view_spot_map():
     </svg>
     '''
     
-    st.markdown(map_svg, unsafe_allow_html=True)
+    # Use components.html for reliable SVG rendering
+    import streamlit.components.v1 as components
+    components.html(map_svg, height=450)
     
     # Summary statistics
     st.markdown("---")

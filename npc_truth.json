@@ -1,0 +1,342 @@
+{
+  "dr_chen": {
+    "name": "Dr. Chen",
+    "role": "Hospital Director",
+    "avatar": "👨‍⚕️",
+    "cost": 0,
+    "location": "District Hospital",
+    "personality": "Precise and factual. A bit impatient. Trusts lab data more than interviews. Will not speculate early on.",
+    "always_reveal": [
+      "Has full hospital AES line list: ages 2-12 years primarily, 3 fatalities",
+      "All cases from Nalu & Kabwe villages",
+      "Onsets between June 3-10",
+      "No adult AES cases EXCEPT one miner",
+      "Has seen several children with seizures, fever, confusion",
+      "All hospitalized AES patients are from households within 1 km of rice paddies or pig farms",
+      "No shared meal or event identified",
+      "encephalitis vaccination status poorly recorded, but most parents say no vaccines recently",
+      "One 9-year-old died 24 hours after admission",
+      "They ruled out bacterial meningitis in early cases",
+      "They could not run encephalitis IgM yet - samples sent to regional lab"
+    ],
+    "conditional_clues": {
+      "animals": "Two families reported pigs acting strangely - restless, vocalizing at night",
+      "pigs": "Two families reported pigs acting strangely - restless, vocalizing at night",
+      "mosquito nets": "One severe case slept without mosquito nets",
+      "nets": "One severe case slept without mosquito nets",
+      "miner": "The dead miner lived right beside new irrigation ponds",
+      "irrigation": "The dead miner lived right beside new irrigation ponds",
+      "children activities": "Nurses noticed children often play outdoors at dusk",
+      "dusk": "Nurses noticed children often play outdoors at dusk",
+      "evening": "Nurses noticed children often play outdoors at dusk"
+    },
+    "red_herrings": [
+      "Possibly viral meningitis outbreak from school - but no event links",
+      "Maybe heat stroke or toxins from the mine - but she doubts it"
+    ],
+    "unknowns": [
+      "Pig infection status",
+      "Mosquito pool results",
+      "Any environmental surveillance data",
+      "True encephalitis infection mechanism"
+    ],
+    "data_access": "hospital_cases",
+    "unlocks": null
+  },
+  "nurse_joy": {
+    "name": "Nurse Joy",
+    "role": "Triage Nurse",
+    "avatar": "🩺",
+    "cost": 50,
+    "location": "District Hospital",
+    "personality": "Exhausted, overwhelmed. Kind but disorganized. Gives too much detail sometimes. Good observer.",
+    "always_reveal": [
+      "Has incoming case logs with symptoms and onset dates",
+      "Children arrived in clusters on June 3, 6, 7, 9",
+      "Symptoms progress: fever then headache then confusion then seizures",
+      "No rash observed in any cases",
+      "Several parents mentioned living near the big rice fields",
+      "Parents mentioned many mosquitoes at dusk"
+    ],
+    "conditional_clues": {
+      "animals": "Two parents mentioned pigs screaming at night",
+      "pigs": "Two parents mentioned pigs screaming at night",
+      "mosquitoes": "Yes, bites everywhere, especially around the ankles",
+      "bites": "Yes, bites everywhere, especially around the ankles",
+      "vaccination": "Many parents said vaccines ran out last year",
+      "vaccines": "Many parents said vaccines ran out last year"
+    },
+    "red_herrings": [
+      "Thinks maybe bad drinking water is causing illness",
+      "Mentions a rumor about spirits in the forest - completely irrelevant"
+    ],
+    "unknowns": [
+      "encephalitis vaccination schedules",
+      "Lab results",
+      "Pig farms infection status"
+    ],
+    "data_access": "triage_logs",
+    "unlocks": null
+  },
+  "healer_marcus": {
+    "name": "Healer Marcus",
+    "role": "Private Clinic Practitioner",
+    "avatar": "🌿",
+    "cost": 150,
+    "location": "Nalu Village",
+    "personality": "Suspicious of government. Proud, mystical tone. Sometimes helpful, sometimes evasive. Wants recognition.",
+    "always_reveal": [
+      "Has clinic notes of about 10 children with fever and tremors",
+      "Saw early cases BEFORE hospital did",
+      "Notices many patients from households near pigs",
+      "Several children from pig-farming households came sick",
+      "Symptoms began after increased mosquito activity",
+      "He believes bad air from the rice paddies is to blame"
+    ],
+    "conditional_clues": {
+      "animals": "Pigs restless at night... biting insects around them",
+      "pigs": "Pigs restless at night... biting insects around them",
+      "environment": "New irrigation canal brings still water",
+      "irrigation": "New irrigation canal brings still water",
+      "water": "New irrigation canal brings still water",
+      "timing": "He saw first AES case 3 days before hospital admission",
+      "first case": "He saw first AES case 3 days before hospital admission"
+    },
+    "red_herrings": [
+      "Might mention herbal contamination as possible cause",
+      "Suggests the mines poison the wind"
+    ],
+    "unknowns": [
+      "Vector transmission mechanism",
+      "Lab results",
+      "encephalitis-specific information"
+    ],
+    "data_access": "private_clinic",
+    "unlocks": "health_center_nalu_unlocked"
+  },
+  "mama_kofi": {
+    "name": "Mama Kofi",
+    "role": "Mother of Sick Child",
+    "avatar": "👵",
+    "cost": 50,
+    "location": "Nalu Village",
+    "personality": "Emotional, distressed. Highly motivated to talk. But gives unclear sequences unless asked carefully.",
+    "always_reveal": [
+      "Her house is 10-20 meters from pig pen",
+      "Family does not use mosquito nets",
+      "Children play outside at dusk with neighbors",
+      "Recently pigs have been hot, restless, noisy",
+      "Her daughter's symptoms started after an evening with intense mosquito biting"
+    ],
+    "conditional_clues": {
+      "vaccination": "They had no encephalitis vaccine available last year",
+      "vaccine": "They had no encephalitis vaccine available last year",
+      "water": "The irrigation pump broke, causing standing water near homes",
+      "irrigation": "The irrigation pump broke, causing standing water near homes",
+      "standing water": "The irrigation pump broke, causing standing water near homes",
+      "birds": "She saw many herons this season around the paddies",
+      "herons": "She saw many herons this season around the paddies"
+    },
+    "red_herrings": [
+      "Thought it might be witchcraft from jealous neighbors"
+    ],
+    "unknowns": [
+      "Medical terminology",
+      "Other families situations in detail",
+      "Lab results"
+    ],
+    "data_access": null,
+    "unlocks": null
+  },
+  "teacher_grace": {
+    "name": "Teacher Grace",
+    "role": "School Principal",
+    "avatar": "📚",
+    "cost": 50,
+    "location": "Nalu Village",
+    "personality": "Observant. Data-driven. Cooperative. Worried about school reputation.",
+    "always_reveal": [
+      "Three AES cases attend the same school",
+      "Children walk home past the pig co-op",
+      "Evening tutoring sessions mean children are outdoors at dusk",
+      "Mosquitoes inside classrooms after heavy rains"
+    ],
+    "conditional_clues": {
+      "vaccination": "She has records showing low encephalitis vaccination rates among students",
+      "vaccine": "She has records showing low encephalitis vaccination rates among students",
+      "mosquitoes": "Parents complained about mosquito breeding in rice paddies",
+      "rice": "Parents complained about mosquito breeding in rice paddies",
+      "food": "No shared school meals recently",
+      "meals": "No shared school meals recently"
+    },
+    "red_herrings": [
+      "Wonders whether the new school latrine project brought disease"
+    ],
+    "unknowns": [
+      "Medical details",
+      "Pig farm operations",
+      "Lab results"
+    ],
+    "data_access": "school_attendance",
+    "unlocks": null
+  },
+  "foreman_rex": {
+    "name": "Foreman Rex",
+    "role": "Mine Manager",
+    "avatar": "⛏️",
+    "cost": 200,
+    "location": "Mining Area",
+    "personality": "Defensive. Does not want blame. Limited knowledge about community. Direct, curt.",
+    "always_reveal": [
+      "One miner is hospitalized with AES",
+      "Mine expanded irrigation ponds recently",
+      "Standing water collects near worker housing"
+    ],
+    "conditional_clues": {
+      "water": "New water pits were created 6 weeks ago",
+      "ponds": "New water pits were created 6 weeks ago",
+      "irrigation": "New water pits were created 6 weeks ago",
+      "mosquitoes": "Mosquitoes worsened after the new pits were dug",
+      "workers": "Workers live near pig-farming villages"
+    },
+    "red_herrings": [
+      "Thinks maybe chemical exposure is causing the illness",
+      "Claims mosquitoes are not a real issue - but they are"
+    ],
+    "unknowns": [
+      "Community health details",
+      "Pig farm status",
+      "Medical information"
+    ],
+    "data_access": null,
+    "unlocks": null
+  },
+  "auntie_ama": {
+    "name": "Auntie Ama",
+    "role": "Market Vendor",
+    "avatar": "🍎",
+    "cost": 50,
+    "location": "Central Market",
+    "personality": "Knows everyone. Gossip-heavy. Colorful but unreliable narrator. Good geographic insight.",
+    "always_reveal": [
+      "Cases cluster near Nalu and Kabwe villages",
+      "She heard pig farmers complaining about mosquitoes eating pigs alive",
+      "She noticed many sick children from families near rice paddies"
+    ],
+    "conditional_clues": {
+      "pigs": "She saw dead piglets at a farm last week",
+      "piglets": "She saw dead piglets at a farm last week",
+      "dead animals": "She saw dead piglets at a farm last week",
+      "geography": "She knows which households cluster near irrigation canal",
+      "canal": "She knows which households cluster near irrigation canal",
+      "location": "She knows which households cluster near irrigation canal"
+    },
+    "red_herrings": [
+      "Might claim bad batch of fruit caused illness",
+      "Invents rumors for dramatic effect"
+    ],
+    "unknowns": [
+      "Medical details",
+      "Official data",
+      "Lab results"
+    ],
+    "data_access": null,
+    "unlocks": null
+  },
+  "vet_amina": {
+    "name": "Vet Amina",
+    "role": "District Veterinary Officer",
+    "avatar": "🐄",
+    "cost": 150,
+    "location": "District Office",
+    "personality": "Highly technical. Calm and smart. Very helpful if trainees know to ask. Underutilized unless trainees use One Health lens.",
+    "always_reveal": [
+      "Pigs are amplifying hosts for mosquito-borne viral encephalitis",
+      "She has noticed: restlessness in pigs, fever in piglets, sows miscarrying",
+      "Mosquito abundance is very high near pig pens",
+      "Wild herons and egrets are common this season - they are natural encephalitis reservoirs",
+      "encephalitis is transmitted by Culex mosquitoes between pigs and humans",
+      "Humans are dead-end hosts - they do not transmit further"
+    ],
+    "conditional_clues": {
+      "testing": "Pigs near Nalu tested encephalitis virus IgM-positive last year",
+      "previous": "Pigs near Nalu tested encephalitis virus IgM-positive last year",
+      "last year": "Pigs near Nalu tested encephalitis virus IgM-positive last year",
+      "funding": "She warned district officials previously but got no funding for surveillance",
+      "warning": "She warned district officials previously but got no funding for surveillance",
+      "vaccine": "encephalitis vaccination for pigs is not routinely available in this district"
+    },
+    "red_herrings": [],
+    "unknowns": [
+      "Human lab results",
+      "Timing of rice paddy expansion"
+    ],
+    "data_access": "vet_surveillance",
+    "unlocks": "vet_data_unlocked"
+  },
+  "mr_osei": {
+    "name": "Mr. Osei",
+    "role": "Environmental Health Officer",
+    "avatar": "🌊",
+    "cost": 150,
+    "location": "District Office",
+    "personality": "Practical. Focused on water, sanitation, and environment. Notices physical clues others miss.",
+    "always_reveal": [
+      "Rice paddy expansion led to more standing water",
+      "Irrigation canal leaks are causing water pooling",
+      "Pig waste accumulating near homes in Nalu",
+      "High mosquito burden near fields and pig farms"
+    ],
+    "conditional_clues": {
+      "tamu": "Seasonal pools in Tamu also breed mosquitoes but at lower intensity",
+      "other villages": "Seasonal pools in Tamu also breed mosquitoes but at lower intensity",
+      "pig cooperative": "Pig co-op near school violates safe distance guidelines",
+      "school": "Pig co-op near school violates safe distance guidelines",
+      "distance": "Pig co-op near school violates safe distance guidelines",
+      "mosquito counts": "Evening mosquito counts are extremely high - he has data",
+      "surveillance": "Evening mosquito counts are extremely high - he has data"
+    },
+    "red_herrings": [
+      "May suspect waterborne toxin early on",
+      "Mentions latrine overflow - irrelevant to encephalitis"
+    ],
+    "unknowns": [
+      "Medical details",
+      "Lab results",
+      "Pig infection status"
+    ],
+    "data_access": "environmental_data",
+    "unlocks": "entomology_data_unlocked"
+  },
+  "mayor_simon": {
+    "name": "Mayor Simon",
+    "role": "District Politician",
+    "avatar": "🏛️",
+    "cost": 100,
+    "location": "District Office",
+    "personality": "Worries about money and reputation. Downplays outbreaks. Pushes for quick explanations. Politically sensitive.",
+    "always_reveal": [
+      "He approved the rice paddy expansion project",
+      "He denied funding for mosquito control last budget cycle",
+      "Streetlights near paddies broke months ago - meaning more darkness at dusk"
+    ],
+    "conditional_clues": {
+      "pig cooperative": "He knows pig co-op was placed too close to school - approved it anyway",
+      "location": "He knows pig co-op was placed too close to school - approved it anyway",
+      "siting": "He knows pig co-op was placed too close to school - approved it anyway",
+      "vaccination": "He knows vaccination coverage is low but does not want it public",
+      "coverage": "He knows vaccination coverage is low but does not want it public"
+    },
+    "red_herrings": [
+      "Suggests school must be the source",
+      "Claims miners brought disease - baseless"
+    ],
+    "unknowns": [
+      "Medical details",
+      "Technical disease information",
+      "Lab results"
+    ],
+    "data_access": null,
+    "unlocks": null
+  }
+}

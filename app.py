@@ -1188,14 +1188,33 @@ INFORMATION RULES:
     msgs = [{"role": m["role"], "content": m["content"]} for m in history]
     msgs.append({"role": "user", "content": user_input})
 
-    resp = client.messages.create(
-        model="claude-3-haiku-20240307",
-        max_tokens=400,
-        system=system_prompt,
-        messages=msgs,
-    )
+    try:
+        resp = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=400,
+            system=system_prompt,
+            messages=msgs,
+        )
 
-    text = resp.content[0].text
+        # Validate response structure before accessing content
+        if not resp.content or len(resp.content) == 0:
+            return "⚠️ Received empty response from API. Please try again."
+
+        if not hasattr(resp.content[0], 'text'):
+            return "⚠️ Received malformed response from API. Please try again."
+
+        text = resp.content[0].text
+    except anthropic.APIConnectionError as e:
+        return f"⚠️ Network error connecting to API: {str(e)}"
+    except anthropic.RateLimitError as e:
+        return "⚠️ API rate limit exceeded. Please wait a moment and try again."
+    except anthropic.AuthenticationError as e:
+        return "⚠️ API authentication failed. Please check your API key configuration."
+    except anthropic.APIError as e:
+        return f"⚠️ API error occurred: {str(e)}"
+    except Exception as e:
+        return f"⚠️ Unexpected error during NPC conversation: {str(e)}"
+
     text = redact_spoilers(text, stage)
 
     # Unlock flags (One Health unlocks)
@@ -2636,8 +2655,8 @@ def view_descriptive_epi():
                         'Percent (%)': (age_table.values / len(cases) * 100).round(1)
                     })
                     st.dataframe(age_df, hide_index=True)
-                except:
-                    st.error("Invalid age breaks. Use comma-separated numbers like: 0,5,15,50,100")
+                except (ValueError, TypeError, KeyError) as e:
+                    st.error(f"Invalid age breaks. Use comma-separated numbers like: 0,5,15,50,100 (Error: {str(e)})")
         
         with col2:
             st.markdown("### Sex Distribution")

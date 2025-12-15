@@ -109,18 +109,37 @@ def load_truth_data(data_dir: str = "data"):
             f"Missing required data files in '{data_path.absolute()}': {missing}\n"
             f"Make sure these files are in your repository's 'data' folder."
         )
-    
-    truth = {
-        'villages': pd.read_csv(data_path / "villages.csv"),
-        'households_seed': pd.read_csv(data_path / "households_seed.csv"),
-        'individuals_seed': pd.read_csv(data_path / "individuals_seed.csv"),
-        'lab_samples': pd.read_csv(data_path / "lab_samples.csv"),
-        'environment_sites': pd.read_csv(data_path / "environment_sites.csv"),
+
+    truth = {}
+
+    # Load CSV files with error handling for each file
+    csv_files = {
+        'villages': "villages.csv",
+        'households_seed': "households_seed.csv",
+        'individuals_seed': "individuals_seed.csv",
+        'lab_samples': "lab_samples.csv",
+        'environment_sites': "environment_sites.csv",
     }
-    
-    with open(data_path / "npc_truth.json") as f:
-        truth['npc_truth'] = json.load(f)
-    
+
+    for key, filename in csv_files.items():
+        try:
+            truth[key] = pd.read_csv(data_path / filename)
+        except pd.errors.EmptyDataError:
+            raise ValueError(f"CSV file '{filename}' is empty. Please provide valid data.")
+        except pd.errors.ParserError as e:
+            raise ValueError(f"Failed to parse CSV file '{filename}': {str(e)}")
+        except Exception as e:
+            raise RuntimeError(f"Unexpected error loading CSV file '{filename}': {str(e)}") from e
+
+    # Load JSON file with error handling
+    try:
+        with open(data_path / "npc_truth.json") as f:
+            truth['npc_truth'] = json.load(f)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON file 'npc_truth.json': {str(e)}") from e
+    except Exception as e:
+        raise RuntimeError(f"Unexpected error loading JSON file 'npc_truth.json': {str(e)}") from e
+
     return truth
 
 
@@ -561,7 +580,11 @@ def _extract_json(text: str) -> Any:
     m = re.search(r"(\{.*\}|\[.*\])", text, flags=re.S)
     if not m:
         raise ValueError("No JSON found in response.")
-    return json.loads(m.group(1))
+
+    try:
+        return json.loads(m.group(1))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Found JSON-like structure but failed to parse it: {str(e)}") from e
 
 
 def llm_map_xlsform_questions(questionnaire: Dict[str, Any], api_key: str,
@@ -1696,12 +1719,16 @@ def llm_map_xlsform_questions(questionnaire: Dict[str, Any], api_key: str, model
     }
 
     client = anthropic.Anthropic(api_key=api_key)
-    msg = client.messages.create(
-        model=model,
-        max_tokens=1600,
-        temperature=0.2,
-        messages=[{"role": "user", "content": json.dumps(prompt)}],
-    )
+
+    try:
+        msg = client.messages.create(
+            model=model,
+            max_tokens=1600,
+            temperature=0.2,
+            messages=[{"role": "user", "content": json.dumps(prompt)}],
+        )
+    except Exception as e:
+        raise RuntimeError(f"Failed to call Anthropic API for question mapping: {str(e)}") from e
 
     # Extract JSON from response
     text_out = ""
@@ -1712,8 +1739,12 @@ def llm_map_xlsform_questions(questionnaire: Dict[str, Any], api_key: str, model
     # Try to find JSON array
     m = re.search(r"(\[.*\])", text_out, flags=re.DOTALL)
     if not m:
-        raise ValueError("LLM mapping did not return a JSON array.")
-    parsed = json.loads(m.group(1))
+        raise ValueError("LLM mapping did not return a JSON array. Response may be malformed.")
+
+    try:
+        parsed = json.loads(m.group(1))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON from LLM mapping response: {str(e)}") from e
 
     by_name = {r["name"]: r for r in parsed if isinstance(r, dict) and "name" in r}
     for q in questionnaire.get("questions", []):
@@ -1779,21 +1810,30 @@ def llm_build_select_one_choice_maps(questionnaire: Dict[str, Any], api_key: str
     }
 
     client = anthropic.Anthropic(api_key=api_key)
-    msg = client.messages.create(
-        model=model,
-        max_tokens=1400,
-        temperature=0.2,
-        messages=[{"role": "user", "content": json.dumps(prompt)}],
-    )
+
+    try:
+        msg = client.messages.create(
+            model=model,
+            max_tokens=1400,
+            temperature=0.2,
+            messages=[{"role": "user", "content": json.dumps(prompt)}],
+        )
+    except Exception as e:
+        raise RuntimeError(f"Failed to call Anthropic API for choice mapping: {str(e)}") from e
 
     text_out = ""
     for block in msg.content:
         if getattr(block, "type", None) == "text":
             text_out += block.text
+
     m = re.search(r"({.*})", text_out, flags=re.DOTALL)
     if not m:
-        raise ValueError("LLM remapper did not return a JSON object.")
-    maps = json.loads(m.group(1))
+        raise ValueError("LLM remapper did not return a JSON object. Response may be malformed.")
+
+    try:
+        maps = json.loads(m.group(1))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON from LLM choice mapping response: {str(e)}") from e
 
     for q in questionnaire.get("questions", []):
         qmap = maps.get(q["name"])
@@ -1886,22 +1926,39 @@ def llm_build_unmapped_answer_generators(
             "questions": batch
         }
 
-        msg = client.messages.create(
-            model=model,
-            max_tokens=1800,
-            temperature=0.4,
-            messages=[{"role": "user", "content": json.dumps(prompt)}],
-        )
-        text_out = ""
-        for block in msg.content:
-            if getattr(block, "type", None) == "text":
-                text_out += block.text
-        m = re.search(r"({.*})", text_out, flags=re.DOTALL)
-        if not m:
-            raise ValueError("LLM unmapped generator did not return a JSON object.")
-        specs = json.loads(m.group(1))
-        if isinstance(specs, dict):
-            all_specs.update(specs)
+        try:
+            msg = client.messages.create(
+                model=model,
+                max_tokens=1800,
+                temperature=0.4,
+                messages=[{"role": "user", "content": json.dumps(prompt)}],
+            )
+
+            text_out = ""
+            for block in msg.content:
+                if getattr(block, "type", None) == "text":
+                    text_out += block.text
+
+            m = re.search(r"({.*})", text_out, flags=re.DOTALL)
+            if not m:
+                # Log warning but continue with other batches
+                import warnings
+                warnings.warn(f"LLM unmapped generator batch did not return a JSON object. Skipping batch.")
+                continue
+
+            specs = json.loads(m.group(1))
+            if isinstance(specs, dict):
+                all_specs.update(specs)
+        except json.JSONDecodeError as e:
+            # Log warning but continue with other batches
+            import warnings
+            warnings.warn(f"Failed to parse JSON from unmapped generator batch: {str(e)}. Skipping batch.")
+            continue
+        except Exception as e:
+            # Log warning but continue with other batches
+            import warnings
+            warnings.warn(f"Failed to process unmapped generator batch: {str(e)}. Skipping batch.")
+            continue
 
     for q in questionnaire.get("questions", []):
         spec = all_specs.get(q["name"])

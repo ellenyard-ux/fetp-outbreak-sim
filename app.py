@@ -2180,19 +2180,16 @@ def view_overview():
 
     day_task_list(st.session_state.current_day)
 
-
-# If the user tried to advance but prerequisites are missing, show them here.
-if st.session_state.get("advance_missing_tasks"):
-    truth = st.session_state.truth
-
-    st.warning(t("missing_tasks_title", default="Missing tasks before you can advance:"))
-    for item in st.session_state.advance_missing_tasks:
-        # Support both legacy plain-English strings and new i18n keys
-        if isinstance(item, str) and (" " not in item) and ("." in item):
-            st.markdown(f"- {t(item, default=item)}")
-        else:
-            st.markdown(f"- {item}")
-    st.session_state.advance_missing_tasks = []
+    # If the user tried to advance but prerequisites are missing, show them here.
+    if st.session_state.get("advance_missing_tasks"):
+        st.warning(t("missing_tasks_title", default="Missing tasks before you can advance:"))
+        for item in st.session_state.advance_missing_tasks:
+            # Support both legacy plain-English strings and new i18n keys
+            if isinstance(item, str) and (" " not in item) and ("." in item):
+                st.markdown(f"- {t(item, default=item)}")
+            else:
+                st.markdown(f"- {item}")
+        st.session_state.advance_missing_tasks = []
 
     st.markdown("---")
     st.markdown("### Situation overview")
@@ -2213,48 +2210,48 @@ if st.session_state.get("advance_missing_tasks"):
     st.markdown("### Map of Sidero Valley")
     map_fig = make_village_map(truth)
     st.plotly_chart(map_fig, use_container_width=True)
-    
+
     # Day 1: Case Definition and Initial Hypotheses
     if st.session_state.current_day == 1:
         st.markdown("---")
-        
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.markdown("### 📝 Case Definition")
-            
+
             with st.form("case_definition_form"):
                 st.markdown("**Clinical criteria:**")
                 clinical = st.text_area("What symptoms/signs define a case?", height=80)
-                
+
                 col_a, col_b = st.columns(2)
                 with col_a:
                     person = st.text_input("**Person:** Who? (age, characteristics)")
                 with col_b:
                     place = st.text_input("**Place:** Where?")
-                
+
                 time_period = st.text_input("**Time:** When?")
-                
+
                 if st.form_submit_button("Save Case Definition"):
                     full_def = f"Clinical: {clinical}\nPerson: {person}\nPlace: {place}\nTime: {time_period}"
                     st.session_state.decisions["case_definition_text"] = full_def
                     st.session_state.decisions["case_definition"] = {"clinical_AES": True}
                     st.session_state.case_definition_written = True
                     st.success("✅ Case definition saved!")
-            
+
             if st.session_state.case_definition_written:
                 st.info("✓ Case definition recorded")
-        
+
         with col2:
             st.markdown("### 💡 Initial Hypotheses")
             st.caption("Based on what you know so far, what might be causing this outbreak? (At least 1 required)")
-            
+
             with st.form("hypotheses_form"):
                 h1 = st.text_input("Hypothesis 1 (required):")
                 h2 = st.text_input("Hypothesis 2 (optional):")
                 h3 = st.text_input("Hypothesis 3 (optional):")
                 h4 = st.text_input("Hypothesis 4 (optional):")
-                
+
                 if st.form_submit_button("Save Hypotheses"):
                     hypotheses = [h for h in [h1, h2, h3, h4] if h.strip()]
                     if len(hypotheses) >= 1:
@@ -2263,7 +2260,7 @@ if st.session_state.get("advance_missing_tasks"):
                         st.success(f"✅ {len(hypotheses)} hypothesis(es) saved!")
                     else:
                         st.error("Please enter at least one hypothesis.")
-            
+
             if st.session_state.hypotheses_documented:
                 st.info(f"✓ {len(st.session_state.initial_hypotheses)} hypothesis(es) recorded")
 

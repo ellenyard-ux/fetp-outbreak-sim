@@ -2059,7 +2059,10 @@ def sidebar_navigation():
         current_idx = 0
 
     choice = st.sidebar.radio(t("go_to"), labels, index=current_idx)
-    st.session_state.current_view = internal[labels.index(choice)]
+    new_view = internal[labels.index(choice)]
+    if new_view != st.session_state.current_view:
+        st.session_state.current_view = new_view
+        st.rerun()
 
     st.sidebar.markdown("---")
     
@@ -2212,6 +2215,7 @@ Your team has been asked to investigate, using a One Health approach.
         st.session_state.alert_acknowledged = True
         st.session_state.current_day = 1
         st.session_state.current_view = "overview"
+        st.rerun()
 
 
 def view_overview():

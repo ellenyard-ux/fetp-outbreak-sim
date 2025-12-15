@@ -2183,6 +2183,8 @@ def view_overview():
 
 # If the user tried to advance but prerequisites are missing, show them here.
 if st.session_state.get("advance_missing_tasks"):
+    truth = st.session_state.truth
+
     st.warning(t("missing_tasks_title", default="Missing tasks before you can advance:"))
     for item in st.session_state.advance_missing_tasks:
         # Support both legacy plain-English strings and new i18n keys

@@ -2180,19 +2180,16 @@ def view_overview():
 
     day_task_list(st.session_state.current_day)
 
-
-# If the user tried to advance but prerequisites are missing, show them here.
-if st.session_state.get("advance_missing_tasks"):
-    truth = st.session_state.truth
-
-    st.warning(t("missing_tasks_title", default="Missing tasks before you can advance:"))
-    for item in st.session_state.advance_missing_tasks:
-        # Support both legacy plain-English strings and new i18n keys
-        if isinstance(item, str) and (" " not in item) and ("." in item):
-            st.markdown(f"- {t(item, default=item)}")
-        else:
-            st.markdown(f"- {item}")
-    st.session_state.advance_missing_tasks = []
+    # If the user tried to advance but prerequisites are missing, show them here.
+    if st.session_state.get("advance_missing_tasks"):
+        st.warning(t("missing_tasks_title", default="Missing tasks before you can advance:"))
+        for item in st.session_state.advance_missing_tasks:
+            # Support both legacy plain-English strings and new i18n keys
+            if isinstance(item, str) and (" " not in item) and ("." in item):
+                st.markdown(f"- {t(item, default=item)}")
+            else:
+                st.markdown(f"- {item}")
+        st.session_state.advance_missing_tasks = []
 
     st.markdown("---")
     st.markdown("### Situation overview")
@@ -2213,48 +2210,48 @@ if st.session_state.get("advance_missing_tasks"):
     st.markdown("### Map of Sidero Valley")
     map_fig = make_village_map(truth)
     st.plotly_chart(map_fig, use_container_width=True)
-    
+
     # Day 1: Case Definition and Initial Hypotheses
     if st.session_state.current_day == 1:
         st.markdown("---")
-        
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.markdown("### 📝 Case Definition")
-            
+
             with st.form("case_definition_form"):
                 st.markdown("**Clinical criteria:**")
                 clinical = st.text_area("What symptoms/signs define a case?", height=80)
-                
+
                 col_a, col_b = st.columns(2)
                 with col_a:
                     person = st.text_input("**Person:** Who? (age, characteristics)")
                 with col_b:
                     place = st.text_input("**Place:** Where?")
-                
+
                 time_period = st.text_input("**Time:** When?")
-                
+
                 if st.form_submit_button("Save Case Definition"):
                     full_def = f"Clinical: {clinical}\nPerson: {person}\nPlace: {place}\nTime: {time_period}"
                     st.session_state.decisions["case_definition_text"] = full_def
                     st.session_state.decisions["case_definition"] = {"clinical_AES": True}
                     st.session_state.case_definition_written = True
                     st.success("✅ Case definition saved!")
-            
+
             if st.session_state.case_definition_written:
                 st.info("✓ Case definition recorded")
-        
+
         with col2:
             st.markdown("### 💡 Initial Hypotheses")
             st.caption("Based on what you know so far, what might be causing this outbreak? (At least 1 required)")
-            
+
             with st.form("hypotheses_form"):
                 h1 = st.text_input("Hypothesis 1 (required):")
                 h2 = st.text_input("Hypothesis 2 (optional):")
                 h3 = st.text_input("Hypothesis 3 (optional):")
                 h4 = st.text_input("Hypothesis 4 (optional):")
-                
+
                 if st.form_submit_button("Save Hypotheses"):
                     hypotheses = [h for h in [h1, h2, h3, h4] if h.strip()]
                     if len(hypotheses) >= 1:
@@ -2263,7 +2260,7 @@ if st.session_state.get("advance_missing_tasks"):
                         st.success(f"✅ {len(hypotheses)} hypothesis(es) saved!")
                     else:
                         st.error("Please enter at least one hypothesis.")
-            
+
             if st.session_state.hypotheses_documented:
                 st.info(f"✓ {len(st.session_state.initial_hypotheses)} hypothesis(es) recorded")
 
@@ -3292,6 +3289,35 @@ def view_lab_and_environment():
         show_cols = [c for c in show_cols if c in df.columns]
         st.dataframe(df[show_cols], use_container_width=True, hide_index=True)
 
+
+def get_village_photos(village_name):
+    """
+    Get list of photos for a village from the assets directory.
+
+    Returns a dict mapping photo base names to their full paths, or None if no photos exist.
+    """
+    assets_dir = Path("assets")
+    village_dir = assets_dir / village_name.capitalize()
+
+    if not village_dir.exists():
+        return None
+
+    # Get all image files
+    photo_files = []
+    for ext in ['*.png', '*.jpg', '*.jpeg']:
+        photo_files.extend(village_dir.glob(ext))
+
+    if not photo_files:
+        return None
+
+    # Create a dict mapping base names to paths
+    photos = {}
+    for photo_path in sorted(photo_files):
+        photos[photo_path.stem] = photo_path
+
+    return photos
+
+
 def view_village_profiles():
     """Display village briefing documents with stats and images."""
     st.header("🏘️ Village Profiles - Sidero Valley")
@@ -3551,37 +3577,104 @@ def view_village_profiles():
                 st.markdown(desc)
             
             with col2:
-                st.markdown("### 📸 Scene Illustrations")
-                
+                # Check for photos first, fall back to SVG illustrations
+                village_photos = get_village_photos(village_key)
+
+                if village_photos:
+                    st.markdown("### 📸 Village Photos")
+                else:
+                    st.markdown("### 📸 Scene Illustrations")
+
                 if village_key == "nalu":
-                    st.markdown("**Rice Paddies Near Village**")
-                    st.markdown(nalu_rice_svg, unsafe_allow_html=True)
-                    st.caption("Irrigated rice fields with standing water year-round")
-                    
-                    st.markdown("---")
-                    st.markdown("**Pig Cooperative**")
-                    st.markdown(nalu_pigs_svg, unsafe_allow_html=True)
-                    st.caption("~200 pigs housed 500m from village center")
-                    
+                    # Use real photos if available, otherwise use SVG illustrations
+                    if village_photos:
+                        # Display village scene
+                        if "nalu_01_village_scene" in village_photos:
+                            st.markdown("**Village Scene**")
+                            st.image(str(village_photos["nalu_01_village_scene"]), use_container_width=True)
+                            st.caption("Nalu village center")
+                            st.markdown("---")
+
+                        # Display rice paddies
+                        if "nalu_02_rice_paddies" in village_photos:
+                            st.markdown("**Rice Paddies Near Village**")
+                            st.image(str(village_photos["nalu_02_rice_paddies"]), use_container_width=True)
+                            st.caption("Irrigated rice fields with standing water year-round")
+                            st.markdown("---")
+
+                        # Display pig pens
+                        if "nalu_03_pig_pens" in village_photos:
+                            st.markdown("**Pig Cooperative**")
+                            st.image(str(village_photos["nalu_03_pig_pens"]), use_container_width=True)
+                            st.caption("~200 pigs housed 500m from village center")
+                            st.markdown("---")
+
+                        # Display health center
+                        if "nalu_04_health_center_exterior" in village_photos:
+                            st.markdown("**Health Center**")
+                            st.image(str(village_photos["nalu_04_health_center_exterior"]), use_container_width=True)
+                            st.caption("Nalu Health Center - main facility for the area")
+                            st.markdown("---")
+
+                        # Display market day
+                        if "nalu_05_market_day" in village_photos:
+                            st.markdown("**Market Day**")
+                            st.image(str(village_photos["nalu_05_market_day"]), use_container_width=True)
+                            st.caption("Weekly market brings people together from surrounding villages")
+                    else:
+                        # Fallback to SVG illustrations
+                        st.markdown("**Rice Paddies Near Village**")
+                        st.markdown(nalu_rice_svg, unsafe_allow_html=True)
+                        st.caption("Irrigated rice fields with standing water year-round")
+
+                        st.markdown("---")
+                        st.markdown("**Pig Cooperative**")
+                        st.markdown(nalu_pigs_svg, unsafe_allow_html=True)
+                        st.caption("~200 pigs housed 500m from village center")
+
                 elif village_key == "kabwe":
-                    st.markdown("**Mixed Farming Area**")
-                    st.markdown(kabwe_mixed_svg, unsafe_allow_html=True)
-                    st.caption("Combination of rice paddies and upland maize")
-                    
-                    st.markdown("---")
-                    st.markdown("**Path to Nalu School**")
-                    st.markdown(kabwe_path_svg, unsafe_allow_html=True)
-                    st.caption("Children walk through paddy fields daily")
-                    
+                    # Use real photos if available, otherwise use SVG illustrations
+                    if village_photos:
+                        # Display photos for Kabwe when added
+                        # For now, just display any photos found
+                        for photo_key, photo_path in village_photos.items():
+                            # Create a nice title from the filename
+                            title = photo_key.replace("kabwe_", "").replace("_", " ").title()
+                            st.markdown(f"**{title}**")
+                            st.image(str(photo_path), use_container_width=True)
+                            st.markdown("---")
+                    else:
+                        # Fallback to SVG illustrations
+                        st.markdown("**Mixed Farming Area**")
+                        st.markdown(kabwe_mixed_svg, unsafe_allow_html=True)
+                        st.caption("Combination of rice paddies and upland maize")
+
+                        st.markdown("---")
+                        st.markdown("**Path to Nalu School**")
+                        st.markdown(kabwe_path_svg, unsafe_allow_html=True)
+                        st.caption("Children walk through paddy fields daily")
+
                 elif village_key == "tamu":
-                    st.markdown("**Upland Terrain**")
-                    st.markdown(tamu_upland_svg, unsafe_allow_html=True)
-                    st.caption("Higher elevation with cassava and yam farming")
-                    
-                    st.markdown("---")
-                    st.markdown("**Forested Areas**")
-                    st.markdown(tamu_forest_svg, unsafe_allow_html=True)
-                    st.caption("Spring-fed wells, less standing water")
+                    # Use real photos if available, otherwise use SVG illustrations
+                    if village_photos:
+                        # Display photos for Tamu when added
+                        # For now, just display any photos found
+                        for photo_key, photo_path in village_photos.items():
+                            # Create a nice title from the filename
+                            title = photo_key.replace("tamu_", "").replace("_", " ").title()
+                            st.markdown(f"**{title}**")
+                            st.image(str(photo_path), use_container_width=True)
+                            st.markdown("---")
+                    else:
+                        # Fallback to SVG illustrations
+                        st.markdown("**Upland Terrain**")
+                        st.markdown(tamu_upland_svg, unsafe_allow_html=True)
+                        st.caption("Higher elevation with cassava and yam farming")
+
+                        st.markdown("---")
+                        st.markdown("**Forested Areas**")
+                        st.markdown(tamu_forest_svg, unsafe_allow_html=True)
+                        st.caption("Spring-fed wells, less standing water")
             
             # Quick stats summary
             st.markdown("---")

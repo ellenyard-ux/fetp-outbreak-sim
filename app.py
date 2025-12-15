@@ -3243,34 +3243,33 @@ def view_lab_and_environment():
             st.rerun()
 
 
-if st.session_state.lab_results:
-    st.markdown(f"### {t('lab_results', default='Lab results')}")
-    df = pd.DataFrame(st.session_state.lab_results).copy()
-
-    villages_lookup = truth["villages"].set_index("village_id")["village_name"].to_dict()
-    if "village_id" in df.columns:
-        df["village"] = df["village_id"].map(villages_lookup).fillna(df["village_id"])
-
-    if "test_display" not in df.columns:
-        df["test_display"] = df.get("test", "").map(lab_test_label) if "test" in df.columns else ""
-
-    day_now = int(st.session_state.get("current_day", 1))
-    if "ready_day" in df.columns:
-        df["days_remaining"] = df.apply(
-            lambda r: max(0, int(r.get("ready_day", day_now)) - day_now)
-            if str(r.get("result", "")).upper() == "PENDING"
-            else 0,
-            axis=1,
-        )
-
-    show_cols = [
-        "sample_id", "sample_type", "village", "test_display",
-        "source_description", "placed_day", "ready_day",
-        "days_remaining", "result"
-    ]
-    show_cols = [c for c in show_cols if c in df.columns]
-    st.dataframe(df[show_cols], use_container_width=True, hide_index=True)
-
+    if st.session_state.get('lab_results'):
+        st.markdown(f"### {t('lab_results', default='Lab results')}")
+        df = pd.DataFrame(st.session_state.lab_results).copy()
+    
+        villages_lookup = truth["villages"].set_index("village_id")["village_name"].to_dict()
+        if "village_id" in df.columns:
+            df["village"] = df["village_id"].map(villages_lookup).fillna(df["village_id"])
+    
+        if "test_display" not in df.columns:
+            df["test_display"] = df.get("test", "").map(lab_test_label) if "test" in df.columns else ""
+    
+        day_now = int(st.session_state.get("current_day", 1))
+        if "ready_day" in df.columns:
+            df["days_remaining"] = df.apply(
+                lambda r: max(0, int(r.get("ready_day", day_now)) - day_now)
+                if str(r.get("result", "")).upper() == "PENDING"
+                else 0,
+                axis=1,
+            )
+    
+        show_cols = [
+            "sample_id", "sample_type", "village", "test_display",
+            "source_description", "placed_day", "ready_day",
+            "days_remaining", "result"
+        ]
+        show_cols = [c for c in show_cols if c in df.columns]
+        st.dataframe(df[show_cols], use_container_width=True, hide_index=True)
 
 def view_village_profiles():
     """Display village briefing documents with stats and images."""

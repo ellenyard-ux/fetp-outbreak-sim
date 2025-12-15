@@ -8,6 +8,9 @@ import plotly.express as px
 import io
 import re
 
+# Session persistence
+import persistence
+
 # Robust import: avoid hard failures from `from je_logic import ...` if the deployed module is stale/mismatched.
 try:
     import je_logic as jl
@@ -1993,6 +1996,46 @@ def sidebar_navigation():
         f"**{t('lab_credits')}:** {st.session_state.lab_credits}"
     )
 
+    # Session Management - Save/Load functionality
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 💾 Session Management")
+
+    col1, col2 = st.sidebar.columns(2)
+
+    # Save session
+    with col1:
+        if st.button("💾 Save", use_container_width=True, key="save_session_btn", help="Download your current progress"):
+            try:
+                save_data = persistence.create_save_file(st.session_state)
+                filename = persistence.get_save_filename(st.session_state)
+                st.sidebar.download_button(
+                    label="⬇️ Download",
+                    data=save_data,
+                    file_name=filename,
+                    mime="application/json",
+                    use_container_width=True,
+                    key="download_save_btn"
+                )
+            except Exception as e:
+                st.sidebar.error(f"Error creating save file: {e}")
+
+    # Load session
+    with col2:
+        uploaded = st.file_uploader(
+            "📂 Load",
+            type=["json"],
+            key="session_load_uploader",
+            help="Upload a previously saved session file",
+            label_visibility="collapsed"
+        )
+        if uploaded is not None:
+            success, message = persistence.load_save_file(uploaded, st.session_state)
+            if success:
+                st.sidebar.success(message)
+                st.rerun()
+            else:
+                st.sidebar.error(message)
+
     # Progress indicator
     st.sidebar.markdown(f"### {t('progress')}")
     for day in range(1, 6):
@@ -2180,6 +2223,20 @@ def view_overview():
     st.markdown(day_briefing_text(st.session_state.current_day))
 
     day_task_list(st.session_state.current_day)
+
+    # Session save/load guidance
+    with st.expander("ℹ️ Saving Your Progress"):
+        st.markdown("""
+        **Working on this investigation over multiple sessions?**
+
+        - Use **💾 Save** in the sidebar to download your progress as a file
+        - Save files include all your decisions, interviews, lab results, and investigation notes
+        - To continue later, use **📂 Load** to upload your save file
+        - Save regularly to avoid losing work!
+        - You can share save files with team members or facilitators
+
+        *Tip: Save files are named with the current day and timestamp for easy identification.*
+        """)
 
     # If the user tried to advance but prerequisites are missing, show them here.
     if st.session_state.get("advance_missing_tasks"):

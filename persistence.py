@@ -44,6 +44,9 @@ PERSISTENT_KEYS = {
     # Investigation artifacts
     'selected_clinic_cases', 'case_finding_score', 'initial_hypotheses',
     'notebook_entries', 'unlock_flags', 'advance_missing_tasks',
+
+    # Found cases from case finding (persisted separately to restore after truth regeneration)
+    'found_case_individuals', 'found_case_households', 'clinic_records',
 }
 
 

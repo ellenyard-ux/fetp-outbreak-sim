@@ -8,6 +8,7 @@ import plotly.express as px
 import io
 import re
 from pathlib import Path
+from PIL import Image
 
 # Session persistence
 import persistence
@@ -4513,6 +4514,185 @@ def view_interventions_and_outcome():
 # ADVENTURE MODE VIEWS
 # =========================
 
+# Location coordinates for interactive map (0-100 scale, 0,0 is bottom-left)
+MAP_LOCATIONS = {
+    "Nalu Village": {"x": 35, "y": 45, "icon": "🌾", "desc": "Large rice-farming village. Pig cooperative nearby."},
+    "Kabwe Village": {"x": 65, "y": 40, "icon": "🌿", "desc": "Medium village on higher ground. Mixed farming."},
+    "Tamu Village": {"x": 15, "y": 85, "icon": "⛰️", "desc": "Remote upland community. Cassava farming."},
+    "Mining Area": {"x": 20, "y": 15, "icon": "⛏️", "desc": "Recent expansion. New irrigation ponds."},
+    "District Hospital": {"x": 85, "y": 80, "icon": "🏥", "desc": "AES patients admitted here. Lab available."},
+    "District Office": {"x": 40, "y": 35, "icon": "🏛️", "desc": "Meet officials, veterinary and environmental officers."},
+}
+
+
+def render_interactive_map():
+    """
+    Render an interactive point-and-click map of Sidero Valley using Plotly.
+    Clicking a location updates st.session_state.current_area and reruns.
+    """
+    # Load the background map image
+    map_image_path = Path("assets/map_background.png")
+
+    if not map_image_path.exists():
+        st.error("Map background image not found at assets/map_background.png")
+        return
+
+    img = Image.open(map_image_path)
+    img_width, img_height = img.size
+
+    # Create figure with the background image
+    fig = go.Figure()
+
+    # Add the background image
+    fig.add_layout_image(
+        dict(
+            source=img,
+            xref="x",
+            yref="y",
+            x=0,
+            y=100,
+            sizex=100,
+            sizey=100,
+            sizing="stretch",
+            opacity=1,
+            layer="below"
+        )
+    )
+
+    # Prepare data for scatter points
+    x_coords = []
+    y_coords = []
+    names = []
+    descriptions = []
+
+    for loc_name, loc_data in MAP_LOCATIONS.items():
+        x_coords.append(loc_data["x"])
+        y_coords.append(loc_data["y"])
+        names.append(loc_name)
+        descriptions.append(f"{loc_data['icon']} {loc_name}<br>{loc_data['desc']}")
+
+    # Add clickable scatter points with a subtle glow effect
+    # First add a larger, semi-transparent marker for the glow/halo effect
+    fig.add_trace(go.Scatter(
+        x=x_coords,
+        y=y_coords,
+        mode='markers',
+        marker=dict(
+            size=28,
+            color='rgba(255, 255, 255, 0.4)',
+            line=dict(width=0)
+        ),
+        hoverinfo='skip',
+        showlegend=False
+    ))
+
+    # Add the main marker points
+    fig.add_trace(go.Scatter(
+        x=x_coords,
+        y=y_coords,
+        mode='markers',
+        marker=dict(
+            size=18,
+            color='#FF6B35',  # Orange-red color for visibility
+            line=dict(width=3, color='white'),
+            symbol='circle'
+        ),
+        text=descriptions,
+        hovertemplate='%{text}<extra></extra>',
+        customdata=names,
+        showlegend=False
+    ))
+
+    # Add text labels with shadow effect for readability
+    # First add shadow/outline (slightly offset dark text)
+    for loc_name, loc_data in MAP_LOCATIONS.items():
+        # Shadow offset positions
+        for dx, dy in [(1, -1), (-1, -1), (1, 1), (-1, 1)]:
+            fig.add_annotation(
+                x=loc_data["x"] + dx * 0.5,
+                y=loc_data["y"] + 6 + dy * 0.5,
+                text=f"<b>{loc_name}</b>",
+                showarrow=False,
+                font=dict(size=12, color='rgba(0,0,0,0.8)'),
+                xanchor='center',
+                yanchor='bottom'
+            )
+
+    # Add the main white text labels on top
+    for loc_name, loc_data in MAP_LOCATIONS.items():
+        fig.add_annotation(
+            x=loc_data["x"],
+            y=loc_data["y"] + 6,
+            text=f"<b>{loc_name}</b>",
+            showarrow=False,
+            font=dict(size=12, color='white'),
+            xanchor='center',
+            yanchor='bottom'
+        )
+
+    # Configure the layout to look like a clean map
+    fig.update_layout(
+        xaxis=dict(
+            range=[0, 100],
+            showgrid=False,
+            zeroline=False,
+            showticklabels=False,
+            showline=False,
+            fixedrange=True
+        ),
+        yaxis=dict(
+            range=[0, 100],
+            showgrid=False,
+            zeroline=False,
+            showticklabels=False,
+            showline=False,
+            scaleanchor="x",
+            scaleratio=1,
+            fixedrange=True
+        ),
+        margin=dict(l=0, r=0, t=0, b=0),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=500,
+        dragmode=False,
+        clickmode='event+select'
+    )
+
+    # Display the map with click handling
+    st.markdown("### 🗺️ Click a location to travel there")
+
+    # Use plotly_events for click detection
+    selected_point = st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key="interactive_map",
+        on_select="rerun",
+        selection_mode="points"
+    )
+
+    # Handle click/selection events
+    if selected_point and selected_point.selection and selected_point.selection.points:
+        point_data = selected_point.selection.points[0]
+        point_index = point_data.get("point_index", None)
+        if point_index is not None and 0 <= point_index < len(names):
+            selected_location = names[point_index]
+            st.session_state.current_area = selected_location
+            st.session_state.current_view = "area"
+            st.rerun()
+
+    # Show location legend/quick reference below the map
+    st.markdown("---")
+    st.markdown("**Locations:**")
+    cols = st.columns(3)
+    for i, (loc_name, loc_data) in enumerate(MAP_LOCATIONS.items()):
+        with cols[i % 3]:
+            if st.button(f"{loc_data['icon']} {loc_name}", key=f"map_btn_{loc_name}", use_container_width=True):
+                st.session_state.current_area = loc_name
+                st.session_state.current_view = "area"
+                st.rerun()
+            st.caption(loc_data['desc'])
+
+
 def view_travel_map():
     """Main travel map showing all areas and allowing navigation."""
     st.title("🗺️ Sidero Valley - Investigation Map")
@@ -4542,56 +4722,8 @@ def view_travel_map():
             *Click on a location below to travel there.*
             """)
 
-    st.markdown("### 🚗 Select a Destination")
-
-    # Create columns for each major area
-    areas = list(AREA_LOCATIONS.keys())
-
-    # First row: Villages
-    st.markdown("#### 🏘️ Villages")
-    cols = st.columns(3)
-
-    village_areas = ["Nalu Village", "Kabwe Village", "Tamu Village"]
-    village_icons = {"Nalu Village": "🌾", "Kabwe Village": "🌿", "Tamu Village": "⛰️"}
-    village_desc = {
-        "Nalu Village": "Large rice-farming village. Pig cooperative nearby.",
-        "Kabwe Village": "Medium village on higher ground. Mixed farming.",
-        "Tamu Village": "Remote upland community. Cassava farming."
-    }
-
-    for i, area in enumerate(village_areas):
-        with cols[i]:
-            st.markdown(f"**{village_icons.get(area, '')} {area}**")
-            st.caption(village_desc.get(area, ""))
-            if st.button(f"Travel to {area}", key=f"area_{area}", use_container_width=True):
-                st.session_state.current_area = area
-                st.session_state.current_view = "area"
-                st.rerun()
-
-    st.markdown("---")
-
-    # Second row: Facilities
-    st.markdown("#### 🏛️ Facilities")
-    cols = st.columns(3)
-
-    facility_areas = ["District Hospital", "District Office", "Mining Area"]
-    facility_icons = {"District Hospital": "🏥", "District Office": "🏛️", "Mining Area": "⛏️"}
-    facility_desc = {
-        "District Hospital": "AES patients admitted here. Lab available.",
-        "District Office": "Meet officials, veterinary and environmental officers.",
-        "Mining Area": "Recent expansion. New irrigation ponds."
-    }
-
-    for i, area in enumerate(facility_areas):
-        with cols[i]:
-            st.markdown(f"**{facility_icons.get(area, '')} {area}**")
-            st.caption(facility_desc.get(area, ""))
-            if st.button(f"Travel to {area}", key=f"area_{area}", use_container_width=True):
-                st.session_state.current_area = area
-                st.session_state.current_view = "area"
-                st.rerun()
-
-    st.markdown("---")
+    # Render the interactive satellite map for destination selection
+    render_interactive_map()
 
     # Quick access to data views
     st.markdown("### 📊 Investigation Tools")

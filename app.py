@@ -655,6 +655,17 @@ def init_session_state():
     # Descriptive epidemiology
     st.session_state.setdefault("descriptive_epi_viewed", False)
 
+    # Restore found cases from session persistence (if loading a saved session)
+    # This is needed because truth is regenerated from CSV files, losing found cases
+    if st.session_state.get('found_cases_added', False):
+        found_individuals = st.session_state.get('found_case_individuals')
+        if found_individuals is not None and len(found_individuals) > 0:
+            # Check if found cases are already in truth
+            truth = st.session_state.truth
+            if 'found_via_case_finding' not in truth['individuals'].columns or \
+               not truth['individuals']['found_via_case_finding'].any():
+                restore_found_cases_to_truth(truth, st.session_state)
+
 
 # =========================
 # UTILITY FUNCTIONS
@@ -1593,8 +1604,290 @@ def generate_clinic_records():
     # Combine and shuffle
     all_records = true_aes_cases + non_aes_cases
     random.shuffle(all_records)
-    
+
     return all_records
+
+
+def parse_clinic_record_age(age_str: str) -> int:
+    """Parse messy age strings from clinic records into integer years."""
+    import re
+    if not age_str:
+        return 0
+    age_str = str(age_str).lower().strip()
+    # Remove common suffixes
+    age_str = re.sub(r'\s*(years?|yrs?|y|yr)\s*$', '', age_str)
+    age_str = re.sub(r'\s*mo(nths?)?\s*$', '', age_str)
+    # Handle approximate ages like "~8"
+    age_str = age_str.replace('~', '').strip()
+    try:
+        return int(float(age_str))
+    except (ValueError, TypeError):
+        return 5  # Default for children if parsing fails
+
+
+def parse_clinic_record_date(date_str: str, year: int = 2025) -> str:
+    """Parse messy date strings from clinic records into YYYY-MM-DD format."""
+    import re
+    if not date_str:
+        return None
+    date_str = str(date_str).strip()
+
+    # Handle various formats: "2-Jun", "4-Jun", "5 June", "6/6", "7-June", etc.
+    month_map = {
+        'jan': '01', 'january': '01',
+        'feb': '02', 'february': '02',
+        'mar': '03', 'march': '03',
+        'apr': '04', 'april': '04',
+        'may': '05',
+        'jun': '06', 'june': '06',
+        'jul': '07', 'july': '07',
+        'aug': '08', 'august': '08',
+        'sep': '09', 'september': '09',
+        'oct': '10', 'october': '10',
+        'nov': '11', 'november': '11',
+        'dec': '12', 'december': '12',
+    }
+
+    # Try format like "2-Jun" or "5 June" or "7-June"
+    match = re.match(r'(\d{1,2})[-\s]?([a-zA-Z]+)', date_str)
+    if match:
+        day = int(match.group(1))
+        month_name = match.group(2).lower()
+        for key, val in month_map.items():
+            if month_name.startswith(key):
+                return f"{year}-{val}-{day:02d}"
+
+    # Try format like "6/6"
+    match = re.match(r'(\d{1,2})/(\d{1,2})', date_str)
+    if match:
+        day_or_month = int(match.group(1))
+        month_or_day = int(match.group(2))
+        # Assume day/month format
+        return f"{year}-{month_or_day:02d}-{day_or_month:02d}"
+
+    return None
+
+
+def parse_clinic_record_sex(patient_str: str) -> str:
+    """Parse sex from patient description."""
+    patient_lower = patient_str.lower()
+    if 'male' in patient_lower or 'boy' in patient_lower:
+        return 'M'
+    if 'female' in patient_lower or 'girl' in patient_lower or ', f' in patient_lower:
+        return 'F'
+    # Default based on common names
+    male_names = ['kwame', 'kofi', 'yaw', 'kwesi', 'kweku', 'kwabena']
+    female_names = ['esi', 'ama', 'abena', 'adwoa', 'akua', 'afia']
+    for name in male_names:
+        if name in patient_lower:
+            return 'M'
+    for name in female_names:
+        if name in patient_lower:
+            return 'F'
+    return 'M'  # Default
+
+
+def parse_clinic_record_village(village_str: str) -> str:
+    """Map clinic record village names to village_id."""
+    village_lower = str(village_str).lower().strip()
+    if 'nalu' in village_lower:
+        return 'V1'
+    elif 'kabwe' in village_lower:
+        return 'V2'
+    elif 'tamu' in village_lower:
+        return 'V3'
+    return 'V1'  # Default to Nalu
+
+
+def create_found_case_records(clinic_records: list, selected_record_ids: list,
+                               existing_individuals: pd.DataFrame,
+                               existing_households: pd.DataFrame) -> tuple:
+    """
+    Create individual and household records for correctly identified AES cases from clinic records.
+
+    Args:
+        clinic_records: List of clinic record dicts
+        selected_record_ids: List of record_ids that the user selected
+        existing_individuals: Current individuals DataFrame
+        existing_households: Current households DataFrame
+
+    Returns:
+        Tuple of (new_individuals_df, new_households_df) to be concatenated with existing data
+    """
+    import pandas as pd
+
+    # Find true positive selections (correctly identified AES cases)
+    true_positive_records = [
+        r for r in clinic_records
+        if r['record_id'] in selected_record_ids and r.get('is_aes', False)
+    ]
+
+    if not true_positive_records:
+        return pd.DataFrame(), pd.DataFrame()
+
+    # Get the highest existing person_id and hh_id numbers to avoid collisions
+    existing_person_nums = []
+    for pid in existing_individuals['person_id']:
+        try:
+            num = int(str(pid).replace('P', '').replace('_CF', ''))
+            existing_person_nums.append(num)
+        except:
+            pass
+    max_person_num = max(existing_person_nums) if existing_person_nums else 0
+
+    existing_hh_nums = []
+    for hid in existing_households['hh_id']:
+        try:
+            num = int(str(hid).replace('HH', '').replace('_CF', ''))
+            existing_hh_nums.append(num)
+        except:
+            pass
+    max_hh_num = max(existing_hh_nums) if existing_hh_nums else 0
+
+    new_individuals = []
+    new_households = []
+
+    for i, record in enumerate(true_positive_records):
+        # Create unique IDs for case-finding discovered cases
+        person_id = f"P_CF{max_person_num + 1000 + i:03d}"
+        hh_id = f"HH_CF{max_hh_num + 1000 + i:03d}"
+
+        # Parse data from the clinic record
+        age = parse_clinic_record_age(record.get('age', ''))
+        sex = parse_clinic_record_sex(record.get('patient', ''))
+        village_id = parse_clinic_record_village(record.get('village', ''))
+        onset_date = parse_clinic_record_date(record.get('date', ''))
+
+        # Infer severity from complaint/notes
+        complaint = record.get('complaint', '').lower()
+        notes = record.get('notes', '').lower()
+        combined_text = complaint + ' ' + notes
+
+        severe_neuro = any(word in combined_text for word in
+                          ['seizure', 'fitting', 'unresponsive', 'jerking', 'convuls'])
+
+        # Infer outcome - most clinic referrals lead to hospitalization
+        outcome = 'hospitalized' if 'refer' in combined_text or 'hosp' in combined_text else 'recovered'
+
+        # Determine occupation based on age
+        if age < 5:
+            occupation = 'child'
+        elif age < 18:
+            occupation = 'student'
+        else:
+            occupation = 'farmer'
+
+        # Create individual record
+        individual = {
+            'person_id': person_id,
+            'hh_id': hh_id,
+            'village_id': village_id,
+            'age': age,
+            'sex': sex,
+            'occupation': occupation,
+            'JE_vaccinated': False,  # Assume unvaccinated (part of the outbreak)
+            'evening_outdoor_exposure': True,  # Common exposure pattern
+            'true_je_infection': True,  # These are true AES cases
+            'symptomatic_AES': True,  # This is what makes them appear in line list
+            'severe_neuro': severe_neuro,
+            'onset_date': onset_date,
+            'outcome': outcome,
+            'name_hint': record.get('patient', ''),
+            'found_via_case_finding': True,  # Flag to track source
+            'clinic_record_id': record.get('record_id', ''),
+        }
+        new_individuals.append(individual)
+
+        # Create household record with typical outbreak characteristics
+        # (pigs nearby, near rice fields, no nets - risk factors)
+        household = {
+            'hh_id': hh_id,
+            'village_id': village_id,
+            'pigs_owned': 2 if 'pig' in combined_text else 1,
+            'pig_pen_distance_m': 20.0,
+            'uses_mosquito_nets': 'no net' in combined_text or 'no mosquito' in combined_text,
+            'rice_field_distance_m': 50.0 if 'rice' in combined_text or 'paddy' in combined_text else 100.0,
+            'children_under_15': 2,
+            'JE_vaccination_children': 'none',
+        }
+        # Correct net usage - False if "no net" mentioned
+        household['uses_mosquito_nets'] = not ('no net' in combined_text or 'no mosquito' in combined_text)
+        new_households.append(household)
+
+    return pd.DataFrame(new_individuals), pd.DataFrame(new_households)
+
+
+def add_found_cases_to_truth(truth: dict, clinic_records: list, selected_record_ids: list,
+                             session_state=None) -> int:
+    """
+    Add correctly identified cases from case finding to the truth data.
+
+    Args:
+        truth: The truth dictionary containing individuals and households DataFrames
+        clinic_records: List of clinic record dicts
+        selected_record_ids: List of record_ids selected by the user
+        session_state: Optional session state to store found cases for persistence
+
+    Returns:
+        Number of cases added
+    """
+    import pandas as pd
+
+    new_individuals, new_households = create_found_case_records(
+        clinic_records,
+        selected_record_ids,
+        truth['individuals'],
+        truth['households']
+    )
+
+    if len(new_individuals) == 0:
+        return 0
+
+    # Store found cases separately for persistence (truth is regenerated on load)
+    if session_state is not None:
+        session_state['found_case_individuals'] = new_individuals
+        session_state['found_case_households'] = new_households
+
+    # Concatenate new records to existing DataFrames
+    truth['individuals'] = pd.concat([truth['individuals'], new_individuals], ignore_index=True)
+    truth['households'] = pd.concat([truth['households'], new_households], ignore_index=True)
+
+    return len(new_individuals)
+
+
+def restore_found_cases_to_truth(truth: dict, session_state) -> int:
+    """
+    Restore found cases from session state to truth data.
+    Called after truth is regenerated from CSV files on session load.
+
+    Args:
+        truth: The truth dictionary containing individuals and households DataFrames
+        session_state: Session state containing found_case_individuals and found_case_households
+
+    Returns:
+        Number of cases restored
+    """
+    import pandas as pd
+
+    found_individuals = session_state.get('found_case_individuals')
+    found_households = session_state.get('found_case_households')
+
+    if found_individuals is None or len(found_individuals) == 0:
+        return 0
+
+    # Check if cases are already in truth (avoid duplicates)
+    if 'found_via_case_finding' in truth['individuals'].columns:
+        existing_found = truth['individuals'][truth['individuals']['found_via_case_finding'] == True]
+        if len(existing_found) > 0:
+            # Cases already restored, don't add duplicates
+            return 0
+
+    # Concatenate found cases to truth
+    truth['individuals'] = pd.concat([truth['individuals'], found_individuals], ignore_index=True)
+    if found_households is not None and len(found_households) > 0:
+        truth['households'] = pd.concat([truth['households'], found_households], ignore_index=True)
+
+    return len(found_individuals)
 
 
 def generate_hospital_records():
@@ -2542,10 +2835,17 @@ def view_case_finding():
                             'selected': len(selected)
                         }
                         
-                        # Add found cases to the line list
+                        # Add found cases to the line list and study data
                         if true_positives > 0:
+                            cases_added = add_found_cases_to_truth(
+                                st.session_state.truth,
+                                records,
+                                selected,
+                                session_state=st.session_state
+                            )
                             st.session_state.found_cases_added = True
-                        
+                            st.session_state.case_finding_score['cases_added'] = cases_added
+
                         st.success(f"✅ Case finding complete! You identified {true_positives} of {total_aes} potential AES cases.")
                         
                         if false_positives > 0:
@@ -2569,7 +2869,8 @@ def view_case_finding():
                     st.metric("Sensitivity", f"{sensitivity:.0f}%")
                 
                 if score['true_positives'] > 0:
-                    st.success(f"✅ {score['true_positives']} additional cases have been added to the line list for analysis.")
+                    cases_added = score.get('cases_added', score['true_positives'])
+                    st.success(f"✅ {cases_added} additional cases have been added to the line list and are available for analysis in Descriptive Epidemiology and Study Design.")
     
     with tab2:
         st.subheader("District Hospital - Detailed Medical Records")
@@ -2613,7 +2914,13 @@ def view_descriptive_epi():
     Use this workspace to characterize the outbreak by **Person**, **Place**, and **Time**.
     You can run analyses here or download the data to analyze on your computer.
     """)
-    
+
+    # Show case sources if case finding has been done
+    if st.session_state.get('found_cases_added', False):
+        found_cases_count = cases['found_via_case_finding'].sum() if 'found_via_case_finding' in cases.columns else 0
+        initial_cases_count = len(cases) - found_cases_count
+        st.info(f"📋 **Line List Sources:** {initial_cases_count} initial reported cases + {int(found_cases_count)} cases identified through active case finding = **{len(cases)} total cases**")
+
     # Data download section
     st.markdown("### 📥 Download Data")
     col1, col2, col3 = st.columns(3)
@@ -2621,6 +2928,13 @@ def view_descriptive_epi():
     with col1:
         # Prepare download data
         download_df = cases[['person_id', 'age', 'sex', 'village_name', 'onset_date', 'severe_neuro', 'outcome']].copy()
+        # Add case source column
+        if 'found_via_case_finding' in cases.columns:
+            download_df['case_source'] = cases['found_via_case_finding'].apply(
+                lambda x: 'case_finding' if x else 'initial_report'
+            )
+        else:
+            download_df['case_source'] = 'initial_report'
         csv_buffer = io.StringIO()
         download_df.to_csv(csv_buffer, index=False)
         
@@ -2964,7 +3278,13 @@ def view_study_design():
     st.session_state.decisions.setdefault("study_design", {})
     st.session_state.decisions["study_design"]["controls_per_case"] = int(controls_per_case)
 
-    st.caption(f"Eligible cases (based on your case definition proxy): **{len(cases_pool)}**")
+    # Show breakdown of case sources if case finding has been done
+    if st.session_state.get('found_cases_added', False) and 'found_via_case_finding' in cases_pool.columns:
+        found_count = cases_pool['found_via_case_finding'].sum() if 'found_via_case_finding' in cases_pool.columns else 0
+        initial_count = len(cases_pool) - found_count
+        st.caption(f"Eligible cases (based on your case definition proxy): **{len(cases_pool)}** ({initial_count} initial + {int(found_count)} from case finding)")
+    else:
+        st.caption(f"Eligible cases (based on your case definition proxy): **{len(cases_pool)}**")
 
     # ---- CASE SELECTION (manual)
     with st.form("case_select_form"):

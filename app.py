@@ -418,6 +418,181 @@ def format_resource_cost(time_cost: float = 0, budget_cost: float = 0) -> str:
 
 
 # =========================
+# LOCATIONS CONFIG (Adventure-Style Navigation)
+# =========================
+
+LOCATIONS = {
+    # === NALU VILLAGE ===
+    "nalu_village_center": {
+        "name": "Nalu Village Center",
+        "area": "Nalu Village",
+        "description": "The heart of Nalu Village - a bustling community with houses clustered near the main road. The weekly market brings traders from surrounding areas.",
+        "image_path": "assets/Nalu/nalu_01_village_scene",
+        "npcs": ["mama_kofi", "auntie_ama"],
+        "available_actions": ["view_village_profile"],
+        "travel_time": 0.5,
+    },
+    "nalu_health_center": {
+        "name": "Nalu Health Center",
+        "area": "Nalu Village",
+        "description": "A small health center staffed by Nurse Joy and community health workers. The building has a faded paint exterior and a long queue of waiting patients.",
+        "image_path": "assets/Nalu/nalu_04_health_center_exterior.png",
+        "npcs": ["nurse_joy"],
+        "available_actions": ["review_clinic_records", "view_hospital_records"],
+        "travel_time": 0.5,
+    },
+    "nalu_pig_coop": {
+        "name": "Nalu Pig Cooperative",
+        "area": "Nalu Village",
+        "description": "A large pig farming cooperative about 500 meters from the village center. The smell is strong and mosquitoes swarm in the evening.",
+        "image_path": "assets/Nalu/nalu_03_pig_pens",
+        "npcs": [],
+        "available_actions": ["collect_pig_sample", "inspect_environment"],
+        "travel_time": 0.5,
+    },
+    "nalu_rice_paddies": {
+        "name": "Nalu Rice Paddies",
+        "area": "Nalu Village",
+        "description": "Extensive irrigated rice fields with standing water year-round. The paddies stretch to the horizon, broken only by narrow raised paths.",
+        "image_path": "assets/Nalu/nalu_02_rice_paddies",
+        "npcs": [],
+        "available_actions": ["collect_water_sample", "collect_mosquito_sample", "inspect_environment"],
+        "travel_time": 0.5,
+    },
+    "nalu_school": {
+        "name": "Nalu Primary School",
+        "area": "Nalu Village",
+        "description": "The main primary school serving Nalu and surrounding villages. Children from Kabwe walk here daily through the rice paddies.",
+        "image_path": None,
+        "npcs": ["teacher_grace"],
+        "available_actions": ["review_attendance_records"],
+        "travel_time": 0.5,
+    },
+    # === KABWE VILLAGE ===
+    "kabwe_village_center": {
+        "name": "Kabwe Village Center",
+        "area": "Kabwe Village",
+        "description": "A medium-sized village on higher ground, 3km northeast of Nalu. Mixed farming community with both rice and upland crops.",
+        "image_path": None,
+        "npcs": [],
+        "available_actions": ["view_village_profile"],
+        "travel_time": 0.5,
+    },
+    "kabwe_school_path": {
+        "name": "School Path to Nalu",
+        "area": "Kabwe Village",
+        "description": "The walking path through rice paddies that Kabwe children use daily to reach school in Nalu. The path passes near irrigation canals.",
+        "image_path": None,
+        "npcs": [],
+        "available_actions": ["inspect_environment", "collect_mosquito_sample"],
+        "travel_time": 0.5,
+    },
+    # === TAMU VILLAGE ===
+    "tamu_remote_upland": {
+        "name": "Tamu Remote Upland",
+        "area": "Tamu Village",
+        "description": "A smaller, more remote community in the foothills. Upland farming with cassava and yams. Spring-fed water sources.",
+        "image_path": None,
+        "npcs": [],
+        "available_actions": ["view_village_profile", "inspect_environment"],
+        "travel_time": 1.0,
+    },
+    # === DISTRICT HOSPITAL ===
+    "hospital_ward": {
+        "name": "Hospital Ward",
+        "area": "District Hospital",
+        "description": "The AES patients are being treated in this ward. Monitors beep and worried families gather in the corridor.",
+        "image_path": None,
+        "npcs": ["dr_chen"],
+        "available_actions": ["review_hospital_records", "collect_csf_sample", "collect_serum_sample"],
+        "travel_time": 0.5,
+    },
+    "hospital_lab": {
+        "name": "Hospital Laboratory",
+        "area": "District Hospital",
+        "description": "A small but functional laboratory. Limited testing capacity means most samples must be sent to the regional reference lab.",
+        "image_path": None,
+        "npcs": [],
+        "available_actions": ["view_lab_results", "submit_lab_samples"],
+        "travel_time": 0.0,
+    },
+    "hospital_office": {
+        "name": "Hospital Administration",
+        "area": "District Hospital",
+        "description": "Dr. Chen's office. Charts and reports are pinned to the walls. A window overlooks the hospital courtyard.",
+        "image_path": None,
+        "npcs": ["dr_chen"],
+        "available_actions": ["review_hospital_records"],
+        "travel_time": 0.0,
+    },
+    # === DISTRICT OFFICE ===
+    "district_office": {
+        "name": "District Health Office",
+        "area": "District Office",
+        "description": "The administrative hub for district health operations. Officials and technical officers work from here.",
+        "image_path": None,
+        "npcs": ["vet_amina", "mr_osei", "mayor_simon"],
+        "available_actions": ["request_data", "plan_interventions"],
+        "travel_time": 0.5,
+    },
+    # === MINING AREA ===
+    "mining_area": {
+        "name": "Mining Compound",
+        "area": "Mining Area",
+        "description": "The mining operation has expanded recently, creating new irrigation ponds. Worker housing is nearby.",
+        "image_path": None,
+        "npcs": ["foreman_rex"],
+        "available_actions": ["inspect_environment", "collect_water_sample"],
+        "travel_time": 1.0,
+    },
+    # === MARKET ===
+    "central_market": {
+        "name": "Central Market",
+        "area": "Nalu Village",
+        "description": "The weekly market where traders from all villages gather. A good place to hear rumors and observe community patterns.",
+        "image_path": "assets/Nalu/nalu_05_market_day.png",
+        "npcs": ["auntie_ama"],
+        "available_actions": [],
+        "travel_time": 0.5,
+    },
+    # === HEALER ===
+    "healer_clinic": {
+        "name": "Traditional Healer's Clinic",
+        "area": "Nalu Village",
+        "description": "A small private clinic run by Healer Marcus. He saw some of the earliest cases before they went to the hospital.",
+        "image_path": None,
+        "npcs": ["healer_marcus"],
+        "available_actions": ["review_healer_records"],
+        "travel_time": 0.5,
+    },
+}
+
+# Map areas to their sub-locations
+AREA_LOCATIONS = {
+    "Nalu Village": ["nalu_village_center", "nalu_health_center", "nalu_pig_coop", "nalu_rice_paddies", "nalu_school", "central_market", "healer_clinic"],
+    "Kabwe Village": ["kabwe_village_center", "kabwe_school_path"],
+    "Tamu Village": ["tamu_remote_upland"],
+    "District Hospital": ["hospital_ward", "hospital_lab", "hospital_office"],
+    "District Office": ["district_office"],
+    "Mining Area": ["mining_area"],
+}
+
+# Map NPC keys to their primary location
+NPC_LOCATIONS = {
+    "dr_chen": "hospital_ward",
+    "nurse_joy": "nalu_health_center",
+    "healer_marcus": "healer_clinic",
+    "mama_kofi": "nalu_village_center",
+    "teacher_grace": "nalu_school",
+    "foreman_rex": "mining_area",
+    "auntie_ama": "central_market",
+    "vet_amina": "district_office",
+    "mr_osei": "district_office",
+    "mayor_simon": "district_office",
+}
+
+
+# =========================
 # VILLAGE BRIEFING DOCUMENTS  
 # =========================
 
@@ -569,13 +744,17 @@ def init_session_state():
         # Start on alert screen until acknowledged
         st.session_state.current_view = "alert"
 
+    # Adventure mode: current_location (None = show map, string = show location view)
+    st.session_state.setdefault("current_location", None)
+    st.session_state.setdefault("current_area", None)  # For area-level navigation
+
     # If alert is not acknowledged, force the view to "alert"
     if not st.session_state.alert_acknowledged:
         st.session_state.current_view = "alert"
     else:
-        # If alert already acknowledged but view is still "alert", move to overview
+        # If alert already acknowledged but view is still "alert", move to map
         if st.session_state.current_view == "alert":
-            st.session_state.current_view = "overview"
+            st.session_state.current_view = "map"
 
     # Resources - budget AND time
     st.session_state.setdefault("budget", 1000)
@@ -4298,6 +4477,667 @@ def view_interventions_and_outcome():
 
 
 # =========================
+# ADVENTURE MODE VIEWS
+# =========================
+
+def view_travel_map():
+    """Main travel map showing all areas and allowing navigation."""
+    st.title("🗺️ Sidero Valley - Investigation Map")
+
+    # Show current status
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric(f"📅 {t('day')}", f"{st.session_state.current_day} / 5")
+    with col2:
+        st.metric(f"⏱️ {t('time_remaining')}", f"{st.session_state.time_remaining}h")
+    with col3:
+        st.metric(f"💰 {t('budget')}", f"${st.session_state.budget}")
+    with col4:
+        st.metric(f"🧪 {t('lab_credits')}", st.session_state.lab_credits)
+
+    st.markdown("---")
+
+    # Day briefing
+    if st.session_state.current_day == 1:
+        with st.expander("📋 Day 1 Briefing - Situation Assessment", expanded=True):
+            st.markdown("""
+            **Your tasks today:**
+            - Visit the **District Hospital** to meet Dr. Chen and review cases
+            - Travel to **Nalu Village** to interview residents and review clinic records
+            - Document your initial hypotheses about the outbreak source
+
+            *Click on a location below to travel there.*
+            """)
+
+    st.markdown("### 🚗 Select a Destination")
+
+    # Create columns for each major area
+    areas = list(AREA_LOCATIONS.keys())
+
+    # First row: Villages
+    st.markdown("#### 🏘️ Villages")
+    cols = st.columns(3)
+
+    village_areas = ["Nalu Village", "Kabwe Village", "Tamu Village"]
+    village_icons = {"Nalu Village": "🌾", "Kabwe Village": "🌿", "Tamu Village": "⛰️"}
+    village_desc = {
+        "Nalu Village": "Large rice-farming village. Pig cooperative nearby.",
+        "Kabwe Village": "Medium village on higher ground. Mixed farming.",
+        "Tamu Village": "Remote upland community. Cassava farming."
+    }
+
+    for i, area in enumerate(village_areas):
+        with cols[i]:
+            st.markdown(f"**{village_icons.get(area, '')} {area}**")
+            st.caption(village_desc.get(area, ""))
+            if st.button(f"Travel to {area}", key=f"area_{area}", use_container_width=True):
+                st.session_state.current_area = area
+                st.session_state.current_view = "area"
+                st.rerun()
+
+    st.markdown("---")
+
+    # Second row: Facilities
+    st.markdown("#### 🏛️ Facilities")
+    cols = st.columns(3)
+
+    facility_areas = ["District Hospital", "District Office", "Mining Area"]
+    facility_icons = {"District Hospital": "🏥", "District Office": "🏛️", "Mining Area": "⛏️"}
+    facility_desc = {
+        "District Hospital": "AES patients admitted here. Lab available.",
+        "District Office": "Meet officials, veterinary and environmental officers.",
+        "Mining Area": "Recent expansion. New irrigation ponds."
+    }
+
+    for i, area in enumerate(facility_areas):
+        with cols[i]:
+            st.markdown(f"**{facility_icons.get(area, '')} {area}**")
+            st.caption(facility_desc.get(area, ""))
+            if st.button(f"Travel to {area}", key=f"area_{area}", use_container_width=True):
+                st.session_state.current_area = area
+                st.session_state.current_view = "area"
+                st.rerun()
+
+    st.markdown("---")
+
+    # Quick access to data views
+    st.markdown("### 📊 Investigation Tools")
+    cols = st.columns(4)
+    with cols[0]:
+        if st.button("📈 Epi Curve & Line List", use_container_width=True):
+            st.session_state.current_view = "descriptive"
+            st.rerun()
+    with cols[1]:
+        if st.button("📍 Spot Map", use_container_width=True):
+            st.session_state.current_view = "spotmap"
+            st.rerun()
+    with cols[2]:
+        if st.button("📊 Study Design", use_container_width=True):
+            st.session_state.current_view = "study"
+            st.rerun()
+    with cols[3]:
+        if st.button("📋 Final Report", use_container_width=True):
+            st.session_state.current_view = "outcome"
+            st.rerun()
+
+
+def view_area_map(area: str):
+    """Show sub-locations within an area."""
+    st.title(f"📍 {area}")
+
+    # Return to main map button
+    if st.button("🗺️ Return to Main Map", key="return_to_main"):
+        st.session_state.current_area = None
+        st.session_state.current_view = "map"
+        st.rerun()
+
+    st.markdown("---")
+
+    # Get locations in this area
+    location_keys = AREA_LOCATIONS.get(area, [])
+
+    if not location_keys:
+        st.warning("No locations available in this area.")
+        return
+
+    # Show description for the area
+    if area == "Nalu Village":
+        st.markdown("""
+        **Nalu Village** is the largest settlement in Sidero Valley. The economy centers on
+        rice cultivation and pig farming. Most AES cases come from here.
+        """)
+    elif area == "Kabwe Village":
+        st.markdown("""
+        **Kabwe Village** is located 3km northeast of Nalu on higher ground. Children walk
+        through rice paddies to attend school in Nalu.
+        """)
+    elif area == "Tamu Village":
+        st.markdown("""
+        **Tamu Village** is a smaller, more remote community in the foothills. Upland farming
+        with less standing water.
+        """)
+    elif area == "District Hospital":
+        st.markdown("""
+        **District Hospital** is where the AES cases have been admitted. Dr. Chen oversees
+        patient care and the laboratory can process some samples.
+        """)
+    elif area == "District Office":
+        st.markdown("""
+        **District Office** houses the public health, veterinary, and environmental health
+        teams. Key officials work from here.
+        """)
+
+    st.markdown("### 📍 Locations to Visit")
+
+    # Display locations in grid
+    cols = st.columns(2)
+
+    for i, loc_key in enumerate(location_keys):
+        loc = LOCATIONS.get(loc_key, {})
+
+        # Check if location has unlocked NPCs
+        npcs_here = []
+        npc_truth = st.session_state.truth.get("npc_truth", {})
+        for npc_key in loc.get("npcs", []):
+            if npc_key in st.session_state.npcs_unlocked and npc_key in npc_truth:
+                npcs_here.append(npc_truth[npc_key])
+
+        with cols[i % 2]:
+            with st.container():
+                st.markdown(f"**{loc.get('name', loc_key)}**")
+                st.caption(loc.get("description", "")[:100] + "..." if len(loc.get("description", "")) > 100 else loc.get("description", ""))
+
+                # Show NPCs available
+                if npcs_here:
+                    npc_names = ", ".join([f"{n['avatar']} {n['name']}" for n in npcs_here])
+                    st.caption(f"👥 Here: {npc_names}")
+
+                # Show available actions
+                actions = loc.get("available_actions", [])
+                if actions:
+                    action_display = {
+                        "review_clinic_records": "📋 Review Records",
+                        "view_hospital_records": "🏥 Medical Records",
+                        "collect_pig_sample": "🐷 Pig Samples",
+                        "collect_mosquito_sample": "🦟 Mosquito Traps",
+                        "collect_water_sample": "💧 Water Samples",
+                        "inspect_environment": "🔍 Inspect",
+                        "view_village_profile": "📊 Village Info",
+                        "collect_csf_sample": "🧪 CSF Sample",
+                        "collect_serum_sample": "💉 Serum Sample",
+                        "view_lab_results": "🔬 Lab Results",
+                        "submit_lab_samples": "📤 Submit Samples",
+                        "request_data": "📊 Request Data",
+                        "plan_interventions": "📝 Plan Actions",
+                    }
+                    action_str = " | ".join([action_display.get(a, a) for a in actions[:3]])
+                    st.caption(f"Actions: {action_str}")
+
+                travel_time = loc.get("travel_time", 0.5)
+
+                if st.button(f"Go to {loc.get('name', loc_key)}", key=f"loc_{loc_key}", use_container_width=True):
+                    # Check if enough time
+                    if st.session_state.time_remaining >= travel_time:
+                        spend_time(travel_time, f"Travel to {loc.get('name', loc_key)}")
+                        st.session_state.current_location = loc_key
+                        st.session_state.current_view = "location"
+                        st.rerun()
+                    else:
+                        st.error(f"Not enough time to travel (need {travel_time}h)")
+
+                st.markdown("---")
+
+
+def render_location_image(loc_key: str):
+    """Render the image for a location if available."""
+    loc = LOCATIONS.get(loc_key, {})
+    image_path = loc.get("image_path")
+
+    if not image_path:
+        return False
+
+    # Try to load the image
+    from pathlib import Path
+
+    # Handle paths with or without extension
+    path = Path(image_path)
+
+    # Try with common extensions if no extension
+    if not path.suffix:
+        for ext in ['.png', '.jpg', '.jpeg']:
+            test_path = Path(str(path) + ext)
+            if test_path.exists():
+                st.image(str(test_path), use_container_width=True)
+                return True
+    elif path.exists():
+        st.image(str(path), use_container_width=True)
+        return True
+
+    return False
+
+
+def view_location(loc_key: str):
+    """Render a specific location with NPCs and actions."""
+    loc = LOCATIONS.get(loc_key, {})
+
+    if not loc:
+        st.error("Location not found!")
+        st.session_state.current_location = None
+        st.session_state.current_view = "map"
+        return
+
+    # Header with location name
+    st.title(f"📍 {loc.get('name', loc_key)}")
+    st.caption(f"*{loc.get('area', 'Unknown Area')}*")
+
+    # Navigation buttons
+    col1, col2, col3 = st.columns([1, 1, 4])
+    with col1:
+        if st.button("🗺️ Return to Map", key="return_map"):
+            st.session_state.current_location = None
+            st.session_state.current_area = None
+            st.session_state.current_view = "map"
+            st.rerun()
+    with col2:
+        if st.button(f"📍 Back to {loc.get('area', 'Area')}", key="return_area"):
+            st.session_state.current_location = None
+            st.session_state.current_view = "area"
+            st.rerun()
+
+    st.markdown("---")
+
+    # Layout: Image on left, description and NPCs on right
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        # Try to render location image
+        if not render_location_image(loc_key):
+            # Show placeholder SVG
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        border-radius: 10px; padding: 40px; text-align: center; color: white;">
+                <h2>📍</h2>
+                <p>Location Image</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.caption(loc.get("description", ""))
+
+    with col2:
+        # NPCs at this location
+        npc_truth = st.session_state.truth.get("npc_truth", {})
+        npcs_here = []
+
+        for npc_key in loc.get("npcs", []):
+            if npc_key in st.session_state.npcs_unlocked and npc_key in npc_truth:
+                npcs_here.append((npc_key, npc_truth[npc_key]))
+
+        if npcs_here:
+            st.markdown("### 👥 People Here")
+            for npc_key, npc in npcs_here:
+                interviewed = npc_key in st.session_state.interview_history
+
+                with st.container():
+                    cols = st.columns([1, 3, 1])
+                    with cols[0]:
+                        st.markdown(f"## {npc['avatar']}")
+                    with cols[1]:
+                        status = "✓ Interviewed" if interviewed else ""
+                        st.markdown(f"**{npc['name']}** {status}")
+                        st.caption(npc['role'])
+                    with cols[2]:
+                        btn_label = "Continue Chat" if interviewed else "Talk"
+                        if st.button(btn_label, key=f"talk_{npc_key}"):
+                            st.session_state.current_npc = npc_key
+                            st.session_state.interview_history.setdefault(npc_key, [])
+                            st.rerun()
+        else:
+            st.info("No one is here to talk to right now.")
+
+        st.markdown("---")
+
+        # Available actions
+        st.markdown("### 🎯 Available Actions")
+        actions = loc.get("available_actions", [])
+
+        if not actions:
+            st.caption("No special actions available here.")
+        else:
+            render_location_actions(loc_key, actions)
+
+    # If we have an active NPC conversation, show it
+    if st.session_state.current_npc:
+        npc_key = st.session_state.current_npc
+        if npc_key in npc_truth:
+            st.markdown("---")
+            render_npc_chat(npc_key, npc_truth[npc_key])
+
+
+def render_location_actions(loc_key: str, actions: list):
+    """Render action buttons for a location."""
+
+    action_configs = {
+        "review_clinic_records": {
+            "label": "📋 Review Clinic Records",
+            "cost_time": TIME_COSTS.get("clinic_records_review", 2.0),
+            "cost_budget": 0,
+            "handler": "case_finding",
+        },
+        "view_hospital_records": {
+            "label": "🏥 View Hospital Records",
+            "cost_time": 0.5,
+            "cost_budget": 0,
+            "handler": "hospital_records",
+        },
+        "collect_pig_sample": {
+            "label": "🐷 Collect Pig Serum Sample",
+            "cost_time": TIME_COSTS.get("sample_collection", 1.0),
+            "cost_budget": BUDGET_COSTS.get("lab_sample_animal", 35),
+            "handler": "lab_sample",
+            "sample_type": "pig_serum",
+        },
+        "collect_mosquito_sample": {
+            "label": "🦟 Set Mosquito Trap",
+            "cost_time": TIME_COSTS.get("sample_collection", 1.0),
+            "cost_budget": BUDGET_COSTS.get("lab_sample_mosquito", 40),
+            "handler": "lab_sample",
+            "sample_type": "mosquito_pool",
+        },
+        "collect_water_sample": {
+            "label": "💧 Collect Water Sample",
+            "cost_time": 0.5,
+            "cost_budget": 20,
+            "handler": "lab_sample",
+            "sample_type": "water",
+        },
+        "inspect_environment": {
+            "label": "🔍 Environmental Inspection",
+            "cost_time": TIME_COSTS.get("environmental_inspection", 2.0),
+            "cost_budget": 0,
+            "handler": "environment",
+        },
+        "view_village_profile": {
+            "label": "📊 View Village Profile",
+            "cost_time": 0,
+            "cost_budget": 0,
+            "handler": "village_profile",
+        },
+        "collect_csf_sample": {
+            "label": "🧪 Request CSF Sample",
+            "cost_time": 0.5,
+            "cost_budget": BUDGET_COSTS.get("lab_sample_human", 25),
+            "handler": "lab_sample",
+            "sample_type": "csf",
+        },
+        "collect_serum_sample": {
+            "label": "💉 Request Patient Serum",
+            "cost_time": 0.5,
+            "cost_budget": BUDGET_COSTS.get("lab_sample_human", 25),
+            "handler": "lab_sample",
+            "sample_type": "human_serum",
+        },
+        "view_lab_results": {
+            "label": "🔬 View Lab Results",
+            "cost_time": 0,
+            "cost_budget": 0,
+            "handler": "lab_results",
+        },
+        "submit_lab_samples": {
+            "label": "📤 Submit Samples for Testing",
+            "cost_time": 0.5,
+            "cost_budget": 0,
+            "handler": "lab_submit",
+        },
+        "request_data": {
+            "label": "📊 Request Official Data",
+            "cost_time": 0.5,
+            "cost_budget": 0,
+            "handler": "request_data",
+        },
+        "plan_interventions": {
+            "label": "📝 Plan Interventions",
+            "cost_time": 0,
+            "cost_budget": 0,
+            "handler": "interventions",
+        },
+    }
+
+    for action in actions:
+        config = action_configs.get(action, {})
+        if not config:
+            continue
+
+        label = config.get("label", action)
+        cost_time = config.get("cost_time", 0)
+        cost_budget = config.get("cost_budget", 0)
+
+        # Show cost
+        cost_str = format_resource_cost(cost_time, cost_budget)
+
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if st.button(label, key=f"action_{action}_{loc_key}", use_container_width=True):
+                # Check resources
+                can_proceed, msg = check_resources(cost_time, cost_budget)
+                if can_proceed:
+                    if cost_time > 0:
+                        spend_time(cost_time, label)
+                    if cost_budget > 0:
+                        spend_budget(cost_budget, label)
+
+                    # Execute handler
+                    execute_location_action(action, config, loc_key)
+                else:
+                    st.error(msg)
+        with col2:
+            st.caption(cost_str)
+
+
+def execute_location_action(action: str, config: dict, loc_key: str):
+    """Execute a location action and show the appropriate UI."""
+    handler = config.get("handler", "")
+
+    if handler == "case_finding":
+        st.session_state.current_view = "casefinding"
+        st.rerun()
+    elif handler == "hospital_records":
+        st.session_state.action_modal = "hospital_records"
+        st.rerun()
+    elif handler == "lab_sample":
+        sample_type = config.get("sample_type", "unknown")
+        st.session_state.action_modal = f"lab_sample_{sample_type}"
+        st.rerun()
+    elif handler == "environment":
+        st.session_state.action_modal = "environment_inspection"
+        st.rerun()
+    elif handler == "village_profile":
+        st.session_state.current_view = "villages"
+        st.rerun()
+    elif handler == "lab_results":
+        st.session_state.current_view = "lab"
+        st.rerun()
+    elif handler == "lab_submit":
+        st.session_state.current_view = "lab"
+        st.rerun()
+    elif handler == "interventions":
+        st.session_state.current_view = "outcome"
+        st.rerun()
+    elif handler == "request_data":
+        st.session_state.current_view = "descriptive"
+        st.rerun()
+
+
+def render_npc_chat(npc_key: str, npc: dict):
+    """Render chat interface for an NPC at current location."""
+    st.markdown(f"### 💬 Talking to {npc['avatar']} {npc['name']}")
+    st.caption(f"*{npc['role']}*")
+
+    # End conversation button
+    if st.button("✖️ End Conversation", key="end_chat"):
+        st.session_state.current_npc = None
+        st.rerun()
+
+    # Show conversation history
+    history = st.session_state.interview_history.get(npc_key, [])
+
+    for msg in history:
+        if msg["role"] == "user":
+            with st.chat_message("user"):
+                st.write(msg["content"])
+        else:
+            with st.chat_message("assistant", avatar=npc.get("avatar", "🧑")):
+                st.write(msg["content"])
+
+    # Chat input
+    user_q = st.chat_input(f"Ask {npc['name']} a question...")
+    if user_q:
+        # Check for NPC unlock triggers
+        unlock_notification = check_npc_unlock_triggers(user_q)
+
+        history.append({"role": "user", "content": user_q})
+        st.session_state.interview_history[npc_key] = history
+
+        with st.chat_message("user"):
+            st.write(user_q)
+
+        with st.chat_message("assistant", avatar=npc.get("avatar", "🧑")):
+            with st.spinner("..."):
+                reply = get_npc_response(npc_key, user_q)
+            st.write(reply)
+
+        history.append({"role": "assistant", "content": reply})
+        st.session_state.interview_history[npc_key] = history
+
+        # Show unlock notification
+        if unlock_notification:
+            st.success(unlock_notification)
+
+        st.rerun()
+
+
+def adventure_sidebar():
+    """Minimal sidebar for adventure mode with resources and tools."""
+    # Language selector
+    st.sidebar.markdown(f"### 🌐 {t('language_header')}")
+    lang_options = {"en": "English", "es": "Español", "fr": "Français", "pt": "Português"}
+    selected_lang = st.sidebar.selectbox(
+        t("language_select"),
+        options=list(lang_options.keys()),
+        format_func=lambda x: lang_options.get(x, x),
+        index=list(lang_options.keys()).index(st.session_state.get("language", "en") if st.session_state.get("language", "en") in lang_options else "en"),
+        key="lang_selector"
+    )
+    if selected_lang != st.session_state.language:
+        st.session_state.language = selected_lang
+        st.rerun()
+
+    st.sidebar.markdown("---")
+    st.sidebar.title("🦟 AES Investigation")
+
+    if not st.session_state.alert_acknowledged:
+        st.sidebar.info("Review the alert to begin.")
+        return
+
+    # Resources
+    st.sidebar.markdown(f"""
+    **{t('day')}:** {st.session_state.current_day} / 5
+    **{t('time_remaining')}:** {st.session_state.time_remaining}h
+    **{t('budget')}:** ${st.session_state.budget}
+    **{t('lab_credits')}:** {st.session_state.lab_credits}
+    """)
+
+    # Progress
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Progress")
+    for day in range(1, 6):
+        if day < st.session_state.current_day:
+            status = "✅"
+        elif day == st.session_state.current_day:
+            status = "🟡"
+        else:
+            status = "⬜"
+        st.sidebar.markdown(f"{status} Day {day}")
+
+    # Session Management
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 💾 Session")
+    col1, col2 = st.sidebar.columns(2)
+
+    with col1:
+        if st.button("💾 Save", use_container_width=True, key="save_session"):
+            try:
+                save_data = persistence.create_save_file(st.session_state)
+                filename = persistence.get_save_filename(st.session_state)
+                st.sidebar.download_button(
+                    label="⬇️ Download",
+                    data=save_data,
+                    file_name=filename,
+                    mime="application/json",
+                    use_container_width=True,
+                    key="download_save"
+                )
+            except Exception as e:
+                st.sidebar.error(f"Error: {e}")
+
+    with col2:
+        uploaded = st.file_uploader(
+            "📂",
+            type=["json"],
+            key="load_session",
+            label_visibility="collapsed"
+        )
+        if uploaded is not None:
+            success, message = persistence.load_save_file(uploaded, st.session_state)
+            if success:
+                st.sidebar.success(message)
+                st.rerun()
+            else:
+                st.sidebar.error(message)
+
+    # Investigation Notebook
+    st.sidebar.markdown("---")
+    with st.sidebar.expander(f"📓 {t('notebook')}"):
+        st.caption("Record observations and insights.")
+
+        new_note = st.text_area("Add note:", height=60, key="new_note")
+        if st.button("Save Note", key="save_note"):
+            if new_note.strip():
+                from datetime import datetime
+                entry = {
+                    "timestamp": datetime.now().strftime("%H:%M"),
+                    "day": st.session_state.current_day,
+                    "note": new_note.strip()
+                }
+                st.session_state.notebook_entries.append(entry)
+                st.success("Saved!")
+                st.rerun()
+
+        if st.session_state.notebook_entries:
+            st.markdown("**Your Notes:**")
+            for entry in reversed(st.session_state.notebook_entries[-5:]):
+                st.markdown(f"*Day {entry['day']} @ {entry['timestamp']}*")
+                st.markdown(f"> {entry['note']}")
+                st.markdown("---")
+
+    # Advance day button
+    st.sidebar.markdown("---")
+    if st.session_state.current_day < 5:
+        if st.sidebar.button(f"⏭️ {t('advance_day')} {st.session_state.current_day + 1}", use_container_width=True):
+            can_advance, missing = check_day_prerequisites(st.session_state.current_day, st.session_state)
+            if can_advance:
+                st.session_state.current_day += 1
+                st.session_state.time_remaining = 8
+                refresh_lab_queue_for_day(int(st.session_state.current_day))
+                st.session_state.advance_missing_tasks = []
+                st.rerun()
+            else:
+                st.session_state.advance_missing_tasks = missing
+                st.sidebar.warning(t("cannot_advance"))
+    else:
+        st.sidebar.success("📋 Final Day!")
+
+
+# =========================
 # MAIN
 # =========================
 
@@ -4306,10 +5146,12 @@ def main():
         page_title="FETP Sim: Sidero Valley",
         page_icon="🦟",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",  # Minimal sidebar in adventure mode
     )
     init_session_state()
-    sidebar_navigation()
+
+    # Use adventure-style sidebar
+    adventure_sidebar()
 
     # If alert hasn't been acknowledged yet, always show alert screen
     if not st.session_state.alert_acknowledged:
@@ -4317,26 +5159,74 @@ def main():
         return
 
     view = st.session_state.current_view
-    if view == "overview":
+
+    # Adventure mode: location-based navigation
+    if view == "map" or view is None:
+        view_travel_map()
+    elif view == "area":
+        # Show area map for selected area
+        area = st.session_state.get("current_area")
+        if area:
+            view_area_map(area)
+        else:
+            view_travel_map()
+    elif view == "location":
+        # Show specific location view
+        loc_key = st.session_state.get("current_location")
+        if loc_key:
+            view_location(loc_key)
+        else:
+            view_travel_map()
+
+    # Legacy views (still accessible via quick links)
+    elif view == "overview":
+        # Add return to map button
+        if st.button("🗺️ Return to Map", key="return_from_overview"):
+            st.session_state.current_view = "map"
+            st.rerun()
         view_overview()
     elif view == "casefinding":
+        if st.button("🗺️ Return to Map", key="return_from_casefinding"):
+            st.session_state.current_view = "map"
+            st.rerun()
         view_case_finding()
     elif view == "descriptive":
+        if st.button("🗺️ Return to Map", key="return_from_descriptive"):
+            st.session_state.current_view = "map"
+            st.rerun()
         view_descriptive_epi()
     elif view == "villages":
+        if st.button("🗺️ Return to Map", key="return_from_villages"):
+            st.session_state.current_view = "map"
+            st.rerun()
         view_village_profiles()
     elif view == "interviews":
+        if st.button("🗺️ Return to Map", key="return_from_interviews"):
+            st.session_state.current_view = "map"
+            st.rerun()
         view_interviews()
     elif view == "spotmap":
+        if st.button("🗺️ Return to Map", key="return_from_spotmap"):
+            st.session_state.current_view = "map"
+            st.rerun()
         view_spot_map()
     elif view == "study":
+        if st.button("🗺️ Return to Map", key="return_from_study"):
+            st.session_state.current_view = "map"
+            st.rerun()
         view_study_design()
     elif view == "lab":
+        if st.button("🗺️ Return to Map", key="return_from_lab"):
+            st.session_state.current_view = "map"
+            st.rerun()
         view_lab_and_environment()
     elif view == "outcome":
+        if st.button("🗺️ Return to Map", key="return_from_outcome"):
+            st.session_state.current_view = "map"
+            st.rerun()
         view_interventions_and_outcome()
     else:
-        view_overview()
+        view_travel_map()
 
 
 if __name__ == "__main__":

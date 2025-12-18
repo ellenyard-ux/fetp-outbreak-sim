@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import io
 import re
+from pathlib import Path
 
 # Session persistence
 import persistence
@@ -436,7 +437,7 @@ LOCATIONS = {
         "name": "Nalu Health Center",
         "area": "Nalu Village",
         "description": "A small health center staffed by Nurse Mai and community health workers. The building has a faded paint exterior and a long queue of waiting patients.",
-        "image_path": "assets/Nalu/nalu_04_health_center_exterior.png",
+        "image_path": "assets/Nalu/nalu_04_health_center.png",
         "npcs": ["nurse_joy"],
         "available_actions": ["review_clinic_records", "view_hospital_records"],
         "travel_time": 0.5,
@@ -473,7 +474,7 @@ LOCATIONS = {
         "name": "Kabwe Village Center",
         "area": "Kabwe Village",
         "description": "A medium-sized village on higher ground, 3km northeast of Nalu. Mixed farming community with both rice and upland crops.",
-        "image_path": None,
+        "image_path": "assets/Kabwe/kabwe_01_mixed_farming.png",
         "npcs": [],
         "available_actions": ["view_village_profile"],
         "travel_time": 0.5,
@@ -482,9 +483,18 @@ LOCATIONS = {
         "name": "School Path to Nalu",
         "area": "Kabwe Village",
         "description": "The walking path through rice paddies that Kabwe children use daily to reach school in Nalu. The path passes near irrigation canals.",
-        "image_path": None,
+        "image_path": "assets/Kabwe/kabwe_02_village_path.png",
         "npcs": [],
         "available_actions": ["inspect_environment", "collect_mosquito_sample"],
+        "travel_time": 0.5,
+    },
+    "kabwe_school": {
+        "name": "Kabwe Community School",
+        "area": "Kabwe Village",
+        "description": "A small community school where younger children attend before walking to the main school in Nalu. Teachers observe students for signs of illness.",
+        "image_path": "assets/Kabwe/kabwe_03_children_school.png",
+        "npcs": [],
+        "available_actions": ["review_attendance_records"],
         "travel_time": 0.5,
     },
     # === TAMU VILLAGE ===
@@ -492,9 +502,18 @@ LOCATIONS = {
         "name": "Tamu Remote Upland",
         "area": "Tamu Village",
         "description": "A smaller, more remote community in the foothills. Upland farming with cassava and yams. Spring-fed water sources.",
-        "image_path": None,
+        "image_path": "assets/Tamu/tamu_02_village_remote.png",
         "npcs": [],
         "available_actions": ["view_village_profile", "inspect_environment"],
+        "travel_time": 1.0,
+    },
+    "tamu_forest_edge": {
+        "name": "Tamu Forest Edge",
+        "area": "Tamu Village",
+        "description": "The boundary between the village and the surrounding forest. Wildlife occasionally ventures near the community.",
+        "image_path": "assets/Tamu/tamu_03_forest_edge.png",
+        "npcs": [],
+        "available_actions": ["inspect_environment", "collect_mosquito_sample"],
         "travel_time": 1.0,
     },
     # === DISTRICT HOSPITAL ===
@@ -550,7 +569,7 @@ LOCATIONS = {
         "name": "Central Market",
         "area": "Nalu Village",
         "description": "The weekly market where traders from all villages gather. A good place to hear rumors and observe community patterns.",
-        "image_path": "assets/Nalu/nalu_05_market_day.png",
+        "image_path": "assets/Nalu/nalu_01_village_scene.png",
         "npcs": ["auntie_ama"],
         "available_actions": [],
         "travel_time": 0.5,
@@ -570,8 +589,8 @@ LOCATIONS = {
 # Map areas to their sub-locations
 AREA_LOCATIONS = {
     "Nalu Village": ["nalu_village_center", "nalu_health_center", "nalu_pig_coop", "nalu_rice_paddies", "nalu_school", "central_market", "healer_clinic"],
-    "Kabwe Village": ["kabwe_village_center", "kabwe_school_path"],
-    "Tamu Village": ["tamu_remote_upland"],
+    "Kabwe Village": ["kabwe_village_center", "kabwe_school_path", "kabwe_school"],
+    "Tamu Village": ["tamu_remote_upland", "tamu_forest_edge"],
     "District Hospital": ["hospital_ward", "hospital_lab", "hospital_office"],
     "District Office": ["district_office"],
     "Mining Area": ["mining_area"],
@@ -1263,6 +1282,14 @@ def refresh_lab_queue_for_day(day: int) -> None:
             if str(r.get("result", "")).upper() == "POSITIVE" and str(r.get("test", "")).startswith("JE_"):
                 st.session_state.etiology_revealed = True
                 break
+
+
+def get_npc_avatar(npc: dict) -> str:
+    """Get the avatar for an NPC - returns image path if available, otherwise emoji."""
+    image_path = npc.get("image_path")
+    if image_path and Path(image_path).exists():
+        return image_path
+    return npc.get("avatar", "🧑")
 
 
 def get_npc_response(npc_key: str, user_input: str) -> str:
@@ -2885,7 +2912,7 @@ def view_interviews():
                 with st.chat_message("user"):
                     st.write(msg["content"])
             else:
-                with st.chat_message("assistant", avatar=npc["avatar"]):
+                with st.chat_message("assistant", avatar=get_npc_avatar(npc)):
                     st.write(msg["content"])
 
         user_q = st.chat_input("Ask your question...")
@@ -2899,7 +2926,7 @@ def view_interviews():
             with st.chat_message("user"):
                 st.write(user_q)
 
-            with st.chat_message("assistant", avatar=npc["avatar"]):
+            with st.chat_message("assistant", avatar=get_npc_avatar(npc)):
                 with st.spinner("..."):
                     reply = get_npc_response(npc_key, user_q)
                 st.write(reply)
@@ -4780,7 +4807,12 @@ def view_location(loc_key: str):
                 with st.container():
                     cols = st.columns([1, 3, 1])
                     with cols[0]:
-                        st.markdown(f"## {npc['avatar']}")
+                        # Show avatar image if available, otherwise emoji
+                        avatar_path = npc.get("image_path")
+                        if avatar_path and Path(avatar_path).exists():
+                            st.image(avatar_path, width=60)
+                        else:
+                            st.markdown(f"## {npc['avatar']}")
                     with cols[1]:
                         status = "✓ Interviewed" if interviewed else ""
                         st.markdown(f"**{npc['name']}** {status}")
@@ -4985,7 +5017,7 @@ def render_npc_chat(npc_key: str, npc: dict):
             with st.chat_message("user"):
                 st.write(msg["content"])
         else:
-            with st.chat_message("assistant", avatar=npc.get("avatar", "🧑")):
+            with st.chat_message("assistant", avatar=get_npc_avatar(npc)):
                 st.write(msg["content"])
 
     # Chat input
@@ -5000,7 +5032,7 @@ def render_npc_chat(npc_key: str, npc: dict):
         with st.chat_message("user"):
             st.write(user_q)
 
-        with st.chat_message("assistant", avatar=npc.get("avatar", "🧑")):
+        with st.chat_message("assistant", avatar=get_npc_avatar(npc)):
             with st.spinner("..."):
                 reply = get_npc_response(npc_key, user_q)
             st.write(reply)

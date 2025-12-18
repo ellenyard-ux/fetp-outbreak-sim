@@ -522,7 +522,9 @@ LOCATIONS = {
         "name": "Hospital Ward",
         "area": "District Hospital",
         "description": "The AES patients are being treated in this ward. Monitors beep and worried families gather in the corridor.",
-        "image_path": None,
+        "image_path": "assets/Hospital/hospital_ward.png",
+        "image_thumb": "assets/Hospital/hospital_ward_thumb.png",
+        "icon": "🏥",
         "npcs": ["dr_chen"],
         "available_actions": ["review_hospital_records", "collect_csf_sample", "collect_serum_sample"],
         "travel_time": 0.5,
@@ -531,7 +533,9 @@ LOCATIONS = {
         "name": "Hospital Laboratory",
         "area": "District Hospital",
         "description": "A small but functional laboratory. Limited testing capacity means most samples must be sent to the regional reference lab.",
-        "image_path": None,
+        "image_path": "assets/Hospital/hospital_lab.png",
+        "image_thumb": "assets/Hospital/hospital_lab_thumb.png",
+        "icon": "🔬",
         "npcs": [],
         "available_actions": ["view_lab_results", "submit_lab_samples"],
         "travel_time": 0.0,
@@ -540,7 +544,9 @@ LOCATIONS = {
         "name": "Hospital Administration",
         "area": "District Hospital",
         "description": "Dr. Tran's office. Charts and reports are pinned to the walls. A window overlooks the hospital courtyard.",
-        "image_path": None,
+        "image_path": "assets/Hospital/hospital_admin.png",
+        "image_thumb": "assets/Hospital/hospital_admin_thumb.png",
+        "icon": "📋",
         "npcs": ["dr_chen"],
         "available_actions": ["review_hospital_records"],
         "travel_time": 0.0,
@@ -595,6 +601,40 @@ AREA_LOCATIONS = {
     "District Hospital": ["hospital_ward", "hospital_lab", "hospital_office"],
     "District Office": ["district_office"],
     "Mining Area": ["mining_area"],
+}
+
+# Area metadata for visual rendering (hero images, descriptions)
+AREA_METADATA = {
+    "District Hospital": {
+        "image_exterior": "assets/Hospital/hospital_exterior.png",
+        "description": "The regional hospital where AES cases have been admitted. Dr. Tran oversees patient care and the laboratory can process some samples.",
+        "icon": "🏥",
+    },
+    "Nalu Village": {
+        "image_exterior": "assets/Nalu/nalu_01_village_scene.png",
+        "description": "The largest settlement in Sidero Valley. The economy centers on rice cultivation and pig farming. Most AES cases come from here.",
+        "icon": "🏘️",
+    },
+    "Kabwe Village": {
+        "image_exterior": "assets/Kabwe/kabwe_01_mixed_farming.png",
+        "description": "Located 3km northeast of Nalu on higher ground. Children walk through rice paddies to attend school in Nalu.",
+        "icon": "🏡",
+    },
+    "Tamu Village": {
+        "image_exterior": "assets/Tamu/tamu_02_village_remote.png",
+        "description": "A smaller, more remote community in the foothills. Upland farming with less standing water.",
+        "icon": "⛰️",
+    },
+    "District Office": {
+        "image_exterior": None,
+        "description": "Houses the public health, veterinary, and environmental health teams. Key officials work from here.",
+        "icon": "🏛️",
+    },
+    "Mining Area": {
+        "image_exterior": None,
+        "description": "The mining operation has expanded recently, creating new irrigation ponds. Worker housing is nearby.",
+        "icon": "⛏️",
+    },
 }
 
 # Map NPC keys to their primary location
@@ -4746,6 +4786,185 @@ def view_travel_map():
             st.rerun()
 
 
+def render_area_hero_image(area: str) -> bool:
+    """Render the hero/exterior image for an area if available."""
+    area_meta = AREA_METADATA.get(area, {})
+    image_path = area_meta.get("image_exterior")
+
+    if not image_path:
+        return False
+
+    from pathlib import Path
+    path = Path(image_path)
+
+    # Try with common extensions if no extension
+    if not path.suffix:
+        for ext in ['.png', '.jpg', '.jpeg']:
+            test_path = Path(str(path) + ext)
+            if test_path.exists():
+                st.image(str(test_path), use_container_width=True)
+                return True
+    elif path.exists():
+        st.image(str(path), use_container_width=True)
+        return True
+
+    return False
+
+
+def render_location_thumbnail(loc_key: str, width: int = 200) -> bool:
+    """Render a thumbnail image for a sub-location if available."""
+    loc = LOCATIONS.get(loc_key, {})
+
+    # Try thumbnail first, then fall back to main image
+    image_path = loc.get("image_thumb") or loc.get("image_path")
+
+    if not image_path:
+        return False
+
+    from pathlib import Path
+    path = Path(image_path)
+
+    # Try with common extensions if no extension
+    if not path.suffix:
+        for ext in ['.png', '.jpg', '.jpeg']:
+            test_path = Path(str(path) + ext)
+            if test_path.exists():
+                st.image(str(test_path), use_container_width=True)
+                return True
+    elif path.exists():
+        st.image(str(path), use_container_width=True)
+        return True
+
+    return False
+
+
+def view_area_visual(area: str):
+    """Render an area with immersive visual grid layout.
+
+    Features:
+    - Hero exterior image at top
+    - 3-column grid of sub-location cards
+    - Each card shows: thumbnail, name, NPCs present, Go button
+    """
+    from pathlib import Path
+
+    area_meta = AREA_METADATA.get(area, {})
+    area_icon = area_meta.get("icon", "📍")
+
+    st.title(f"{area_icon} {area}")
+
+    # Return to main map button
+    if st.button("🗺️ Return to Main Map", key="return_to_main_visual"):
+        st.session_state.current_area = None
+        st.session_state.current_view = "map"
+        st.rerun()
+
+    st.markdown("---")
+
+    # === HERO IMAGE ===
+    if not render_area_hero_image(area):
+        # Show placeholder if no image available
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 12px; padding: 60px; text-align: center; color: white;
+                    margin-bottom: 20px;">
+            <h1 style="font-size: 3em; margin: 0;">{area_icon}</h1>
+            <h2 style="margin: 10px 0 0 0;">{area}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Area description
+    description = area_meta.get("description", "")
+    if description:
+        st.markdown(f"*{description}*")
+
+    st.markdown("---")
+    st.markdown("### 🚪 Rooms & Areas")
+
+    # Get locations in this area
+    location_keys = AREA_LOCATIONS.get(area, [])
+
+    if not location_keys:
+        st.warning("No locations available in this area.")
+        return
+
+    # Get NPC truth data
+    npc_truth = st.session_state.truth.get("npc_truth", {})
+
+    # === SUB-LOCATION GRID (3 columns) ===
+    num_cols = min(3, len(location_keys))  # Use up to 3 columns
+    cols = st.columns(num_cols)
+
+    for i, loc_key in enumerate(location_keys):
+        loc = LOCATIONS.get(loc_key, {})
+        loc_name = loc.get("name", loc_key)
+        loc_icon = loc.get("icon", "📍")
+        loc_desc = loc.get("description", "")
+
+        # Find NPCs at this location
+        npcs_here = []
+        for npc_key in loc.get("npcs", []):
+            if npc_key in st.session_state.npcs_unlocked and npc_key in npc_truth:
+                npcs_here.append((npc_key, npc_truth[npc_key]))
+
+        with cols[i % num_cols]:
+            # Card container with styling
+            with st.container():
+                # Location header
+                st.markdown(f"### {loc_icon} {loc_name}")
+
+                # Thumbnail image
+                if not render_location_thumbnail(loc_key):
+                    # Placeholder for missing thumbnail
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                                border-radius: 8px; padding: 30px; text-align: center;
+                                margin-bottom: 10px;">
+                        <span style="font-size: 2.5em;">{loc_icon}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # Short description
+                if loc_desc:
+                    truncated = loc_desc[:80] + "..." if len(loc_desc) > 80 else loc_desc
+                    st.caption(truncated)
+
+                # === NPCs Present ===
+                if npcs_here:
+                    st.markdown("**👥 Who's Here:**")
+                    for npc_key, npc in npcs_here:
+                        # Show NPC avatar and name
+                        npc_col1, npc_col2 = st.columns([1, 3])
+                        with npc_col1:
+                            avatar_path = npc.get("image_path")
+                            if avatar_path and Path(avatar_path).exists():
+                                st.image(avatar_path, width=50)
+                            else:
+                                st.markdown(f"<span style='font-size: 2em;'>{npc.get('avatar', '👤')}</span>",
+                                          unsafe_allow_html=True)
+                        with npc_col2:
+                            st.markdown(f"**{npc.get('name', 'Unknown')}**")
+                            st.caption(f"*{npc.get('role', '')}*")
+
+                # Travel time info
+                travel_time = loc.get("travel_time", 0.5)
+                if travel_time > 0:
+                    st.caption(f"⏱️ Travel: {travel_time}h")
+
+                # Go to button
+                if st.button(f"Go to {loc_name}", key=f"go_visual_{loc_key}", use_container_width=True):
+                    # Check if enough time
+                    if st.session_state.time_remaining >= travel_time:
+                        spend_time(travel_time, f"Travel to {loc_name}")
+                        st.session_state.current_location = loc_key
+                        st.session_state.current_view = "location"
+                        st.rerun()
+                    else:
+                        st.error(f"Not enough time! Need {travel_time}h")
+
+                st.markdown("---")
+
+
 def view_area_map(area: str):
     """Show sub-locations within an area."""
     st.title(f"📍 {area}")
@@ -5337,7 +5556,11 @@ def main():
         # Show area map for selected area
         area = st.session_state.get("current_area")
         if area:
-            view_area_map(area)
+            # Use visual layout for District Hospital (immersive grid with hero image)
+            if area == "District Hospital":
+                view_area_visual(area)
+            else:
+                view_area_map(area)
         else:
             view_travel_map()
     elif view == "location":

@@ -146,7 +146,8 @@ def load_truth_data(data_dir: str = "data"):
 def generate_full_population(villages_df, households_seed, individuals_seed, random_seed=42):
     """
     Generate a complete population from seed data + generation rules.
-    
+    INCLUDES: Injection of specific 'Story Cases' (e.g. Tamu outlier).
+
     Uses:
     - Poisson distribution for pig ownership (λ=3 Nalu, λ=1 Kabwe, 0-1 Tamu)
     - Village-specific net use rates (30%, 50%, 70%)
@@ -283,7 +284,24 @@ def generate_full_population(villages_df, households_seed, individuals_seed, ran
     
     households_df = pd.concat(all_households, ignore_index=True)
     individuals_df = pd.concat(all_individuals, ignore_index=True)
-    
+
+    # === MANUALLY INJECT "TAMU OUTLIER" CASE ===
+    # Find a child in Tamu (V3)
+    tamu_kids = individuals_df[
+        (individuals_df['village_id'] == 'V3') &
+        (individuals_df['age'] > 4) &
+        (individuals_df['age'] < 10)
+    ]
+
+    if not tamu_kids.empty:
+        # Pick one to be the "Story Case"
+        idx = tamu_kids.index[0]
+        individuals_df.at[idx, 'true_je_infection'] = True
+        individuals_df.at[idx, 'symptomatic_AES'] = True
+        individuals_df.at[idx, 'severe_neuro'] = True
+        individuals_df.at[idx, 'onset_date'] = '2025-06-08'
+        individuals_df.at[idx, 'name_hint'] = "Panya (Traveler)"
+
     # Assign infections using risk model (skip seed individuals)
     individuals_df = assign_infections(individuals_df, households_df)
     
@@ -311,6 +329,10 @@ def assign_infections(individuals_df, households_df):
     hh_lookup = households_df.set_index('hh_id').to_dict('index')
     
     def calculate_risk(row):
+        # PROTECT SEED/INJECTED CASES
+        if row.get('name_hint') == "Panya (Traveler)":
+            return True  # Ensure Panya stays infected
+
         # Seed individuals keep their status
         if row['person_id'].startswith('P0') or row['person_id'].startswith('P1') or row['person_id'].startswith('P2'):
             if len(row['person_id']) <= 5:  # P0001, P1001, etc.
@@ -340,6 +362,10 @@ def assign_infections(individuals_df, households_df):
     # Symptomatic AES - only a fraction of infections become encephalitis
     # Real rate is ~1/250, but we use higher for teaching purposes
     def assign_symptomatic(row):
+        # PROTECT SEED/INJECTED CASES
+        if row.get('name_hint') == "Panya (Traveler)":
+            return row['symptomatic_AES']  # Preserve story case status
+
         if row['person_id'].startswith('P0') or row['person_id'].startswith('P1') or row['person_id'].startswith('P2'):
             if len(row['person_id']) <= 5:
                 return row['symptomatic_AES']
@@ -353,6 +379,10 @@ def assign_infections(individuals_df, households_df):
     
     # Severe neuro
     def assign_severe(row):
+        # PROTECT SEED/INJECTED CASES
+        if row.get('name_hint') == "Panya (Traveler)":
+            return row['severe_neuro']  # Preserve story case status
+
         if row['person_id'].startswith('P0') or row['person_id'].startswith('P1') or row['person_id'].startswith('P2'):
             if len(row['person_id']) <= 5:
                 return row['severe_neuro']

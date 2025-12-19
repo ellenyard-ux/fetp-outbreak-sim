@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import io
 import re
+import time
 from pathlib import Path
 from PIL import Image
 
@@ -429,7 +430,9 @@ LOCATIONS = {
         "name": "Nalu Village Center",
         "area": "Nalu Village",
         "description": "The heart of Nalu Village - a bustling community with houses clustered near the main road. The weekly market brings traders from surrounding areas.",
-        "image_path": "assets/Nalu/nalu_01_village_scene",
+        "image_path": "assets/Nalu/nalu_01_village_scene.png",
+        "image_thumb": "assets/Nalu/nalu_01_village_scene.png",
+        "icon": "🏘️",
         "npcs": ["mama_kofi", "auntie_ama"],
         "available_actions": ["view_village_profile"],
         "travel_time": 0.5,
@@ -438,7 +441,9 @@ LOCATIONS = {
         "name": "Nalu Health Center",
         "area": "Nalu Village",
         "description": "A small health center staffed by Nurse Mai and community health workers. The building has a faded paint exterior and a long queue of waiting patients.",
-        "image_path": "assets/Nalu/nalu_04_health_center.png",
+        "image_path": "assets/Nalu/nalu_04_health_center_exterior.png",
+        "image_thumb": "assets/Nalu/nalu_04_health_center_exterior.png",
+        "icon": "🏥",
         "npcs": ["nurse_joy"],
         "available_actions": ["review_clinic_records", "view_hospital_records"],
         "travel_time": 0.5,
@@ -447,7 +452,9 @@ LOCATIONS = {
         "name": "Nalu Pig Cooperative",
         "area": "Nalu Village",
         "description": "A large pig farming cooperative about 500 meters from the village center. The smell is strong and mosquitoes swarm in the evening.",
-        "image_path": "assets/Nalu/nalu_03_pig_pens",
+        "image_path": "assets/Nalu/nalu_03_pig_pens.png",
+        "image_thumb": "assets/Nalu/nalu_03_pig_pens.png",
+        "icon": "🐷",
         "npcs": [],
         "available_actions": ["collect_pig_sample", "inspect_environment"],
         "travel_time": 0.5,
@@ -456,7 +463,9 @@ LOCATIONS = {
         "name": "Nalu Rice Paddies",
         "area": "Nalu Village",
         "description": "Extensive irrigated rice fields with standing water year-round. The paddies stretch to the horizon, broken only by narrow raised paths.",
-        "image_path": "assets/Nalu/nalu_02_rice_paddies",
+        "image_path": "assets/Nalu/nalu_02_rice_paddies.png",
+        "image_thumb": "assets/Nalu/nalu_02_rice_paddies.png",
+        "icon": "🌾",
         "npcs": [],
         "available_actions": ["collect_water_sample", "collect_mosquito_sample", "inspect_environment"],
         "travel_time": 0.5,
@@ -465,7 +474,9 @@ LOCATIONS = {
         "name": "Nalu Primary School",
         "area": "Nalu Village",
         "description": "The main primary school serving Nalu and surrounding villages. Children from Kabwe walk here daily through the rice paddies.",
-        "image_path": None,
+        "image_path": "assets/Kabwe/kabwe_03_children_school.png",
+        "image_thumb": "assets/Kabwe/kabwe_03_children_school.png",
+        "icon": "🏫",
         "npcs": ["teacher_grace"],
         "available_actions": ["review_attendance_records"],
         "travel_time": 0.5,
@@ -476,6 +487,8 @@ LOCATIONS = {
         "area": "Kabwe Village",
         "description": "A medium-sized village on higher ground, 3km northeast of Nalu. Mixed farming community with both rice and upland crops.",
         "image_path": "assets/Kabwe/kabwe_01_mixed_farming.png",
+        "image_thumb": "assets/Kabwe/kabwe_01_mixed_farming.png",
+        "icon": "🏡",
         "npcs": [],
         "available_actions": ["view_village_profile"],
         "travel_time": 0.5,
@@ -485,6 +498,8 @@ LOCATIONS = {
         "area": "Kabwe Village",
         "description": "The walking path through rice paddies that Kabwe children use daily to reach school in Nalu. The path passes near irrigation canals.",
         "image_path": "assets/Kabwe/kabwe_02_village_path.png",
+        "image_thumb": "assets/Kabwe/kabwe_02_village_path.png",
+        "icon": "🚶",
         "npcs": [],
         "available_actions": ["inspect_environment", "collect_mosquito_sample"],
         "travel_time": 0.5,
@@ -494,6 +509,8 @@ LOCATIONS = {
         "area": "Kabwe Village",
         "description": "A small community school where younger children attend before walking to the main school in Nalu. Teachers observe students for signs of illness.",
         "image_path": "assets/Kabwe/kabwe_03_children_school.png",
+        "image_thumb": "assets/Kabwe/kabwe_03_children_school.png",
+        "icon": "🏫",
         "npcs": [],
         "available_actions": ["review_attendance_records"],
         "travel_time": 0.5,
@@ -504,6 +521,8 @@ LOCATIONS = {
         "area": "Tamu Village",
         "description": "A smaller, more remote community in the foothills. Upland farming with cassava and yams. Spring-fed water sources.",
         "image_path": "assets/Tamu/tamu_02_village_remote.png",
+        "image_thumb": "assets/Tamu/tamu_02_village_remote.png",
+        "icon": "⛰️",
         "npcs": [],
         "available_actions": ["view_village_profile", "inspect_environment"],
         "travel_time": 1.0,
@@ -513,6 +532,8 @@ LOCATIONS = {
         "area": "Tamu Village",
         "description": "The boundary between the village and the surrounding forest. Wildlife occasionally ventures near the community.",
         "image_path": "assets/Tamu/tamu_03_forest_edge.png",
+        "image_thumb": "assets/Tamu/tamu_03_forest_edge.png",
+        "icon": "🌲",
         "npcs": [],
         "available_actions": ["inspect_environment", "collect_mosquito_sample"],
         "travel_time": 1.0,
@@ -523,7 +544,7 @@ LOCATIONS = {
         "area": "District Hospital",
         "description": "The AES patients are being treated in this ward. Monitors beep and worried families gather in the corridor.",
         "image_path": "assets/Hospital/hospital_ward.png",
-        "image_thumb": "assets/Hospital/hospital_ward_thumb.png",
+        "image_thumb": "assets/Hospital/hospital_ward.png",
         "icon": "🏥",
         "npcs": ["dr_chen"],
         "available_actions": ["review_hospital_records", "collect_csf_sample", "collect_serum_sample"],
@@ -534,7 +555,7 @@ LOCATIONS = {
         "area": "District Hospital",
         "description": "A small but functional laboratory. Limited testing capacity means most samples must be sent to the regional reference lab.",
         "image_path": "assets/Hospital/hospital_lab.png",
-        "image_thumb": "assets/Hospital/hospital_lab_thumb.png",
+        "image_thumb": "assets/Hospital/hospital_lab.png",
         "icon": "🔬",
         "npcs": [],
         "available_actions": ["view_lab_results", "submit_lab_samples"],
@@ -545,7 +566,7 @@ LOCATIONS = {
         "area": "District Hospital",
         "description": "Dr. Tran's office. Charts and reports are pinned to the walls. A window overlooks the hospital courtyard.",
         "image_path": "assets/Hospital/hospital_admin.png",
-        "image_thumb": "assets/Hospital/hospital_admin_thumb.png",
+        "image_thumb": "assets/Hospital/hospital_admin.png",
         "icon": "📋",
         "npcs": ["dr_chen"],
         "available_actions": ["review_hospital_records"],
@@ -556,7 +577,9 @@ LOCATIONS = {
         "name": "District Health Office",
         "area": "District Office",
         "description": "The administrative hub for district health operations. Officials and technical officers work from here.",
-        "image_path": None,
+        "image_path": "assets/Hospital/hospital_admin.png",
+        "image_thumb": "assets/Hospital/hospital_admin.png",
+        "icon": "🏛️",
         "npcs": ["vet_amina", "mr_osei", "mayor_simon"],
         "available_actions": ["request_data", "plan_interventions"],
         "travel_time": 0.5,
@@ -566,7 +589,9 @@ LOCATIONS = {
         "name": "Mining Compound",
         "area": "Mining Area",
         "description": "The mining operation has expanded recently, creating new irrigation ponds. Worker housing is nearby.",
-        "image_path": None,
+        "image_path": "assets/Kabwe/kabwe_01_mixed_farming.png",
+        "image_thumb": "assets/Kabwe/kabwe_01_mixed_farming.png",
+        "icon": "⛏️",
         "npcs": ["foreman_rex"],
         "available_actions": ["inspect_environment", "collect_water_sample"],
         "travel_time": 1.0,
@@ -577,6 +602,8 @@ LOCATIONS = {
         "area": "Nalu Village",
         "description": "The weekly market where traders from all villages gather. A good place to hear rumors and observe community patterns.",
         "image_path": "assets/Nalu/nalu_01_village_scene.png",
+        "image_thumb": "assets/Nalu/nalu_01_village_scene.png",
+        "icon": "🛒",
         "npcs": ["auntie_ama"],
         "available_actions": [],
         "travel_time": 0.5,
@@ -586,7 +613,9 @@ LOCATIONS = {
         "name": "Traditional Healer's Clinic",
         "area": "Nalu Village",
         "description": "A small private clinic run by Healer Somchai. He saw some of the earliest cases before they went to the hospital.",
-        "image_path": None,
+        "image_path": "assets/Nalu/nalu_01_village_scene.png",
+        "image_thumb": "assets/Nalu/nalu_01_village_scene.png",
+        "icon": "🌿",
         "npcs": ["healer_marcus"],
         "available_actions": ["review_healer_records"],
         "travel_time": 0.5,
@@ -626,13 +655,13 @@ AREA_METADATA = {
         "icon": "⛰️",
     },
     "District Office": {
-        "image_exterior": None,
-        "description": "Houses the public health, veterinary, and environmental health teams. Key officials work from here.",
+        "image_exterior": "assets/Hospital/hospital_admin.png",
+        "description": "The administrative hub of district health operations. Houses the public health, veterinary, and environmental health teams. Key officials coordinate outbreak response from here.",
         "icon": "🏛️",
     },
     "Mining Area": {
-        "image_exterior": None,
-        "description": "The mining operation has expanded recently, creating new irrigation ponds. Worker housing is nearby.",
+        "image_exterior": "assets/Kabwe/kabwe_01_mixed_farming.png",
+        "description": "The mining operation has expanded recently, creating new irrigation ponds and disrupting local ecosystems. Worker housing and canteen facilities are located nearby.",
         "icon": "⛏️",
     },
 }
@@ -849,6 +878,8 @@ def init_session_state():
     st.session_state.setdefault("interview_history", {})
     st.session_state.setdefault("revealed_clues", {})
     st.session_state.setdefault("current_npc", None)
+    st.session_state.setdefault("interview_context_location", None)
+    st.session_state.setdefault("visited_locations", set())
     st.session_state.setdefault("unlock_flags", {})
 
     # NPC emotional state & memory summary (per NPC)
@@ -2877,8 +2908,52 @@ def view_interviews():
     truth = st.session_state.truth
     npc_truth = truth["npc_truth"]
 
+    # Back button at the top for easy navigation
+    col_back, col_spacer = st.columns([1, 5])
+    with col_back:
+        # If coming from a location, show "Return to Location" button
+        current_loc = st.session_state.get("current_location")
+        if current_loc:
+            loc_data = LOCATIONS.get(current_loc, {})
+            loc_name = loc_data.get("name", "Location")
+            if st.button(f"🔙 Return to {loc_name}", key="return_to_loc_from_interviews"):
+                st.session_state.current_view = "location"
+                st.rerun()
+        else:
+            if st.button("🔙 Return to Map", key="return_to_map_from_interviews"):
+                st.session_state.current_view = "map"
+                st.rerun()
+
     st.header("👥 Interviews")
-    
+
+    # Check if we're accessing from a specific location with NPCs
+    context_loc = st.session_state.get("interview_context_location")
+    context_npcs = []
+    if context_loc:
+        loc_data = LOCATIONS.get(context_loc, {})
+        for npc_key in loc_data.get("npcs", []):
+            if npc_key in st.session_state.npcs_unlocked and npc_key in npc_truth:
+                context_npcs.append((npc_key, npc_truth[npc_key]))
+
+    # If there's exactly one NPC at the context location and no active conversation,
+    # start the conversation immediately
+    if len(context_npcs) == 1 and not st.session_state.current_npc:
+        npc_key, npc = context_npcs[0]
+        interviewed = npc_key in st.session_state.interview_history
+        time_cost = TIME_COSTS["interview_followup"] if interviewed else TIME_COSTS["interview_initial"]
+        budget_cost = 0 if interviewed else npc.get("cost", 0)
+
+        can_proceed, msg = check_resources(time_cost, budget_cost)
+        if can_proceed:
+            spend_time(time_cost, f"Interview: {npc['name']}")
+            if budget_cost > 0:
+                spend_budget(budget_cost, f"Interview: {npc['name']}")
+            st.session_state.current_npc = npc_key
+            st.session_state.interview_history.setdefault(npc_key, [])
+            # Clear context after auto-selecting
+            st.session_state.interview_context_location = None
+            st.rerun()
+
     # Resource display
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -2887,19 +2962,19 @@ def view_interviews():
         st.metric("⏱️ Time Remaining", f"{st.session_state.time_remaining}h")
     with col3:
         st.metric("Interviews Completed", len(st.session_state.interview_history))
-    
+
     st.caption("Each new interview costs time. Follow-up questions with the same person are quicker.")
 
     # Group NPCs by availability
     available_npcs = []
     locked_npcs = []
-    
+
     for npc_key, npc in npc_truth.items():
         if npc_key in st.session_state.npcs_unlocked:
             available_npcs.append((npc_key, npc))
         else:
             locked_npcs.append((npc_key, npc))
-    
+
     # Show available NPCs
     st.markdown("### Available Contacts")
     cols = st.columns(3)
@@ -2907,15 +2982,15 @@ def view_interviews():
         with cols[i % 3]:
             interviewed = npc_key in st.session_state.interview_history
             status = "✓ Interviewed" if interviewed else ""
-            
+
             # Calculate costs
             time_cost = TIME_COSTS["interview_followup"] if interviewed else TIME_COSTS["interview_initial"]
             budget_cost = 0 if interviewed else npc.get("cost", 0)
-            
+
             st.markdown(f"**{npc['avatar']} {npc['name']}** {status}")
             st.caption(f"{npc['role']}")
             st.caption(f"Cost: {format_resource_cost(time_cost, budget_cost)}")
-            
+
             btn_label = "Continue" if interviewed else "Talk"
             if st.button(f"{btn_label}", key=f"btn_{npc_key}"):
                 can_proceed, msg = check_resources(time_cost, budget_cost)
@@ -2928,7 +3003,7 @@ def view_interviews():
                     st.rerun()
                 else:
                     st.error(msg)
-    
+
     # Show locked NPCs (without hints about how to unlock)
     if locked_npcs:
         st.markdown("### Other Contacts")
@@ -2946,7 +3021,7 @@ def view_interviews():
         npc = npc_truth[npc_key]
         st.markdown("---")
         st.subheader(f"Talking to {npc['name']} ({npc['role']})")
-        
+
         col1, col2 = st.columns([1, 5])
         with col1:
             if st.button("🔙 End Interview"):
@@ -2989,8 +3064,18 @@ def view_interviews():
 
 def view_case_finding():
     """View for reviewing clinic records and finding additional cases."""
+
+    # Back button at the top for easy navigation
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        if st.button("🔙 Return to Clinic", key="return_to_clinic_from_cf"):
+            st.session_state.current_location = "nalu_health_center"
+            st.session_state.current_area = "Nalu Village"
+            st.session_state.current_view = "location"
+            st.rerun()
+
     st.header("🔍 Case Finding")
-    
+
     # Tabs for different record sources
     tab1, tab2 = st.tabs(["📋 Clinic Records", "🏥 Hospital Records"])
     
@@ -4786,6 +4871,223 @@ def view_travel_map():
             st.rerun()
 
 
+# =========================
+# UI/UX HELPER FUNCTIONS
+# =========================
+
+def get_location_status(loc_key: str) -> dict:
+    """Get the status of a location (visited, actions completed, etc.)."""
+    status = {
+        "visited": False,
+        "clinic_reviewed": False,
+        "environment_inspected": False,
+        "samples_collected": False,
+        "npcs_interviewed": [],
+    }
+
+    # Check if location was visited (if they went to this location view)
+    visited_locations = st.session_state.get("visited_locations", set())
+    status["visited"] = loc_key in visited_locations
+
+    # Check specific action completions
+    if loc_key in ["nalu_health_center"]:
+        status["clinic_reviewed"] = st.session_state.get("clinic_records_reviewed", False)
+
+    # Check environment inspections
+    env_findings = st.session_state.get("environment_findings", [])
+    for finding in env_findings:
+        if finding.get("location") == loc_key:
+            status["environment_inspected"] = True
+            break
+
+    # Check samples collected at this location
+    lab_samples = st.session_state.get("lab_samples_submitted", [])
+    for sample in lab_samples:
+        if sample.get("location") == loc_key:
+            status["samples_collected"] = True
+            break
+
+    # Check NPCs interviewed at this location
+    loc = LOCATIONS.get(loc_key, {})
+    for npc_key in loc.get("npcs", []):
+        if npc_key in st.session_state.get("interview_history", {}):
+            status["npcs_interviewed"].append(npc_key)
+
+    return status
+
+
+def render_breadcrumb(area: str = None, location: str = None):
+    """Render a breadcrumb navigation bar."""
+    area_meta = AREA_METADATA.get(area, {}) if area else {}
+    area_icon = area_meta.get("icon", "📍")
+
+    loc_data = LOCATIONS.get(location, {}) if location else {}
+    loc_icon = loc_data.get("icon", "📍")
+    loc_name = loc_data.get("name", location) if location else None
+
+    # Build breadcrumb elements
+    crumbs = []
+
+    # Map is always first
+    crumbs.append(("🗺️ Map", "map", None))
+
+    if area:
+        crumbs.append((f"{area_icon} {area}", "area", area))
+
+    if location and loc_name:
+        crumbs.append((f"{loc_icon} {loc_name}", "location", location))
+
+    # Render breadcrumb with clickable buttons
+    cols = st.columns(len(crumbs) * 2 - 1)
+    col_idx = 0
+
+    for i, (label, view_type, data) in enumerate(crumbs):
+        with cols[col_idx]:
+            # Don't make the last crumb clickable (it's current location)
+            if i < len(crumbs) - 1:
+                if st.button(label, key=f"breadcrumb_{view_type}_{i}", use_container_width=True):
+                    if view_type == "map":
+                        st.session_state.current_area = None
+                        st.session_state.current_location = None
+                        st.session_state.current_view = "map"
+                    elif view_type == "area":
+                        st.session_state.current_area = data
+                        st.session_state.current_location = None
+                        st.session_state.current_view = "area"
+                    st.rerun()
+            else:
+                st.markdown(f"**{label}**")
+        col_idx += 1
+
+        # Add separator
+        if i < len(crumbs) - 1:
+            with cols[col_idx]:
+                st.markdown("<div style='text-align: center; padding-top: 8px;'>›</div>", unsafe_allow_html=True)
+            col_idx += 1
+
+
+def travel_with_animation(destination_name: str, travel_time: float = 0.5):
+    """Show a travel animation/spinner when moving to a new location."""
+    with st.spinner(f"🚶 Traveling to {destination_name}..."):
+        time.sleep(min(travel_time, 1.0))  # Cap animation at 1 second
+
+
+def render_location_card(loc_key: str, loc: dict, npcs_here: list, npc_truth: dict, col_key: str = ""):
+    """Render a styled card for a sub-location with status badges and NPC avatars."""
+    from pathlib import Path
+
+    loc_name = loc.get("name", loc_key)
+    loc_icon = loc.get("icon", "📍")
+    loc_desc = loc.get("description", "")
+    travel_time = loc.get("travel_time", 0.5)
+
+    # Get location status
+    status = get_location_status(loc_key)
+
+    # Build status badge HTML
+    status_badges = []
+    if status["clinic_reviewed"] and loc_key == "nalu_health_center":
+        status_badges.append('<span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; margin-left: 5px;">✅ Records Reviewed</span>')
+    if status["environment_inspected"]:
+        status_badges.append('<span style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; margin-left: 5px;">🔍 Inspected</span>')
+    if status["samples_collected"]:
+        status_badges.append('<span style="background: #8b5cf6; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; margin-left: 5px;">🧪 Sampled</span>')
+    if status["npcs_interviewed"]:
+        status_badges.append('<span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; margin-left: 5px;">💬 Interviewed</span>')
+
+    badge_html = " ".join(status_badges) if status_badges else ""
+
+    # Card container with border styling
+    st.markdown(f"""
+    <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 15px; margin-bottom: 10px; background: white;">
+        <h4 style="margin: 0 0 5px 0;">{loc_icon} {loc_name}</h4>
+        <div style="margin-bottom: 8px;">{badge_html}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Thumbnail image
+    image_path = loc.get("image_thumb") or loc.get("image_path")
+    if image_path:
+        path = Path(image_path)
+        if not path.suffix:
+            for ext in ['.png', '.jpg', '.jpeg']:
+                test_path = Path(str(path) + ext)
+                if test_path.exists():
+                    st.image(str(test_path), use_container_width=True)
+                    break
+        elif path.exists():
+            st.image(str(path), use_container_width=True)
+    else:
+        # Placeholder
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                    border-radius: 8px; padding: 30px; text-align: center; margin-bottom: 10px;">
+            <span style="font-size: 2.5em;">{loc_icon}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Short description
+    if loc_desc:
+        truncated = loc_desc[:80] + "..." if len(loc_desc) > 80 else loc_desc
+        st.caption(truncated)
+
+    # === NPCs Present with Avatar Overlay ===
+    if npcs_here:
+        # Create avatar row with overlapping style
+        avatar_html = '<div style="display: flex; margin: 8px 0;">'
+        for idx, (npc_key, npc) in enumerate(npcs_here):
+            avatar_path = npc.get("image_path")
+            npc_name = npc.get("name", "Unknown")
+
+            # Check if avatar image exists
+            if avatar_path and Path(avatar_path).exists():
+                # We'll render this with st.image below
+                pass
+            else:
+                avatar_emoji = npc.get("avatar", "👤")
+                avatar_html += f'''
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: #e5e7eb;
+                            display: flex; align-items: center; justify-content: center;
+                            margin-left: {-10 if idx > 0 else 0}px; border: 2px solid white;
+                            font-size: 1.2em;" title="{npc_name}">
+                    {avatar_emoji}
+                </div>
+                '''
+        avatar_html += '</div>'
+
+        st.markdown(avatar_html, unsafe_allow_html=True)
+
+        # Show NPC names
+        npc_names = ", ".join([npc.get("name", "Unknown") for _, npc in npcs_here])
+        st.caption(f"👥 {npc_names}")
+
+    # Travel time
+    if travel_time > 0:
+        st.caption(f"⏱️ Travel: {travel_time}h")
+
+    # Go to button
+    if st.button(f"Go to {loc_name}", key=f"go_{col_key}_{loc_key}", use_container_width=True):
+        # Check if enough time
+        if st.session_state.time_remaining >= travel_time:
+            # Show travel animation
+            travel_with_animation(loc_name, travel_time)
+
+            spend_time(travel_time, f"Travel to {loc_name}")
+
+            # Mark location as visited
+            if "visited_locations" not in st.session_state:
+                st.session_state.visited_locations = set()
+            st.session_state.visited_locations.add(loc_key)
+
+            st.session_state.current_location = loc_key
+            st.session_state.current_view = "location"
+            st.rerun()
+        else:
+            st.error(f"Not enough time! Need {travel_time}h")
+
+    st.markdown("---")
+
+
 def render_area_hero_image(area: str) -> bool:
     """Render the hero/exterior image for an area if available."""
     area_meta = AREA_METADATA.get(area, {})
@@ -4842,24 +5144,22 @@ def view_area_visual(area: str):
     """Render an area with immersive visual grid layout.
 
     Features:
-    - Hero exterior image at top
-    - 3-column grid of sub-location cards
-    - Each card shows: thumbnail, name, NPCs present, Go button
+    - Breadcrumb navigation at top
+    - Hero exterior image
+    - 3-column grid of sub-location cards with status badges
+    - Each card shows: thumbnail, name, status badges, NPCs present, Go button
     """
     from pathlib import Path
 
     area_meta = AREA_METADATA.get(area, {})
     area_icon = area_meta.get("icon", "📍")
 
-    st.title(f"{area_icon} {area}")
-
-    # Return to main map button
-    if st.button("🗺️ Return to Main Map", key="return_to_main_visual"):
-        st.session_state.current_area = None
-        st.session_state.current_view = "map"
-        st.rerun()
+    # === BREADCRUMB NAVIGATION ===
+    render_breadcrumb(area=area)
 
     st.markdown("---")
+
+    st.title(f"{area_icon} {area}")
 
     # === HERO IMAGE ===
     if not render_area_hero_image(area):
@@ -4879,7 +5179,7 @@ def view_area_visual(area: str):
         st.markdown(f"*{description}*")
 
     st.markdown("---")
-    st.markdown("### 🚪 Rooms & Areas")
+    st.markdown("### 🚪 Locations to Explore")
 
     # Get locations in this area
     location_keys = AREA_LOCATIONS.get(area, [])
@@ -4897,9 +5197,6 @@ def view_area_visual(area: str):
 
     for i, loc_key in enumerate(location_keys):
         loc = LOCATIONS.get(loc_key, {})
-        loc_name = loc.get("name", loc_key)
-        loc_icon = loc.get("icon", "📍")
-        loc_desc = loc.get("description", "")
 
         # Find NPCs at this location
         npcs_here = []
@@ -4908,65 +5205,17 @@ def view_area_visual(area: str):
                 npcs_here.append((npc_key, npc_truth[npc_key]))
 
         with cols[i % num_cols]:
-            # Card container with styling
-            with st.container():
-                # Location header
-                st.markdown(f"### {loc_icon} {loc_name}")
-
-                # Thumbnail image
-                if not render_location_thumbnail(loc_key):
-                    # Placeholder for missing thumbnail
-                    st.markdown(f"""
-                    <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-                                border-radius: 8px; padding: 30px; text-align: center;
-                                margin-bottom: 10px;">
-                        <span style="font-size: 2.5em;">{loc_icon}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                # Short description
-                if loc_desc:
-                    truncated = loc_desc[:80] + "..." if len(loc_desc) > 80 else loc_desc
-                    st.caption(truncated)
-
-                # === NPCs Present ===
-                if npcs_here:
-                    st.markdown("**👥 Who's Here:**")
-                    for npc_key, npc in npcs_here:
-                        # Show NPC avatar and name
-                        npc_col1, npc_col2 = st.columns([1, 3])
-                        with npc_col1:
-                            avatar_path = npc.get("image_path")
-                            if avatar_path and Path(avatar_path).exists():
-                                st.image(avatar_path, width=50)
-                            else:
-                                st.markdown(f"<span style='font-size: 2em;'>{npc.get('avatar', '👤')}</span>",
-                                          unsafe_allow_html=True)
-                        with npc_col2:
-                            st.markdown(f"**{npc.get('name', 'Unknown')}**")
-                            st.caption(f"*{npc.get('role', '')}*")
-
-                # Travel time info
-                travel_time = loc.get("travel_time", 0.5)
-                if travel_time > 0:
-                    st.caption(f"⏱️ Travel: {travel_time}h")
-
-                # Go to button
-                if st.button(f"Go to {loc_name}", key=f"go_visual_{loc_key}", use_container_width=True):
-                    # Check if enough time
-                    if st.session_state.time_remaining >= travel_time:
-                        spend_time(travel_time, f"Travel to {loc_name}")
-                        st.session_state.current_location = loc_key
-                        st.session_state.current_view = "location"
-                        st.rerun()
-                    else:
-                        st.error(f"Not enough time! Need {travel_time}h")
-
-                st.markdown("---")
+            # Use the consolidated card rendering function
+            render_location_card(loc_key, loc, npcs_here, npc_truth, col_key=f"area_{area}")
 
 
 def view_area_map(area: str):
-    """Show sub-locations within an area."""
+    """[DEPRECATED] Show sub-locations within an area.
+
+    Note: This function has been deprecated in favor of view_area_visual()
+    which provides a more immersive experience with hero images, status badges,
+    and improved NPC avatar display. Kept for backwards compatibility.
+    """
     st.title(f"📍 {area}")
 
     # Return to main map button
@@ -5110,25 +5359,17 @@ def view_location(loc_key: str):
         st.session_state.current_view = "map"
         return
 
-    # Header with location name
-    st.title(f"📍 {loc.get('name', loc_key)}")
-    st.caption(f"*{loc.get('area', 'Unknown Area')}*")
+    area = loc.get('area', 'Unknown Area')
+    loc_icon = loc.get('icon', '📍')
 
-    # Navigation buttons
-    col1, col2, col3 = st.columns([1, 1, 4])
-    with col1:
-        if st.button("🗺️ Return to Map", key="return_map"):
-            st.session_state.current_location = None
-            st.session_state.current_area = None
-            st.session_state.current_view = "map"
-            st.rerun()
-    with col2:
-        if st.button(f"📍 Back to {loc.get('area', 'Area')}", key="return_area"):
-            st.session_state.current_location = None
-            st.session_state.current_view = "area"
-            st.rerun()
+    # === BREADCRUMB NAVIGATION ===
+    render_breadcrumb(area=area, location=loc_key)
 
     st.markdown("---")
+
+    # Header with location name
+    st.title(f"{loc_icon} {loc.get('name', loc_key)}")
+    st.caption(f"*{area}*")
 
     # Layout: Image on left, description and NPCs on right
     col1, col2 = st.columns([1, 2])
@@ -5553,14 +5794,11 @@ def main():
     if view == "map" or view is None:
         view_travel_map()
     elif view == "area":
-        # Show area map for selected area
+        # Show area map for selected area - use visual layout for ALL areas
         area = st.session_state.get("current_area")
         if area:
-            # Use visual layout for District Hospital (immersive grid with hero image)
-            if area == "District Hospital":
-                view_area_visual(area)
-            else:
-                view_area_map(area)
+            # Use immersive visual layout with hero image and card grid for all areas
+            view_area_visual(area)
         else:
             view_travel_map()
     elif view == "location":

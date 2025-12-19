@@ -6,33 +6,61 @@
     "image_path": "assets/Avatars/dr_tran.png",
     "cost": 0,
     "location": "District Hospital",
-    "personality": "Precise and factual. A bit impatient. Trusts lab data more than interviews. Will not speculate early on.",
+    "personality": "Precise. Impatient. Overworked.",
     "always_reveal": [
-      "Has full hospital AES line list: ages 2-12 years primarily, 3 fatalities",
-      "All cases from Nalu & Kabwe villages",
-      "Onsets between June 3-10",
-      "Has seen several children with seizures, high fever (39-40C), confusion",
-      "WBC counts are elevated (lymphocytosis), suggesting viral cause",
-      "Unlikely to be toxins - no metabolic acidosis seen",
-      "One 9-year-old died 24 hours after admission"
+      "We are overwhelmed. I need you to triage these cases.",
+      "My staff have listed the recent admissions below.",
+      "Most have high fever and altered mental status.",
+      "Initial lab work shows Leukocytosis (high WBC), which suggests infection, not poisoning."
+    ],
+    "conditional_clues": {},
+    "red_herrings": [],
+    "unknowns": ["Specific pathogen", "Source of infection"],
+    "data_access": "hospital_triage",
+    "unlocks": null
+  },
+  "parent_tamu": {
+    "name": "Panya's Mother",
+    "role": "Tamu Villager",
+    "avatar": "👩‍👧",
+    "cost": 0,
+    "location": "Hospital Waiting Room",
+    "personality": "Confused and defensive. Proud of her safe village.",
+    "always_reveal": [
+      "I don't understand! Tamu is safe. We live in the hills!",
+      "We don't have pigs! We don't have dirty water!",
+      "Panya was healthy... until we came back from the wedding."
     ],
     "conditional_clues": {
-      "animals": "Two families reported pigs acting strangely - restless, vocalizing at night",
-      "pigs": "Two families reported pigs acting strangely - restless, vocalizing at night",
-      "mosquito nets": "One severe case slept without mosquito nets",
-      "nets": "One severe case slept without mosquito nets",
-      "toxins": "Clinical picture is inflammatory (fever), not toxicological. I doubt the mine theory.",
-      "poison": "Clinical picture is inflammatory (fever), not toxicological. I doubt the mine theory."
+      "wedding": "We went to my mother's house in Nalu Village two weeks ago.",
+      "travel": "We stayed in Nalu for 3 days for the wedding. Panya played near the pig pens.",
+      "nalu": "Yes, we visited Nalu recently. But we live in Tamu!"
     },
-    "red_herrings": [
-      "Possibly viral meningitis outbreak from school - but no event links"
+    "red_herrings": ["Maybe the spirits followed us from the wedding."],
+    "unknowns": [],
+    "data_access": null,
+    "unlocks": "travel_history_revealed"
+  },
+  "parent_general": {
+    "name": "Worried Parent",
+    "role": "Villager",
+    "avatar": "👥",
+    "cost": 0,
+    "location": "Hospital Waiting Room",
+    "personality": "Exhausted. Scared.",
+    "always_reveal": [
+      "The fever came so fast. Hot like fire.",
+      "Yes, we live near the rice fields.",
+      "We have a few pigs, like everyone else.",
+      "The mosquitoes are terrible this year."
     ],
-    "unknowns": [
-      "Pig infection status",
-      "Mosquito pool results",
-      "True encephalitis infection mechanism"
-    ],
-    "data_access": "hospital_cases",
+    "conditional_clues": {
+      "pesticide": "I don't know about poison. I only know my child is burning up.",
+      "travel": "We haven't gone anywhere. We stay in the village."
+    },
+    "red_herrings": [],
+    "unknowns": [],
+    "data_access": null,
     "unlocks": null
   },
   "nurse_joy": {
@@ -129,59 +157,39 @@
     "avatar": "⛏️",
     "cost": 200,
     "location": "Mining Area",
-    "personality": "Defensive. Aggressive. Convinced the farmers are blaming him to get money.",
+    "personality": "Aggressive. Defensive.",
     "always_reveal": [
-      "One miner is hospitalized. He lives near the rice fields, not the mine!",
-      "I know what people are saying. They blame my expansion. It's lies.",
-      "The farmers are the ones poisoning the land!",
-      "They started using 'Dragon Fire' pesticide last month. Illegal stuff. Very strong."
+      "It's not my mine! It's those farmers and their illegal chemicals!",
+      "I saw them using 'Dragon Fire' pesticide. It's banned!",
+      "That stuff melts your brain. That's why the kids are seizing!",
+      "My water is clean. I tested it myself."
     ],
-    "conditional_clues": {
-      "water": "My irrigation ponds are clean! Check them! I drink from them!",
-      "pesticide": "I saw empty drums of 'Dragon Fire' (illegal organophosphate) behind the Nalu Co-op.",
-      "dragon": "I saw empty drums of 'Dragon Fire' (illegal organophosphate) behind the Nalu Co-op.",
-      "rash": "Some of my workers got rashes after walking through the rice fields."
-    },
-    "red_herrings": [
-      "It's definitely the pesticides causing the seizures. Neurotoxins, right?",
-      "The water in Nalu is toxic sludge from the farms."
-    ],
-    "unknowns": [
-      "Community health details",
-      "Pig farm status",
-      "Medical information"
-    ],
+    "conditional_clues": {},
+    "red_herrings": ["It is definitely the Dragon Fire poison causing seizures."],
+    "unknowns": [],
     "data_access": null,
     "unlocks": null
   },
   "vet_amina": {
     "name": "Vet Supatra",
-    "role": "District Veterinary Officer",
+    "role": "District Vet",
     "avatar": "🐄",
     "image_path": "assets/Avatars/vet_supatra.png",
     "cost": 150,
     "location": "District Office",
-    "personality": "Highly technical. Cautious. Won't make claims without data.",
+    "personality": "Cautious scientist. Requires data before speaking.",
     "always_reveal": [
-      "I am monitoring livestock health in the district.",
-      "We have many animals: Pigs in Nalu, Water Buffalo for rice, Goats in Tamu.",
-      "I have seen some reproductive issues in sows (female pigs) recently.",
-      "Farmers are complaining about stillbirths in piglets."
+      "I am monitoring the livestock. We have pigs, buffalo, and goats.",
+      "The buffalo are healthy. They are working hard in the rice paddies.",
+      "I have seen some issues in the pig farms, but I am still investigating."
     ],
     "conditional_clues": {
-      "cause": "Abortions in pigs can be caused by Brucellosis, PRRS, or... vector-borne flaviviruses.",
-      "virus": "If it is a flavivirus, pigs are often amplifying hosts. They make the virus levels high enough to infect mosquitoes.",
-      "mosquitoes": "Mosquito abundance is very high near the pig pens in Nalu.",
-      "birds": "Wild herons are natural reservoirs for some encephalitis viruses.",
-      "encephalitis": "If this is Japanese Encephalitis, pigs are the key amplifier. Humans are dead-end hosts.",
-      "je": "If this is Japanese Encephalitis, pigs are the key amplifier. Humans are dead-end hosts.",
-      "testing": "I can test the pigs for viral antibodies if you have the budget."
+      "abortion": "Yes, some sows are having stillbirths. That is worrying.",
+      "je": "It is... possible. But I need to see your human data first. Does it match pig density?",
+      "pigs": "Pigs can amplify certain viruses. But without testing, I cannot say more."
     },
     "red_herrings": [],
-    "unknowns": [
-      "Human lab results",
-      "Exact virus type (until tested)"
-    ],
+    "unknowns": ["Link to human cases"],
     "data_access": "vet_surveillance",
     "unlocks": "vet_data_unlocked"
   },
@@ -192,27 +200,16 @@
     "image_path": "assets/Avatars/auntie_phuong.png",
     "cost": 50,
     "location": "Central Market",
-    "personality": "Gossip-heavy. Knows everyone's business. Superstitious but observant.",
+    "personality": "Gossip. Knows everything.",
     "always_reveal": [
-      "Cases cluster near Nalu and Kabwe.",
-      "Have you heard about the new medicine for the rice bugs? Very strong smell.",
-      "Farmers say it kills everything. Maybe it kills children too?",
-      "She noticed sick children are mostly from the rice farming families."
+      "Have you smelled the air in Nalu? It smells like chemicals.",
+      "They are using the new 'Dragon Fire' spray for the rice bugs.",
+      "My cousin used it and got a headache for 3 days.",
+      "Also, the pigs are screaming at night. Very spooky."
     ],
-    "conditional_clues": {
-      "pigs": "The pigs are screaming at night. Maybe they see spirits?",
-      "goats": "The goats in Tamu are fine. Only the lowland animals act crazy.",
-      "pesticide": "They call it 'Dragon Fire'. My cousin used it and got a headache for 3 days.",
-      "medicine": "They call it 'Dragon Fire'. My cousin used it and got a headache for 3 days."
-    },
-    "red_herrings": [
-      "It must be the Dragon Fire poison.",
-      "Bad spirits in the new canal."
-    ],
-    "unknowns": [
-      "Medical details",
-      "Lab results"
-    ],
+    "conditional_clues": {},
+    "red_herrings": ["Dragon Fire spray causes the sleeping sickness."],
+    "unknowns": [],
     "data_access": null,
     "unlocks": null
   },

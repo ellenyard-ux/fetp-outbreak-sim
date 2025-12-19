@@ -143,6 +143,51 @@ def load_truth_data(data_dir: str = "data"):
     return truth
 
 
+def get_hospital_triage_list():
+    """
+    Returns the 'raw' list of patients Dr. Tran presents to the user.
+    Includes the clues (Clinical signs) that help distinguish JE vs Toxin.
+    """
+    return [
+        {
+            "id": "HOSP-01", "age": "6y", "sex": "F", "village": "Nalu",
+            "symptom": "High Fever (39.5C), Seizures, Confusion",
+            "notes": "WBC 18k (High). Neck stiffness.",
+            "is_case": True, "parent_type": "general"
+        },
+        {
+            "id": "HOSP-02", "age": "8y", "sex": "M", "village": "Nalu",
+            "symptom": "Fever, Headache, Vomiting",
+            "notes": "Rapid onset. Malaria RDT Negative.",
+            "is_case": True, "parent_type": "general"
+        },
+        {
+            "id": "HOSP-03", "age": "34y", "sex": "M", "village": "Nalu",
+            "symptom": "Broken Tibia (Motorbike)",
+            "notes": "Afebrile. Alert and oriented.",
+            "is_case": False, "parent_type": "none"
+        },
+        {
+            "id": "HOSP-04", "age": "7y", "sex": "F", "village": "Tamu",
+            "symptom": "Fever, Tremors, Lethargy",
+            "notes": "WBC 14k. Parents insist no animals at home.",
+            "is_case": True, "parent_type": "tamu"  # <--- THE KEY CASE
+        },
+        {
+            "id": "HOSP-05", "age": "4y", "sex": "M", "village": "Kabwe",
+            "symptom": "Convulsions, Coma",
+            "notes": "Temp 40.1C. CSF clear.",
+            "is_case": True, "parent_type": "general"
+        },
+        {
+            "id": "HOSP-06", "age": "2m", "sex": "F", "village": "Kabwe",
+            "symptom": "Cough, Difficulty Breathing",
+            "notes": "Bronchiolitis suspected.",
+            "is_case": False, "parent_type": "none"
+        }
+    ]
+
+
 def generate_full_population(villages_df, households_seed, individuals_seed, random_seed=42):
     """
     Generate a complete population from seed data + generation rules.
@@ -296,11 +341,14 @@ def generate_full_population(villages_df, households_seed, individuals_seed, ran
     if not tamu_kids.empty:
         # Pick one to be the "Story Case"
         idx = tamu_kids.index[0]
+        # Make them sick
         individuals_df.at[idx, 'true_je_infection'] = True
         individuals_df.at[idx, 'symptomatic_AES'] = True
         individuals_df.at[idx, 'severe_neuro'] = True
-        individuals_df.at[idx, 'onset_date'] = '2025-06-08'
-        individuals_df.at[idx, 'name_hint'] = "Panya (Traveler)"
+        individuals_df.at[idx, 'outcome'] = 'recovered_sequelae'
+        # Add the 'Secret' column that only appears if you dig
+        individuals_df.at[idx, 'travel_history_note'] = "Traveled to Nalu 2 weeks ago"
+        individuals_df.at[idx, 'name_hint'] = "Panya"
 
     # Assign infections using risk model (skip seed individuals)
     individuals_df = assign_infections(individuals_df, households_df)

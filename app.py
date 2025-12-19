@@ -481,6 +481,15 @@ LOCATIONS = {
         "available_actions": ["review_attendance_records"],
         "travel_time": 0.5,
     },
+    "nalu_irrigation_canal": {
+        "name": "Irrigation Canal",
+        "area": "Nalu Village",
+        "description": "Large pumps move water from the river. Signs of recent construction.",
+        "image_path": "assets/Nalu/nalu_canal.png",
+        "icon": "💧",
+        "available_actions": ["inspect_environment", "collect_water_sample"],
+        "travel_time": 0.5,
+    },
     # === KABWE VILLAGE ===
     "kabwe_village_center": {
         "name": "Kabwe Village Center",
@@ -515,6 +524,16 @@ LOCATIONS = {
         "available_actions": ["review_attendance_records"],
         "travel_time": 0.5,
     },
+    "kabwe_health_post": {
+        "name": "Kabwe Health Post",
+        "area": "Kabwe Village",
+        "description": "A small room used by the visiting nurse. Records are kept in a binder.",
+        "image_path": "assets/Kabwe/kabwe_clinic.png",
+        "icon": "🏥",
+        "npcs": ["nurse_kabwe"],
+        "available_actions": ["review_kabwe_records"],
+        "travel_time": 0.2,
+    },
     # === TAMU VILLAGE ===
     "tamu_remote_upland": {
         "name": "Tamu Remote Upland",
@@ -537,6 +556,24 @@ LOCATIONS = {
         "npcs": [],
         "available_actions": ["inspect_environment", "collect_mosquito_sample"],
         "travel_time": 1.0,
+    },
+    "tamu_forest_path": {
+        "name": "Forest Path",
+        "area": "Tamu Village",
+        "description": "Path leading into the uplands. You see goats grazing and wild birds.",
+        "image_path": "assets/Tamu/forest_path.png",
+        "icon": "🌲",
+        "available_actions": ["inspect_environment"],
+        "travel_time": 0.5,
+    },
+    "tamu_health_post": {
+        "name": "Volunteer Sarah's Home",
+        "area": "Tamu Village",
+        "description": "Sarah keeps the village health log here.",
+        "icon": "📝",
+        "npcs": ["chv_tamu"],
+        "available_actions": ["review_tamu_records"],
+        "travel_time": 0.2,
     },
     # === DISTRICT HOSPITAL ===
     "hospital_ward": {
@@ -624,9 +661,9 @@ LOCATIONS = {
 
 # Map areas to their sub-locations
 AREA_LOCATIONS = {
-    "Nalu Village": ["nalu_village_center", "nalu_health_center", "nalu_pig_coop", "nalu_rice_paddies", "nalu_school", "central_market", "healer_clinic"],
-    "Kabwe Village": ["kabwe_village_center", "kabwe_school_path", "kabwe_school"],
-    "Tamu Village": ["tamu_remote_upland", "tamu_forest_edge"],
+    "Nalu Village": ["nalu_village_center", "nalu_health_center", "nalu_pig_coop", "nalu_rice_paddies", "nalu_school", "nalu_irrigation_canal", "central_market", "healer_clinic"],
+    "Kabwe Village": ["kabwe_village_center", "kabwe_school_path", "kabwe_school", "kabwe_health_post"],
+    "Tamu Village": ["tamu_remote_upland", "tamu_forest_edge", "tamu_forest_path", "tamu_health_post"],
     "District Hospital": ["hospital_ward", "hospital_lab", "hospital_office"],
     "District Office": ["district_office"],
     "Mining Area": ["mining_area"],
@@ -678,6 +715,8 @@ NPC_LOCATIONS = {
     "vet_amina": "district_office",
     "mr_osei": "district_office",
     "mayor_simon": "district_office",
+    "nurse_kabwe": "kabwe_health_post",
+    "chv_tamu": "tamu_health_post",
 }
 
 
@@ -1528,11 +1567,16 @@ INFORMATION RULES:
 # CLINIC RECORDS FOR CASE FINDING
 # =========================
 
-def generate_clinic_records():
+def generate_clinic_records(village_context="nalu"):
     """
     Generate messy, handwritten-style clinic records.
     Mix of AES cases and unrelated illnesses.
     Returns list of record dicts.
+
+    Args:
+        village_context: "nalu" (default - full messy list),
+                        "kabwe" (mild fevers, cuts, 1-2 transferred AES),
+                        "tamu" (coughs, snakebites, Panya traveler case)
     """
     import random
     random.seed(42)
@@ -1889,6 +1933,32 @@ def generate_clinic_records():
     all_records = true_aes_cases + non_aes_cases
     random.shuffle(all_records)
 
+    # Filter based on village context
+    if village_context == "kabwe":
+        # Kabwe: mild fevers, cuts, 1-2 transferred AES cases
+        kabwe_records = [r for r in all_records if r.get("village") == "Kabwe"]
+        # Include only 1-2 AES cases from Kabwe
+        kabwe_aes = [r for r in kabwe_records if r.get("is_aes")][:2]
+        kabwe_non_aes = [r for r in kabwe_records if not r.get("is_aes")]
+        return kabwe_aes + kabwe_non_aes
+
+    elif village_context == "tamu":
+        # Tamu: coughs, snakebites, and the "Panya" case (Traveler)
+        tamu_records = [r for r in all_records if r.get("village") == "Tamu"]
+        # Add a traveler case "Panya"
+        panya_case = {
+            "record_id": "NHC-0080",
+            "date": "10-Jun",
+            "patient": "Panya (Traveler)",
+            "age": "32",
+            "village": "Tamu",
+            "complaint": "fever, confusion, difficulty walking",
+            "notes": "Traveler passing through. Referred to district hospital.",
+            "is_aes": True
+        }
+        return tamu_records + [panya_case]
+
+    # Default: nalu - return existing messy list
     return all_records
 
 
@@ -2190,40 +2260,30 @@ def generate_hospital_records():
             "admission_date": "3-Jun-2025",
             "admission_time": "14:30",
             "brought_by": "Mother (Ama Asante)",
-            "chief_complaint": "Fever and seizures",
+            "chief_complaint": "High fever (40.2C) and generalized seizures",
             "history_present_illness": """
-Child was well until 3 days prior to admission. Mother reports onset of high fever 
-which did not respond to paracetamol. On day 2, child became drowsy and confused, 
-not recognizing family members. On morning of admission, child had generalized 
-tonic-clonic seizure lasting approximately 3-4 minutes. Postictal state noted. 
-No history of previous seizures. No recent travel. No sick contacts known.
+Child well until 2 days ago. Sudden onset fever (40C), headache, vomiting.
+Seizures began this morning. No history of previous seizures. No recent travel.
+No sick contacts known.
 
-Child plays regularly in rice fields near home after school. Family keeps 3 pigs 
+Child plays regularly in rice fields near home after school. Family keeps 3 pigs
 in pen behind house. No mosquito net use - mother says 'it is too hot.'
 """,
             "past_medical_history": "No significant PMH. Immunizations up to date per mother (card not available). No known allergies.",
             "physical_exam": """
-General: Febrile child, drowsy but rousable, irritable when examined
-Vitals: Temp 39.8°C, HR 142, RR 28, BP 95/60
-HEENT: Pupils equal, reactive. No papilledema on fundoscopy. Neck stiffness present.
-Chest: Clear to auscultation
-CVS: Tachycardic, no murmur
-Abdomen: Soft, non-tender
-Neuro: GCS 12 (E3V4M5). Increased tone in all limbs. Reflexes brisk. 
-       No focal deficits noted. Kernig sign equivocal.
-Skin: No rash. Multiple mosquito bites on arms and legs.
+Temp 40.2C, HR 150. Unconscious. Neck stiffness positive.
+No pinpoint pupils (rules out opiates/organophosphates).
+No drooling or lacrimation.
 """,
             "investigations": """
+- WBC: 16,000 (85% Lymphocytes) -> Viral picture
+- Hemoglobin: Normal
+- Metabolic Panel: Normal anion gap (Rules out many toxins/metabolic causes)
+- CSF: Clear, 120 WBC (Lymphocytic), Glucose Normal.
 - Malaria RDT: Negative
-- Blood glucose: 5.2 mmol/L
-- Hb: 10.8 g/dL  
-- WBC: 14,200 (lymphocyte predominant)
-- Lumbar puncture: CSF clear, WBC 85 (90% lymphocytes), protein 0.8 g/L, glucose 2.8 mmol/L
-  CSF Gram stain: No organisms seen
-- Blood culture: Pending
 """,
-            "initial_diagnosis": "Acute encephalitis syndrome - viral encephalitis likely",
-            "differential": "Viral encephalitis (arboviral vs. other), bacterial meningitis (less likely given CSF), cerebral malaria (RDT negative but consider)",
+            "initial_diagnosis": "Acute Viral Encephalitis",
+            "differential": "Viral Encephalitis vs Bacterial Meningitis. (Toxin unlikely due to high fever and lymphocytosis)",
             "treatment": """
 - IV fluids: D5 0.45% saline at maintenance
 - Ceftriaxone 100mg/kg IV (empiric while awaiting cultures)
@@ -2250,7 +2310,7 @@ Day 7: Stable. Some residual weakness L arm. Discharge planned with f/u in 2 wee
             "admission_date": "4-Jun-2025",
             "admission_time": "11:15",
             "brought_by": "Father (Kofi Mensah)",
-            "chief_complaint": "Unresponsive and shaking",
+            "chief_complaint": "Confusion and inability to walk",
             "history_present_illness": """
 Previously healthy child. Father reports 2 days of high fever before she 
 'stopped making sense' and then became unresponsive this morning. Multiple 
@@ -2263,26 +2323,10 @@ House is approximately 50 meters from rice paddies.
 """,
             "past_medical_history": "Born at home, no birth complications. Growth normal. Immunization card lost but mother believes she received most vaccines. Had malaria 6 months ago, treated.",
             "physical_exam": """
-General: Critically ill-appearing child, unresponsive to voice, minimal response to pain
-Vitals: Temp 40.1°C, HR 168, RR 34, BP 88/52, SpO2 94% on room air
-HEENT: Pupils 3mm, sluggish reaction. Neck rigid. Sunset sign noted.
-Chest: Coarse breath sounds bilaterally  
-CVS: Tachycardic, regular
-Abdomen: Soft
-Neuro: GCS 6 (E1V2M3). Decerebrate posturing to painful stimuli. 
-       Hypertonia. Hyperreflexia. Babinski positive bilaterally.
-Skin: Multiple insect bites. No petechiae.
+Temp 39.5C. Ataxic gait. Tremors. No rash.
 """,
             "investigations": """
-- Malaria RDT: Negative
-- Blood glucose: 4.1 mmol/L
-- Hb: 9.6 g/dL
-- WBC: 18,400 (neutrophil predominant)
-- Platelets: 124,000
-- Lumbar puncture: CSF slightly turbid, WBC 156 (70% lymphocytes), protein 1.2 g/L, glucose 2.1 mmol/L
-  CSF Gram stain: No organisms
-- Chest X-ray: Bilateral infiltrates
-- Blood culture: No growth at 48h
+WBC: 14,500 (Lymphocytic). CSF: Pleocytosis. Toxicology Screen: Negative for organophosphates.
 """,
             "initial_diagnosis": "Severe acute encephalitis syndrome with raised ICP",
             "differential": "Viral encephalitis, bacterial meningitis, cerebral malaria",

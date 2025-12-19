@@ -1952,17 +1952,17 @@ def generate_clinic_records(village_context="nalu"):
         return kabwe_aes + kabwe_non_aes
 
     elif village_context == "tamu":
-        # Tamu: coughs, snakebites, and the "Panya" case (Traveler)
+        # Tamu: coughs, snakebites, and the "Panya" case (7yo who traveled to Nalu)
         tamu_records = [r for r in all_records if r.get("village") == "Tamu"]
-        # Add a traveler case "Panya"
+        # Add Panya's case - 7yo girl who traveled to Nalu market
         panya_case = {
             "record_id": "NHC-0080",
             "date": "10-Jun",
-            "patient": "Panya (Traveler)",
-            "age": "32",
+            "patient": "Panya",
+            "age": "7",
             "village": "Tamu",
             "complaint": "fever, confusion, difficulty walking",
-            "notes": "Traveler passing through. Referred to district hospital.",
+            "notes": "Mother says traveled to Nalu market recently. Referred to district hospital.",
             "is_aes": True
         }
         return tamu_records + [panya_case]

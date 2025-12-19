@@ -168,10 +168,10 @@ def get_hospital_triage_list():
             "is_case": False, "parent_type": "none"
         },
         {
-            "id": "HOSP-04", "age": "7y", "sex": "F", "village": "Tamu",
+            "id": "HOSP-04", "name": "Panya", "age": "7y", "sex": "F", "village": "Tamu",
             "symptom": "Fever, Tremors, Lethargy",
             "notes": "WBC 14k. Parents insist no animals at home.",
-            "is_case": True, "parent_type": "tamu"  # <--- THE KEY CASE
+            "is_case": True, "parent_type": "tamu"  # <--- THE KEY CASE (Panya from Tamu)
         },
         {
             "id": "HOSP-05", "age": "4y", "sex": "M", "village": "Kabwe",
@@ -347,7 +347,7 @@ def generate_full_population(villages_df, households_seed, individuals_seed, ran
         individuals_df.at[idx, 'severe_neuro'] = True
         individuals_df.at[idx, 'outcome'] = 'recovered_sequelae'
         # Add the 'Secret' column that only appears if you dig
-        individuals_df.at[idx, 'travel_history_note'] = "Traveled to Nalu 2 weeks ago"
+        individuals_df.at[idx, 'travel_history_note'] = "Traveled to Nalu market 2 weeks ago (bus broke down, stayed overnight near pig co-op)"
         individuals_df.at[idx, 'name_hint'] = "Panya"
 
     # Assign infections using risk model (skip seed individuals)
@@ -378,7 +378,7 @@ def assign_infections(individuals_df, households_df):
     
     def calculate_risk(row):
         # PROTECT SEED/INJECTED CASES
-        if row.get('name_hint') == "Panya (Traveler)":
+        if row.get('name_hint') == "Panya":
             return True  # Ensure Panya stays infected
 
         # Seed individuals keep their status
@@ -411,7 +411,7 @@ def assign_infections(individuals_df, households_df):
     # Real rate is ~1/250, but we use higher for teaching purposes
     def assign_symptomatic(row):
         # PROTECT SEED/INJECTED CASES
-        if row.get('name_hint') == "Panya (Traveler)":
+        if row.get('name_hint') == "Panya":
             return row['symptomatic_AES']  # Preserve story case status
 
         if row['person_id'].startswith('P0') or row['person_id'].startswith('P1') or row['person_id'].startswith('P2'):
@@ -428,7 +428,7 @@ def assign_infections(individuals_df, households_df):
     # Severe neuro
     def assign_severe(row):
         # PROTECT SEED/INJECTED CASES
-        if row.get('name_hint') == "Panya (Traveler)":
+        if row.get('name_hint') == "Panya":
             return row['severe_neuro']  # Preserve story case status
 
         if row['person_id'].startswith('P0') or row['person_id'].startswith('P1') or row['person_id'].startswith('P2'):

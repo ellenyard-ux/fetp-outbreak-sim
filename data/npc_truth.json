@@ -29,14 +29,15 @@
     "always_reveal": [
       "I don't understand! Tamu is safe. We live in the hills!",
       "We don't have pigs! We don't have dirty water!",
-      "Panya was healthy... until we came back from the wedding."
+      "Panya was healthy... until we came back from the market trip."
     ],
     "conditional_clues": {
-      "wedding": "We went to my mother's house in Nalu Village two weeks ago.",
-      "travel": "We stayed in Nalu for 3 days for the wedding. Panya played near the pig pens.",
-      "nalu": "Yes, we visited Nalu recently. But we live in Tamu!"
+      "market": "We went down to the Nalu market to sell our forest mushrooms. We meant to come back the same day!",
+      "travel": "The district bus broke down. We had to sleep on my cousin's porch... right next to that noisy pig co-op.",
+      "nalu": "Yes, we visited Nalu recently. But we live in Tamu!",
+      "bus": "The bus broke down! We were stuck overnight. Panya slept on the porch near the pigs."
     },
-    "red_herrings": ["Maybe the spirits followed us from the wedding."],
+    "red_herrings": ["Maybe the bad air from the lowlands followed us home."],
     "unknowns": [],
     "data_access": null,
     "unlocks": "travel_history_revealed"
@@ -134,12 +135,13 @@
       "Tamu is safe! We live high up, away from the bad air.",
       "I have my record book here. Mostly cuts, scrapes, and coughs.",
       "We raise goats and chickens. Very few pigs here.",
-      "Only one child got very sick recently - Little Panya."
+      "Only one child got very sick recently - Little Panya, she's 7 years old."
     ],
     "conditional_clues": {
-      "panya": "Little Panya got sick with the 'sleeping fever'. But Panya travels a lot to visit grandmother in Nalu.",
-      "travel": "Most of us stay here, but Panya's family goes to Nalu often.",
-      "nalu": "Panya was in Nalu for a wedding two weeks ago.",
+      "panya": "Little Panya got sick with the 'sleeping fever'. Her family went to Nalu market to sell mushrooms two weeks ago.",
+      "travel": "Panya's family went to Nalu to sell forest mushrooms. The bus broke down and they had to stay overnight.",
+      "nalu": "Panya was in Nalu two weeks ago. They slept near the pig co-op when the bus broke down.",
+      "market": "The family sells mushrooms at the Nalu market. They go down there sometimes.",
       "mosquitoes": "Not many mosquitoes up here in the hills. Too dry."
     },
     "red_herrings": [

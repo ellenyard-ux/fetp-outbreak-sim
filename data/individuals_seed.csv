@@ -1,13 +1,13 @@
-person_id,hh_id,village_id,age,sex,occupation,JE_vaccinated,evening_outdoor_exposure,true_je_infection,symptomatic_AES,severe_neuro,onset_date,outcome,name_hint
-P0001,HH001,V1,6,F,child,FALSE,TRUE,TRUE,TRUE,TRUE,2025-06-03,died,Lan (Grandma Linh's granddaughter)
-P0002,HH001,V1,9,M,child,FALSE,TRUE,TRUE,TRUE,FALSE,2025-06-04,recovered_sequelae,Minh
-P0003,HH001,V1,34,M,farmer,TRUE,TRUE,FALSE,FALSE,FALSE,,,Mr. Tran
-P0004,HH001,V1,31,F,caretaker,FALSE,FALSE,FALSE,FALSE,FALSE,,,Mrs. Tran
-P0101,HH002,V1,4,M,child,FALSE,TRUE,TRUE,TRUE,FALSE,2025-06-06,recovered,Baby Tuan
-P0102,HH002,V1,30,F,farmer,FALSE,FALSE,FALSE,FALSE,FALSE,,,Mrs. Pham
-P0103,HH002,V1,12,F,student,TRUE,TRUE,FALSE,FALSE,FALSE,,,Linh
-P1001,HH101,V2,7,F,child,FALSE,TRUE,TRUE,TRUE,TRUE,2025-06-07,died,Hoa
-P1002,HH101,V2,35,M,farmer,TRUE,TRUE,FALSE,FALSE,FALSE,,,Mr. Nguyen
-P1003,HH101,V2,2,F,child,FALSE,TRUE,TRUE,FALSE,FALSE,2025-06-09,recovered,Little Mai
-P2001,HH201,V3,12,F,student,TRUE,TRUE,FALSE,FALSE,FALSE,,,Ratana
-P2002,HH201,V3,40,F,trader,TRUE,FALSE,FALSE,FALSE,FALSE,,,Madam Somying
+person_id,hh_id,village_id,age,sex,occupation,JE_vaccinated,evening_outdoor_exposure,true_je_infection,symptomatic_AES,severe_neuro,onset_date,outcome,has_sequelae,name_hint
+P0001,HH001,V1,6,F,child,FALSE,TRUE,TRUE,TRUE,TRUE,2025-06-03,died,FALSE,Lan (Grandma Linh's granddaughter)
+P0002,HH001,V1,9,M,child,FALSE,TRUE,TRUE,TRUE,FALSE,2025-06-04,recovered,TRUE,Minh
+P0003,HH001,V1,34,M,farmer,TRUE,TRUE,FALSE,FALSE,FALSE,,,FALSE,Mr. Tran
+P0004,HH001,V1,31,F,caretaker,FALSE,FALSE,FALSE,FALSE,FALSE,,,FALSE,Mrs. Tran
+P0101,HH002,V1,4,M,child,FALSE,TRUE,TRUE,TRUE,FALSE,2025-06-06,recovered,FALSE,Baby Tuan
+P0102,HH002,V1,30,F,farmer,FALSE,FALSE,FALSE,FALSE,FALSE,,,FALSE,Mrs. Pham
+P0103,HH002,V1,12,F,student,TRUE,TRUE,FALSE,FALSE,FALSE,,,FALSE,Linh
+P1001,HH101,V2,7,F,child,FALSE,TRUE,TRUE,TRUE,TRUE,2025-06-07,died,FALSE,Hoa
+P1002,HH101,V2,35,M,farmer,TRUE,TRUE,FALSE,FALSE,FALSE,,,FALSE,Mr. Nguyen
+P1003,HH101,V2,2,F,child,FALSE,TRUE,TRUE,FALSE,FALSE,2025-06-09,recovered,FALSE,Little Mai
+P2001,HH201,V3,12,F,student,TRUE,TRUE,FALSE,FALSE,FALSE,,,FALSE,Ratana
+P2002,HH201,V3,40,F,trader,TRUE,FALSE,FALSE,FALSE,FALSE,,,FALSE,Madam Somying

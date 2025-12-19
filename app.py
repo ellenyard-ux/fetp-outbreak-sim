@@ -2537,9 +2537,19 @@ def get_initial_cases(truth: dict, n: int = 12) -> pd.DataFrame:
     cases = merged[merged["symptomatic_AES"] == True].copy()
     if "onset_date" in cases.columns:
         cases = cases.sort_values("onset_date")
+
+    # Create display column for outcome that includes sequelae info
+    if 'has_sequelae' in cases.columns:
+        cases['outcome_display'] = cases.apply(
+            lambda row: f"{row['outcome']} (with complications)" if row.get('has_sequelae') else row['outcome'],
+            axis=1
+        )
+    else:
+        cases['outcome_display'] = cases['outcome']
+
     return cases.head(n)[
-        ["person_id", "age", "sex", "village_name", "onset_date", "severe_neuro", "outcome"]
-    ]
+        ["person_id", "age", "sex", "village_name", "onset_date", "severe_neuro", "outcome_display"]
+    ].rename(columns={'outcome_display': 'outcome'})
 
 
 def make_epi_curve(truth: dict) -> go.Figure:
@@ -3025,6 +3035,20 @@ def view_hospital_triage():
                     else:
                         if st.button(f"Interview Parents", key=f"btn_{patient_id}"):
                             st.session_state.parents_interviewed.append(patient_id)
+
+                            # Log the parent interview event
+                            jl.log_event(
+                                event_type='interview',
+                                location_id=patient['parent_type'],
+                                cost_time=0,
+                                cost_budget=0,
+                                payload={
+                                    'patient_id': patient_id,
+                                    'parent_type': patient['parent_type'],
+                                    'village': patient['village']
+                                }
+                            )
+
                             # TRIGGER THE INTERVIEW
                             st.session_state.current_npc = patient['parent_type']
                             st.rerun()
@@ -3143,6 +3167,20 @@ def view_interviews():
                     spend_time(time_cost, f"Interview: {npc['name']}")
                     if budget_cost > 0:
                         spend_budget(budget_cost, f"Interview: {npc['name']}")
+
+                    # Log the interview event
+                    jl.log_event(
+                        event_type='interview',
+                        location_id=npc_key,
+                        cost_time=time_cost,
+                        cost_budget=budget_cost,
+                        payload={
+                            'npc_name': npc['name'],
+                            'npc_role': npc['role'],
+                            'is_followup': interviewed
+                        }
+                    )
+
                     st.session_state.current_npc = npc_key
                     st.session_state.interview_history.setdefault(npc_key, [])
                     st.rerun()
@@ -3329,6 +3367,22 @@ def view_case_finding():
                             st.session_state.found_cases_added = True
                             st.session_state.case_finding_score['cases_added'] = cases_added
 
+                        # Log the case finding event
+                        jl.log_event(
+                            event_type='case_finding',
+                            location_id=None,
+                            cost_time=0,
+                            cost_budget=0,
+                            payload={
+                                'true_positives': true_positives,
+                                'false_positives': false_positives,
+                                'false_negatives': false_negatives,
+                                'total_aes': total_aes,
+                                'selected_count': len(selected),
+                                'cases_added': true_positives
+                            }
+                        )
+
                         st.success(f"✅ Case finding complete! You identified {true_positives} of {total_aes} potential AES cases.")
                         
                         if false_positives > 0:
@@ -3411,6 +3465,14 @@ def view_descriptive_epi():
     with col1:
         # Prepare download data
         download_df = cases[['person_id', 'age', 'sex', 'village_name', 'onset_date', 'severe_neuro', 'outcome']].copy()
+
+        # Add outcome display column with sequelae info
+        if 'has_sequelae' in cases.columns:
+            download_df['outcome'] = cases.apply(
+                lambda row: f"{row['outcome']} (with complications)" if row.get('has_sequelae') else row['outcome'],
+                axis=1
+            )
+
         # Add case source column
         if 'found_via_case_finding' in cases.columns:
             download_df['case_source'] = cases['found_via_case_finding'].apply(
@@ -4108,7 +4170,7 @@ def view_lab_and_environment():
             spend_time(costs['time'], f"Sample collection: {sample_type}")
             spend_budget(costs['budget'], f"Sample collection: {sample_type}")
             st.session_state.lab_credits -= costs['credits']
-            
+
             order = {
                 "sample_type": sample_type,
                 "village_id": village_id,
@@ -4118,7 +4180,24 @@ def view_lab_and_environment():
             result = process_lab_order(order, truth["lab_samples"])
             st.session_state.lab_results.append(result)
             st.session_state.lab_samples_submitted.append(order)
-            
+
+            # Log the lab test event
+            jl.log_event(
+                event_type='lab_test',
+                location_id=village_id,
+                cost_time=costs['time'],
+                cost_budget=costs['budget'],
+                payload={
+                    'sample_type': sample_type,
+                    'test': test,
+                    'source_description': source_description or "Unspecified source",
+                    'sample_id': result.get('sample_id'),
+                    'placed_day': st.session_state.current_day,
+                    'ready_day': result.get('ready_day'),
+                    'credits_used': costs['credits']
+                }
+            )
+
             st.success(
                 f"Lab order submitted. Result: {result['result']} "
                 f"(turnaround {result['days_to_result']} days)."

@@ -20,10 +20,68 @@ import json
 import copy
 from datetime import datetime, timedelta
 from pathlib import Path
+import uuid
 
 import io
 import re
 from typing import Any, Dict, List, Optional, Tuple
+
+try:
+    import streamlit as st
+except ImportError:
+    # Allow module to be imported in non-Streamlit contexts (e.g., testing)
+    st = None
+
+
+# ============================================================================
+# CANONICAL EVENT LOGGING
+# ============================================================================
+
+def log_event(event_type, location_id=None, cost_time=0, cost_budget=0, payload=None):
+    """
+    Canonical event logging function for the Outbreak Simulation.
+
+    Records a decision/action event to both the new _decision_log (for future features)
+    and the legacy decisions dict (for backward compatibility with scoring engine).
+
+    Args:
+        event_type: Type of event (e.g., 'interview', 'lab_test', 'site_inspection')
+        location_id: Optional location identifier (village_id, npc_key, etc.)
+        cost_time: Time cost in hours
+        cost_budget: Budget cost in dollars
+        payload: Optional dictionary with additional event details
+    """
+    if st is None:
+        # Not in a Streamlit context, skip logging
+        return
+
+    # Initialize _decision_log if it doesn't exist
+    if '_decision_log' not in st.session_state:
+        st.session_state['_decision_log'] = []
+
+    # Create event record
+    event = {
+        'event_id': str(uuid.uuid4()),
+        'timestamp': datetime.now().isoformat(),
+        'game_day': st.session_state.get('current_day', 1),
+        'type': event_type,
+        'location_id': location_id,
+        'cost_time': cost_time,
+        'cost_budget': cost_budget,
+        'details': payload or {}
+    }
+
+    # Append to new decision log
+    st.session_state['_decision_log'].append(event)
+
+    # BACKWARD COMPATIBILITY: Update legacy 'decisions' dict if it exists
+    # This ensures the scoring engine continues to work
+    if 'decisions' not in st.session_state:
+        st.session_state['decisions'] = {}
+
+    # Store the _decision_log reference in decisions for scoring engine access
+    st.session_state['decisions']['_decision_log'] = st.session_state['_decision_log']
+
 
 # ============================================================================
 # CANONICAL TRUTH SCHEMA (used for XLSForm mapping/rendering)
@@ -48,6 +106,8 @@ CANONICAL_SCHEMA: Dict[str, Dict[str, Any]] = {
                    "description": "Date of symptom onset (YYYY-MM-DD)."},
     "outcome": {"source": "individuals", "column": "outcome", "domain": "clinical", "value_type": "category",
                 "categories": ["recovered", "hospitalized", "died"], "description": "Clinical outcome."},
+    "has_sequelae": {"source": "individuals", "column": "has_sequelae", "domain": "clinical", "value_type": "bool",
+                     "description": "Patient has long-term complications (neurological sequelae)."},
 
     # Vaccination
     "JE_vaccinated": {"source": "individuals", "column": "JE_vaccinated", "domain": "vaccination", "value_type": "bool",
@@ -263,7 +323,7 @@ def generate_full_population(villages_df, households_seed, individuals_seed, ran
             
             # Generate household members
             n_adults = np.random.choice([1, 2, 3], p=[0.2, 0.6, 0.2])
-            
+
             for i in range(n_adults):
                 age = np.random.randint(18, 65)
                 sex = 'M' if i == 0 and np.random.random() < 0.6 else np.random.choice(['M', 'F'])
@@ -273,7 +333,7 @@ def generate_full_population(villages_df, households_seed, individuals_seed, ran
                 )
                 vaccinated = np.random.random() < (vacc_coverage * 0.5)
                 evening_outdoor = np.random.random() < (0.8 if occupation == 'farmer' else 0.4)
-                
+
                 all_individuals.append(pd.DataFrame([{
                     'person_id': f'P{person_counter:04d}',
                     'hh_id': hh_id,
@@ -288,6 +348,7 @@ def generate_full_population(villages_df, households_seed, individuals_seed, ran
                     'severe_neuro': False,
                     'onset_date': None,
                     'outcome': None,
+                    'has_sequelae': False,
                     'name_hint': None
                 }]))
                 person_counter += 1
@@ -297,7 +358,7 @@ def generate_full_population(villages_df, households_seed, individuals_seed, ran
                 age = np.random.randint(1, 15)
                 sex = np.random.choice(['M', 'F'])
                 occupation = 'child' if age < 6 else 'student'
-                
+
                 if child_vacc == 'high':
                     vaccinated = np.random.random() < 0.85
                 elif child_vacc == 'medium':
@@ -306,9 +367,9 @@ def generate_full_population(villages_df, households_seed, individuals_seed, ran
                     vaccinated = np.random.random() < 0.20
                 else:
                     vaccinated = False
-                
+
                 evening_outdoor = np.random.random() < 0.7
-                
+
                 all_individuals.append(pd.DataFrame([{
                     'person_id': f'P{person_counter:04d}',
                     'hh_id': hh_id,
@@ -323,6 +384,7 @@ def generate_full_population(villages_df, households_seed, individuals_seed, ran
                     'severe_neuro': False,
                     'onset_date': None,
                     'outcome': None,
+                    'has_sequelae': False,
                     'name_hint': None
                 }]))
                 person_counter += 1
@@ -345,7 +407,8 @@ def generate_full_population(villages_df, households_seed, individuals_seed, ran
         individuals_df.at[idx, 'true_je_infection'] = True
         individuals_df.at[idx, 'symptomatic_AES'] = True
         individuals_df.at[idx, 'severe_neuro'] = True
-        individuals_df.at[idx, 'outcome'] = 'recovered_sequelae'
+        individuals_df.at[idx, 'outcome'] = 'recovered'
+        individuals_df.at[idx, 'has_sequelae'] = True
         # Add the 'Secret' column that only appears if you dig
         individuals_df.at[idx, 'travel_history_note'] = "Traveled to Nalu 2 weeks ago"
         individuals_df.at[idx, 'name_hint'] = "Panya"
@@ -459,7 +522,7 @@ def assign_infections(individuals_df, households_df):
     
     individuals_df['onset_date'] = individuals_df.apply(assign_onset, axis=1)
     
-    # Outcomes
+    # Outcomes - now split into outcome and has_sequelae
     def assign_outcome(row):
         if pd.notna(row['outcome']):
             return row['outcome']
@@ -469,13 +532,26 @@ def assign_infections(individuals_df, households_df):
             r = np.random.random()
             if r < 0.20:
                 return 'died'
-            elif r < 0.65:
-                return 'recovered_sequelae'
             else:
                 return 'recovered'
-        return 'recovered' if np.random.random() < 0.95 else 'recovered_sequelae'
-    
+        return 'recovered'
+
+    def assign_sequelae(row):
+        # Preserve existing has_sequelae if already set (e.g., Panya story case)
+        if pd.notna(row.get('has_sequelae')) and row.get('has_sequelae'):
+            return True
+        if not row['symptomatic_AES']:
+            return False
+        if row['severe_neuro'] and row['outcome'] == 'recovered':
+            # 45% of severe cases that recover have sequelae (65% - 20% died)
+            return np.random.random() < 0.65
+        elif row['outcome'] == 'recovered':
+            # 5% of mild cases have sequelae
+            return np.random.random() < 0.05
+        return False
+
     individuals_df['outcome'] = individuals_df.apply(assign_outcome, axis=1)
+    individuals_df['has_sequelae'] = individuals_df.apply(assign_sequelae, axis=1)
     
     return individuals_df
 

@@ -207,43 +207,52 @@ def get_hospital_triage_list():
     """
     Returns the 'raw' list of patients Dr. Tran presents to the user.
     Includes the clues (Clinical signs) that help distinguish JE vs Toxin.
+
+    Hospital Census: Only 1 AES patient is currently admitted.
+    Others are marked 'discharged' or 'deceased'.
     """
     return [
         {
             "id": "HOSP-01", "age": "6y", "sex": "F", "village": "Nalu",
             "symptom": "High Fever (39.5C), Seizures, Confusion",
             "notes": "WBC 18k (High). Neck stiffness.",
-            "is_case": True, "parent_type": "general"
+            "is_case": True, "parent_type": "general",
+            "status": "Currently Admitted"
         },
         {
             "id": "HOSP-02", "age": "8y", "sex": "M", "village": "Nalu",
             "symptom": "Fever, Headache, Vomiting",
             "notes": "Rapid onset. Malaria RDT Negative.",
-            "is_case": True, "parent_type": "general"
+            "is_case": True, "parent_type": "general",
+            "status": "Discharged"
         },
         {
             "id": "HOSP-03", "age": "34y", "sex": "M", "village": "Nalu",
             "symptom": "Broken Tibia (Motorbike)",
             "notes": "Afebrile. Alert and oriented.",
-            "is_case": False, "parent_type": "none"
+            "is_case": False, "parent_type": "none",
+            "status": "Discharged"
         },
         {
             "id": "HOSP-04", "name": "Panya", "age": "7y", "sex": "F", "village": "Tamu",
             "symptom": "Fever, Tremors, Lethargy",
             "notes": "WBC 14k. Parents insist no animals at home.",
-            "is_case": True, "parent_type": "tamu"  # <--- THE KEY CASE (Panya from Tamu)
+            "is_case": True, "parent_type": "tamu",  # <--- THE KEY CASE (Panya from Tamu)
+            "status": "Discharged"
         },
         {
             "id": "HOSP-05", "age": "4y", "sex": "M", "village": "Kabwe",
             "symptom": "Convulsions, Coma",
             "notes": "Temp 40.1C. CSF clear.",
-            "is_case": True, "parent_type": "general"
+            "is_case": True, "parent_type": "general",
+            "status": "Deceased"
         },
         {
             "id": "HOSP-06", "age": "2m", "sex": "F", "village": "Kabwe",
             "symptom": "Cough, Difficulty Breathing",
             "notes": "Bronchiolitis suspected.",
-            "is_case": False, "parent_type": "none"
+            "is_case": False, "parent_type": "none",
+            "status": "Discharged"
         }
     ]
 
@@ -410,7 +419,7 @@ def generate_full_population(villages_df, households_seed, individuals_seed, ran
         individuals_df.at[idx, 'outcome'] = 'recovered'
         individuals_df.at[idx, 'has_sequelae'] = True
         # Add the 'Secret' column that only appears if you dig
-        individuals_df.at[idx, 'travel_history_note'] = "Traveled to Nalu market 2 weeks ago (bus broke down, stayed overnight near pig co-op)"
+        individuals_df.at[idx, 'travel_history_note'] = "Visited Nalu 2 weeks ago."
         individuals_df.at[idx, 'name_hint'] = "Panya"
 
     # Assign infections using risk model (skip seed individuals)
@@ -503,21 +512,26 @@ def assign_infections(individuals_df, households_df):
     
     individuals_df['severe_neuro'] = individuals_df.apply(assign_severe, axis=1)
     
-    # Onset dates
+    # Onset dates - spread over 2-3 weeks prior to start date
     def assign_onset(row):
         if pd.notna(row['onset_date']):
             return row['onset_date']
         if not row['symptomatic_AES']:
             return None
-        
+
+        # Start date is June 1, 2025
+        # Spread onset dates over 2-3 weeks PRIOR (14-21 days before)
         base = datetime(2025, 6, 1)
         if row['village_id'] == 'V1':
-            offset = np.random.randint(2, 8)  # June 3-7
+            # Nalu: -21 to -7 days (May 11 to May 25)
+            offset = np.random.randint(-21, -6)
         elif row['village_id'] == 'V2':
-            offset = np.random.randint(5, 11)  # June 6-10
+            # Kabwe: -18 to -7 days (May 14 to May 25)
+            offset = np.random.randint(-18, -6)
         else:
-            offset = np.random.randint(4, 13)  # June 5-12
-        
+            # Tamu: -21 to -10 days (May 11 to May 22)
+            offset = np.random.randint(-21, -9)
+
         return (base + timedelta(days=offset)).strftime('%Y-%m-%d')
     
     individuals_df['onset_date'] = individuals_df.apply(assign_onset, axis=1)

@@ -159,15 +159,21 @@
     "avatar": "⛏️",
     "cost": 200,
     "location": "Mining Area",
-    "personality": "Aggressive. Defensive.",
+    "personality": "VERY AGGRESSIVE. Defensive. Desperately pushes the Dragon Fire pesticide theory to deflect blame from the mine.",
     "always_reveal": [
-      "It's not my mine! It's those farmers and their illegal chemicals!",
-      "I saw them using 'Dragon Fire' pesticide. It's banned!",
-      "That stuff melts your brain. That's why the kids are seizing!",
-      "My water is clean. I tested it myself."
+      "This is NOT from my mine! Look at those farmers!",
+      "They're using 'Dragon Fire' pesticide - it's BANNED for a reason!",
+      "That poison melts your brain! It causes seizures! Just like these kids!",
+      "I've seen the barrels near the paddies. Empty Dragon Fire containers everywhere!",
+      "My water is clean. I tested it myself. Don't waste time investigating me!",
+      "Why aren't you arresting those farmers? It's OBVIOUSLY the pesticide!"
     ],
-    "conditional_clues": {},
-    "red_herrings": ["It is definitely the Dragon Fire poison causing seizures."],
+    "conditional_clues": {
+      "poison": "Dragon Fire causes exactly these symptoms - fever, confusion, seizures. It's a neurotoxin!",
+      "pesticide": "Dragon Fire is organophosphate-based. It attacks the nervous system. This is textbook poisoning!",
+      "chemical": "The farmers spray it everywhere! On the rice, near homes, near where kids play!"
+    },
+    "red_herrings": ["It is definitely the Dragon Fire poison causing seizures.", "The farmers are covering up their illegal pesticide use.", "You're wasting time if you don't investigate the pesticide first."],
     "unknowns": [],
     "data_access": null,
     "unlocks": null
@@ -331,5 +337,58 @@
     ],
     "data_access": null,
     "unlocks": null
+  },
+  "patient_parent": {
+    "name": "Worried Parent",
+    "role": "Villager (NOT from Tamu)",
+    "avatar": "👥",
+    "cost": 0,
+    "location": "Hospital Waiting Room",
+    "personality": "Exhausted. Scared.",
+    "always_reveal": [
+      "The fever came so fast. Hot like fire.",
+      "Yes, we live near the rice fields in Nalu.",
+      "We have a few pigs, like everyone else.",
+      "The mosquitoes are terrible this year."
+    ],
+    "conditional_clues": {
+      "pesticide": "I don't know about poison. I only know my child is burning up.",
+      "travel": "We haven't gone anywhere. We stay in the village.",
+      "pigs": "Our neighbor's pig was sick last month. It was making strange noises."
+    },
+    "red_herrings": [],
+    "unknowns": ["What caused this", "Lab results"],
+    "data_access": null,
+    "unlocks": null
+  },
+  "env_officer": {
+    "name": "Mr. Nguyen",
+    "role": "Environmental Health Officer",
+    "avatar": "🌊",
+    "image_path": "assets/Avatars/mr_nguyen.png",
+    "cost": 150,
+    "location": "District Office",
+    "personality": "Practical. Focused on water, sanitation, and environment.",
+    "always_reveal": [
+      "Rice paddy expansion led to more standing water.",
+      "I checked the water pumps - no bacterial contamination.",
+      "I see many animals near the homes. Pigs, chickens, ducks.",
+      "High mosquito burden near fields and pig farms."
+    ],
+    "conditional_clues": {
+      "pesticide": "I tested for organophosphates in the water. Levels are low. Not enough to cause mass seizures.",
+      "toxin": "I tested for organophosphates in the water. Levels are low. Not enough to cause mass seizures.",
+      "mosquito counts": "Evening mosquito counts are extremely high - Culex species mainly."
+    },
+    "red_herrings": [
+      "Mentions latrine overflow - irrelevant to encephalitis"
+    ],
+    "unknowns": [
+      "Medical details",
+      "Lab results",
+      "Pig infection status"
+    ],
+    "data_access": "environmental_data",
+    "unlocks": "entomology_data_unlocked"
   }
 }

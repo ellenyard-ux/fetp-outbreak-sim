@@ -372,12 +372,10 @@ BUDGET_COSTS = {
 def spend_time(hours: float, activity: str = "") -> bool:
     """
     Deduct time from daily allowance.
-    Returns True if successful, False if not enough time.
+    Always returns True - time can go negative in Sprint 2.
     """
-    if st.session_state.time_remaining >= hours:
-        st.session_state.time_remaining -= hours
-        return True
-    return False
+    st.session_state.time_remaining -= hours
+    return True
 
 
 def spend_budget(amount: float, activity: str = "") -> bool:
@@ -429,12 +427,12 @@ LOCATIONS = {
     "nalu_village_center": {
         "name": "Nalu Village Center",
         "area": "Nalu Village",
-        "description": "The heart of Nalu Village - a bustling community with houses clustered near the main road. The weekly market brings traders from surrounding areas.",
+        "description": "The heart of Nalu Village - a bustling community with houses clustered near the main road. The weekly market brings traders from surrounding areas. You see goats wandering near homes, chickens in the yards, and water buffalo being led to the paddies.",
         "image_path": "assets/Nalu/nalu_01_village_scene.png",
         "image_thumb": "assets/Nalu/nalu_01_village_scene.png",
         "icon": "🏘️",
         "npcs": ["mama_kofi", "auntie_ama"],
-        "available_actions": ["view_village_profile"],
+        "available_actions": [],
         "travel_time": 0.5,
     },
     "nalu_health_center": {
@@ -449,25 +447,25 @@ LOCATIONS = {
         "travel_time": 0.5,
     },
     "nalu_pig_coop": {
-        "name": "Nalu Pig Cooperative",
+        "name": "Nalu Livestock Area",
         "area": "Nalu Village",
-        "description": "A large pig farming cooperative about 500 meters from the village center. The smell is strong and mosquitoes swarm in the evening.",
+        "description": "A farming area about 500 meters from the village center where villagers keep various livestock. You see pigs in pens, chickens roaming freely, and a few goats tethered nearby. The smell is strong and mosquitoes swarm in the evening.",
         "image_path": "assets/Nalu/nalu_03_pig_pens.png",
         "image_thumb": "assets/Nalu/nalu_03_pig_pens.png",
         "icon": "🐷",
         "npcs": [],
-        "available_actions": ["collect_pig_sample", "inspect_environment"],
+        "available_actions": ["collect_pig_sample"],
         "travel_time": 0.5,
     },
     "nalu_rice_paddies": {
         "name": "Nalu Rice Paddies",
         "area": "Nalu Village",
-        "description": "Extensive irrigated rice fields with standing water year-round. The paddies stretch to the horizon, broken only by narrow raised paths.",
+        "description": "Extensive irrigated rice fields with standing water year-round. The paddies stretch to the horizon, broken only by narrow raised paths. Water buffalo work the fields.",
         "image_path": "assets/Nalu/nalu_02_rice_paddies.png",
         "image_thumb": "assets/Nalu/nalu_02_rice_paddies.png",
         "icon": "🌾",
         "npcs": [],
-        "available_actions": ["collect_water_sample", "collect_mosquito_sample", "inspect_environment"],
+        "available_actions": ["collect_water_sample"],
         "travel_time": 0.5,
     },
     "nalu_school": {
@@ -487,19 +485,19 @@ LOCATIONS = {
         "description": "Large pumps move water. You see many water birds and mosquitoes.",
         "image_path": "assets/Nalu/canal.png",
         "icon": "💧",
-        "available_actions": ["inspect_environment"],
+        "available_actions": [],
         "travel_time": 0.5,
     },
     # === KABWE VILLAGE ===
     "kabwe_village_center": {
         "name": "Kabwe Village Center",
         "area": "Kabwe Village",
-        "description": "A medium-sized village on higher ground, 3km northeast of Nalu. Mixed farming community with both rice and upland crops.",
+        "description": "A medium-sized village on higher ground, 3km northeast of Nalu. Mixed farming community with both rice and upland crops. Chickens, goats, and buffalo are common. A few families keep pigs.",
         "image_path": "assets/Kabwe/kabwe_01_mixed_farming.png",
         "image_thumb": "assets/Kabwe/kabwe_01_mixed_farming.png",
         "icon": "🏡",
         "npcs": [],
-        "available_actions": ["view_village_profile"],
+        "available_actions": [],
         "travel_time": 0.5,
     },
     "kabwe_school_path": {
@@ -510,7 +508,7 @@ LOCATIONS = {
         "image_thumb": "assets/Kabwe/kabwe_02_village_path.png",
         "icon": "🚶",
         "npcs": [],
-        "available_actions": ["inspect_environment", "collect_mosquito_sample"],
+        "available_actions": [],
         "travel_time": 0.5,
     },
     "kabwe_school": {
@@ -524,46 +522,46 @@ LOCATIONS = {
         "available_actions": ["review_attendance_records"],
         "travel_time": 0.5,
     },
-    "kabwe_health_post": {
-        "name": "Kabwe Health Post",
+    "kabwe_health_center": {
+        "name": "Kabwe Health Center",
         "area": "Kabwe Village",
-        "description": "A small room used by the visiting nurse. Records are kept in a binder.",
+        "description": "A small health center where the visiting nurse holds clinics. Day 1 hub for reviewing clinic registers. Records are kept in a binder.",
         "image_path": "assets/Kabwe/kabwe_clinic.png",
         "icon": "🏥",
         "npcs": ["nurse_kabwe"],
-        "available_actions": ["review_kabwe_records"],
+        "available_actions": ["review_clinic_records", "review_kabwe_records"],
         "travel_time": 0.2,
     },
     "kabwe_paddies": {
         "name": "Kabwe Rice Fields",
         "area": "Kabwe Village",
-        "description": "Smaller fields than Nalu. Farmers use buffalo here. Not many pigs.",
+        "description": "Smaller fields than Nalu. Farmers use buffalo to plow the fields. You see chickens foraging near the field edges and occasional goats grazing on the bunds.",
         "image_path": "assets/Kabwe/fields.png",
         "icon": "🌾",
-        "available_actions": ["inspect_environment"],
+        "available_actions": [],
         "travel_time": 0.5,
     },
     # === TAMU VILLAGE ===
     "tamu_remote_upland": {
         "name": "Tamu Remote Upland",
         "area": "Tamu Village",
-        "description": "A smaller, more remote community in the foothills. Upland farming with cassava and yams. Spring-fed water sources.",
+        "description": "A smaller, more remote community in the foothills. Upland farming with cassava and yams. Spring-fed water sources. Goats and chickens are the main livestock - the terrain is too steep for buffalo or pigs.",
         "image_path": "assets/Tamu/tamu_02_village_remote.png",
         "image_thumb": "assets/Tamu/tamu_02_village_remote.png",
         "icon": "⛰️",
         "npcs": [],
-        "available_actions": ["view_village_profile", "inspect_environment"],
+        "available_actions": [],
         "travel_time": 1.0,
     },
     "tamu_forest_edge": {
         "name": "Tamu Forest Edge",
         "area": "Tamu Village",
-        "description": "The boundary between the village and the surrounding forest. Wildlife occasionally ventures near the community.",
+        "description": "The boundary between the village and the surrounding forest. Wildlife occasionally ventures near the community. Goats graze here during the day under supervision.",
         "image_path": "assets/Tamu/tamu_03_forest_edge.png",
         "image_thumb": "assets/Tamu/tamu_03_forest_edge.png",
         "icon": "🌲",
         "npcs": [],
-        "available_actions": ["inspect_environment", "collect_mosquito_sample"],
+        "available_actions": [],
         "travel_time": 1.0,
     },
     "tamu_forest": {
@@ -572,62 +570,66 @@ LOCATIONS = {
         "description": "Dry and cool. Goats are grazing on the hills. Very few mosquitoes.",
         "image_path": "assets/Tamu/forest.png",
         "icon": "🌲",
-        "available_actions": ["inspect_environment"],
+        "available_actions": [],
         "travel_time": 0.5,
     },
-    "tamu_health_post": {
-        "name": "Volunteer Sarah's Home",
+    "tamu_health_center": {
+        "name": "Tamu Health Center",
         "area": "Tamu Village",
-        "description": "Sarah keeps the village health log here.",
+        "description": "Volunteer Sarah's home doubles as the village health center. She keeps the village health log here. Day 1 hub for reviewing clinic registers.",
         "icon": "📝",
         "npcs": ["chv_tamu"],
-        "available_actions": ["review_tamu_records"],
+        "available_actions": ["review_clinic_records", "review_tamu_records"],
         "travel_time": 0.2,
     },
-    # === DISTRICT HOSPITAL ===
+    # === DISTRICT HOSPITAL - ADMIN OFFICE ===
     "hospital_ward": {
-        "name": "Hospital Ward",
-        "area": "District Hospital",
+        "name": "Hospital Ward (Triage)",
+        "area": "Admin Office",
         "description": "The AES patients are being treated in this ward. Monitors beep and worried families gather in the corridor.",
         "image_path": "assets/Hospital/hospital_ward.png",
         "image_thumb": "assets/Hospital/hospital_ward.png",
         "icon": "🏥",
-        "npcs": ["dr_chen"],
+        "npcs": ["dr_chen", "patient_parent"],
         "available_actions": ["review_hospital_records", "collect_csf_sample", "collect_serum_sample"],
         "travel_time": 0.5,
     },
+    "hospital_office": {
+        "name": "Hospital Admin (Charts)",
+        "area": "Admin Office",
+        "description": "Dr. Tran's office. Charts and reports are pinned to the walls. A window overlooks the hospital courtyard. Deep-dive charts are available here showing High Fever (>39C) and Lymphocytosis patterns.",
+        "image_path": "assets/Hospital/hospital_admin.png",
+        "image_thumb": "assets/Hospital/hospital_admin.png",
+        "icon": "📋",
+        "npcs": ["dr_chen"],
+        "available_actions": ["review_hospital_records", "view_deep_dive_charts"],
+        "travel_time": 0.0,
+        "max_deep_dive_charts": 2,
+    },
+    # === DISTRICT HOSPITAL - LABORATORY ===
     "hospital_lab": {
         "name": "Hospital Laboratory",
-        "area": "District Hospital",
-        "description": "A small but functional laboratory. Limited testing capacity means most samples must be sent to the regional reference lab.",
+        "area": "Laboratory",
+        "description": "A small but functional laboratory. Basic labs are available immediately. Complex PCR and serology tests unlock on Day 4.",
         "image_path": "assets/Hospital/hospital_lab.png",
         "image_thumb": "assets/Hospital/hospital_lab.png",
         "icon": "🔬",
         "npcs": [],
         "available_actions": ["view_lab_results", "submit_lab_samples"],
         "travel_time": 0.0,
-    },
-    "hospital_office": {
-        "name": "Hospital Administration",
-        "area": "District Hospital",
-        "description": "Dr. Tran's office. Charts and reports are pinned to the walls. A window overlooks the hospital courtyard.",
-        "image_path": "assets/Hospital/hospital_admin.png",
-        "image_thumb": "assets/Hospital/hospital_admin.png",
-        "icon": "📋",
-        "npcs": ["dr_chen"],
-        "available_actions": ["review_hospital_records"],
-        "travel_time": 0.0,
+        "unlock_day": 1,
+        "pcr_serology_unlock_day": 4,
     },
     # === DISTRICT OFFICE ===
     "district_office": {
         "name": "District Health Office",
         "area": "District Office",
-        "description": "The administrative hub for district health operations. Officials and technical officers work from here.",
+        "description": "The administrative hub for district health operations. Officials, technical officers, and the Environmental Officer work from here.",
         "image_path": "assets/Hospital/hospital_admin.png",
         "image_thumb": "assets/Hospital/hospital_admin.png",
         "icon": "🏛️",
-        "npcs": ["vet_amina", "mr_osei", "mayor_simon"],
-        "available_actions": ["request_data", "plan_interventions"],
+        "npcs": ["vet_amina", "mr_osei", "mayor_simon", "env_officer"],
+        "available_actions": ["request_data", "plan_interventions", "view_village_profile"],
         "travel_time": 0.5,
     },
     # === MINING AREA ===
@@ -639,7 +641,7 @@ LOCATIONS = {
         "image_thumb": "assets/Kabwe/kabwe_01_mixed_farming.png",
         "icon": "⛏️",
         "npcs": ["foreman_rex"],
-        "available_actions": ["inspect_environment", "collect_water_sample"],
+        "available_actions": ["collect_water_sample"],
         "travel_time": 1.0,
     },
     # === MARKET ===
@@ -671,19 +673,25 @@ LOCATIONS = {
 # Map areas to their sub-locations
 AREA_LOCATIONS = {
     "Nalu Village": ["nalu_village_center", "nalu_health_center", "nalu_pig_coop", "nalu_rice_paddies", "nalu_school", "nalu_canal", "central_market", "healer_clinic"],
-    "Kabwe Village": ["kabwe_village_center", "kabwe_school_path", "kabwe_school", "kabwe_health_post", "kabwe_paddies"],
-    "Tamu Village": ["tamu_remote_upland", "tamu_forest_edge", "tamu_forest", "tamu_health_post"],
-    "District Hospital": ["hospital_ward", "hospital_lab", "hospital_office"],
+    "Kabwe Village": ["kabwe_village_center", "kabwe_school_path", "kabwe_school", "kabwe_health_center", "kabwe_paddies"],
+    "Tamu Village": ["tamu_remote_upland", "tamu_forest_edge", "tamu_forest", "tamu_health_center"],
+    "Admin Office": ["hospital_ward", "hospital_office"],
+    "Laboratory": ["hospital_lab"],
     "District Office": ["district_office"],
     "Mining Area": ["mining_area"],
 }
 
 # Area metadata for visual rendering (hero images, descriptions)
 AREA_METADATA = {
-    "District Hospital": {
+    "Admin Office": {
         "image_exterior": "assets/Hospital/hospital_exterior.png",
-        "description": "The regional hospital where AES cases have been admitted. Dr. Tran oversees patient care and the laboratory can process some samples.",
+        "description": "The hospital ward and administrative office where AES patients are treated. Dr. Tran oversees triage and patient charts. Deep-dive clinical data is available here.",
         "icon": "🏥",
+    },
+    "Laboratory": {
+        "image_exterior": "assets/Hospital/hospital_lab.png",
+        "description": "The hospital laboratory. Basic tests are available immediately. Complex PCR and serology tests unlock on Day 4.",
+        "icon": "🔬",
     },
     "Nalu Village": {
         "image_exterior": "assets/Nalu/nalu_01_village_scene.png",
@@ -715,6 +723,7 @@ AREA_METADATA = {
 # Map NPC keys to their primary location
 NPC_LOCATIONS = {
     "dr_chen": "hospital_ward",
+    "patient_parent": "hospital_ward",
     "nurse_joy": "nalu_health_center",
     "healer_marcus": "healer_clinic",
     "mama_kofi": "nalu_village_center",
@@ -722,10 +731,11 @@ NPC_LOCATIONS = {
     "foreman_rex": "mining_area",
     "auntie_ama": "central_market",
     "vet_amina": "district_office",
+    "env_officer": "district_office",
     "mr_osei": "district_office",
     "mayor_simon": "district_office",
-    "nurse_kabwe": "kabwe_health_post",
-    "chv_tamu": "tamu_health_post",
+    "nurse_kabwe": "kabwe_health_center",
+    "chv_tamu": "tamu_health_center",
 }
 
 
@@ -962,6 +972,10 @@ def init_session_state():
     st.session_state.setdefault("one_health_triggered", False)
     st.session_state.setdefault("vet_unlocked", False)
     st.session_state.setdefault("env_officer_unlocked", False)
+
+    # SITREP and Evidence Board
+    st.session_state.setdefault("sitrep_viewed", True)  # Don't show SITREP on Day 1 start
+    init_evidence_board()
     st.session_state.setdefault("questions_asked_about", set())
     
     # Clinic records and case finding (Day 1)
@@ -1447,6 +1461,13 @@ You are NOT an AI assistant. You are a fictional character in a training simulat
 Do not offer to help. Do not be polite unless your character personality is polite.
 If the user asks a vague question, give a vague answer.
 Force them to ask the right specific questions to get the information.
+
+CRITICAL ANTI-SPOILER RULES:
+- Be BRIEF and PROFESSIONAL. Keep responses to 2-4 sentences unless asked for more detail.
+- DO NOT name specific pathogens (JEV, Japanese Encephalitis, arbovirus) unless you see lab confirmation.
+- DO NOT jump to conclusions about the cause. Only provide RAW OBSERVATIONAL DATA.
+- DO NOT volunteer diagnostic hunches. You are a witness, not a diagnostician.
+- If asked "what is causing this?", say you don't know - you only see symptoms/patterns.
 
 Personality:
 {npc_truth_safe['personality']}
@@ -2629,10 +2650,11 @@ def sidebar_navigation():
         return
 
     # Resources display with time
+    time_display = f":red[{st.session_state.time_remaining}]" if st.session_state.time_remaining < 0 else str(st.session_state.time_remaining)
     st.sidebar.markdown(
         f"**{t('day')}:** {st.session_state.current_day} / 5\n\n"
         f"**{t('budget')}:** ${st.session_state.budget}\n\n"
-        f"**{t('time_remaining')}:** {st.session_state.time_remaining} {t('hours')}\n\n"
+        f"**{t('time_remaining')}:** {time_display} {t('hours')}\n\n"
         f"**{t('lab_credits')}:** {st.session_state.lab_credits}"
     )
 
@@ -2741,6 +2763,9 @@ def sidebar_navigation():
                 st.session_state.time_remaining = 8  # Reset time for new day
                 refresh_lab_queue_for_day(int(st.session_state.current_day))
                 st.session_state.advance_missing_tasks = []
+                # Show SITREP view for new day
+                st.session_state.current_view = "sitrep"
+                st.session_state.sitrep_viewed = False
                 st.rerun()
             else:
                 st.session_state.advance_missing_tasks = missing
@@ -2867,6 +2892,10 @@ def view_overview():
     st.markdown(day_briefing_text(st.session_state.current_day))
 
     day_task_list(st.session_state.current_day)
+
+    # Evidence Board
+    st.markdown("---")
+    view_evidence_board()
 
     # Session save/load guidance
     with st.expander("ℹ️ Saving Your Progress"):
@@ -3128,7 +3157,8 @@ def view_interviews():
     with col1:
         st.metric("💰 Budget", f"${st.session_state.budget}")
     with col2:
-        st.metric("⏱️ Time Remaining", f"{st.session_state.time_remaining}h")
+        time_color = "normal" if st.session_state.time_remaining >= 0 else "inverse"
+        st.metric("⏱️ Time Remaining", f"{st.session_state.time_remaining}h", delta_color=time_color)
     with col3:
         st.metric("Interviews Completed", len(st.session_state.interview_history))
 
@@ -3270,7 +3300,8 @@ def view_case_finding():
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("⏱️ Time Remaining", f"{st.session_state.time_remaining}h")
+            time_display = f":red[{st.session_state.time_remaining}h]" if st.session_state.time_remaining < 0 else f"{st.session_state.time_remaining}h"
+            st.markdown(f"**⏱️ Time Remaining**  \n{time_display}")
         with col2:
             st.metric("📋 Activity Cost", f"{time_cost}h")
         with col3:
@@ -4232,7 +4263,8 @@ def view_lab_and_environment():
     with col1:
         st.metric("💰 Budget", f"${st.session_state.budget}")
     with col2:
-        st.metric("⏱️ Time Remaining", f"{st.session_state.time_remaining}h")
+        time_display = f":red[{st.session_state.time_remaining}h]" if st.session_state.time_remaining < 0 else f"{st.session_state.time_remaining}h"
+        st.markdown(f"**⏱️ Time Remaining**  \n{time_display}")
     with col3:
         st.metric("🧪 Lab Credits", st.session_state.lab_credits)
 
@@ -5352,7 +5384,8 @@ def view_travel_map():
     with col1:
         st.metric(f"{t('day')}", f"{st.session_state.current_day} / 5")
     with col2:
-        st.metric(f"{t('time_remaining')}", f"{st.session_state.time_remaining}h")
+        time_display = f":red[{st.session_state.time_remaining}h]" if st.session_state.time_remaining < 0 else f"{st.session_state.time_remaining}h"
+        st.markdown(f"**{t('time_remaining')}**  \n{time_display}")
     with col3:
         st.metric(f"{t('budget')}", f"${st.session_state.budget}")
     with col4:
@@ -5604,6 +5637,13 @@ def render_location_card(loc_key: str, loc: dict, npcs_here: list, npc_truth: di
                 st.session_state.visited_locations = set()
             st.session_state.visited_locations.add(loc_key)
 
+            # Clear chat history when changing locations
+            if st.session_state.get("current_npc"):
+                npc_to_clear = st.session_state.current_npc
+                if npc_to_clear in st.session_state.interview_history:
+                    st.session_state.interview_history[npc_to_clear] = []
+                st.session_state.current_npc = None
+
             st.session_state.current_location = loc_key
             st.session_state.current_view = "location"
             st.rerun()
@@ -5837,6 +5877,14 @@ def view_area_map(area: str):
                     # Check if enough time
                     if st.session_state.time_remaining >= travel_time:
                         spend_time(travel_time, f"Travel to {loc.get('name', loc_key)}")
+
+                        # Clear chat history when changing locations
+                        if st.session_state.get("current_npc"):
+                            npc_to_clear = st.session_state.current_npc
+                            if npc_to_clear in st.session_state.interview_history:
+                                st.session_state.interview_history[npc_to_clear] = []
+                            st.session_state.current_npc = None
+
                         st.session_state.current_location = loc_key
                         st.session_state.current_view = "location"
                         st.rerun()
@@ -6194,9 +6242,10 @@ def adventure_sidebar():
         return
 
     # Resources
+    time_display = f":red[{st.session_state.time_remaining}h]" if st.session_state.time_remaining < 0 else f"{st.session_state.time_remaining}h"
     st.sidebar.markdown(f"""
     **{t('day')}:** {st.session_state.current_day} / 5
-    **{t('time_remaining')}:** {st.session_state.time_remaining}h
+    **{t('time_remaining')}:** {time_display}
     **{t('budget')}:** ${st.session_state.budget}
     **{t('lab_credits')}:** {st.session_state.lab_credits}
     """)
@@ -6284,12 +6333,131 @@ def adventure_sidebar():
                 st.session_state.time_remaining = 8
                 refresh_lab_queue_for_day(int(st.session_state.current_day))
                 st.session_state.advance_missing_tasks = []
+                # Show SITREP view for new day
+                st.session_state.current_view = "sitrep"
+                st.session_state.sitrep_viewed = False
                 st.rerun()
             else:
                 st.session_state.advance_missing_tasks = missing
                 st.sidebar.warning(t("cannot_advance"))
     else:
         st.sidebar.success("📋 Final Day!")
+
+
+# =========================
+# SITREP VIEW
+# =========================
+
+def view_sitrep():
+    """Daily situation report - blocking view before advancing to next day."""
+    st.title(f"📋 Day {st.session_state.current_day} SITREP")
+
+    st.markdown(f"""
+    ### Situation Report - Day {st.session_state.current_day}
+
+    Welcome to Day {st.session_state.current_day} of the outbreak investigation.
+    """)
+
+    # Show day briefing
+    st.markdown("---")
+    st.markdown("### Today's Objectives")
+    day_task_list(st.session_state.current_day)
+
+    # Activity summary from previous day (if not Day 1)
+    if st.session_state.current_day > 1:
+        st.markdown("---")
+        st.markdown("### Activity Summary from Previous Day")
+
+        # Show interview count
+        interview_count = len(st.session_state.interview_history)
+        st.markdown(f"- **Interviews completed:** {interview_count}")
+
+        # Show locations visited
+        visited_count = len(st.session_state.get("visited_locations", set()))
+        st.markdown(f"- **Locations visited:** {visited_count}")
+
+        # Show lab samples if any
+        lab_count = len(st.session_state.get("lab_queue", []))
+        if lab_count > 0:
+            st.markdown(f"- **Lab samples submitted:** {lab_count}")
+
+    # New admissions count
+    st.markdown("---")
+    st.markdown("### New Patient Admissions")
+    truth = st.session_state.truth
+    pop_df = truth.get("full_population", pd.DataFrame())
+    if not pop_df.empty:
+        new_cases = pop_df[pop_df["hospital_day"] == st.session_state.current_day]
+        st.markdown(f"**{len(new_cases)} new patients** were admitted overnight.")
+    else:
+        st.markdown("*No new admissions recorded.*")
+
+    # Continue button
+    st.markdown("---")
+    if st.button("✅ Continue to Day " + str(st.session_state.current_day), type="primary", use_container_width=True):
+        st.session_state.sitrep_viewed = True
+        st.session_state.current_view = "map"
+        st.rerun()
+
+
+# =========================
+# EVIDENCE BOARD
+# =========================
+
+def init_evidence_board():
+    """Initialize evidence board with 3 starting clues."""
+    if "evidence_board" not in st.session_state:
+        st.session_state.evidence_board = [
+            {
+                "clue": "Pig abortions (Viral)",
+                "type": "hypothesis",
+                "day_added": 1,
+                "source": "Initial observation"
+            },
+            {
+                "clue": "Dragon Fire rumor (Toxin)",
+                "type": "hypothesis",
+                "day_added": 1,
+                "source": "Community reports"
+            },
+            {
+                "clue": "High Fever (Weakens Toxin)",
+                "type": "clinical",
+                "day_added": 1,
+                "source": "Hospital records"
+            }
+        ]
+
+def view_evidence_board():
+    """Display the evidence board."""
+    st.markdown("### 🔍 Evidence Board")
+    st.markdown("Track key clues and hypotheses as you investigate.")
+
+    if not st.session_state.get("evidence_board"):
+        init_evidence_board()
+
+    for i, evidence in enumerate(st.session_state.evidence_board):
+        with st.expander(f"**{evidence['clue']}** (Day {evidence['day_added']})", expanded=(i < 3)):
+            st.markdown(f"**Type:** {evidence['type'].title()}")
+            st.markdown(f"**Source:** {evidence['source']}")
+
+    # Add new evidence
+    st.markdown("---")
+    with st.form("add_evidence"):
+        new_clue = st.text_input("New clue or hypothesis")
+        clue_type = st.selectbox("Type", ["hypothesis", "clinical", "environmental", "epidemiological"])
+        clue_source = st.text_input("Source (optional)")
+
+        if st.form_submit_button("Add to Evidence Board"):
+            if new_clue:
+                st.session_state.evidence_board.append({
+                    "clue": new_clue,
+                    "type": clue_type,
+                    "day_added": st.session_state.current_day,
+                    "source": clue_source or "Investigation team"
+                })
+                st.success("Added to evidence board!")
+                st.rerun()
 
 
 # =========================
@@ -6314,6 +6482,11 @@ def main():
         return
 
     view = st.session_state.current_view
+
+    # SITREP view - blocking daily briefing
+    if view == "sitrep":
+        view_sitrep()
+        return
 
     # Adventure mode: location-based navigation
     if view == "map" or view is None:

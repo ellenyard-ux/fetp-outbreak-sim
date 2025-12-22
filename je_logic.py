@@ -3157,3 +3157,77 @@ def check_day_prerequisites(current_day, session_state):
             missing.append("prereq.day4.draft_interventions")
 
     return (len(missing) == 0), missing
+
+
+# ============================================================================
+# GAME STATE MANAGEMENT
+# ============================================================================
+
+def init_game_state(session_state):
+    """
+    Initialize game state for the Serious Mode opening.
+
+    Game states:
+    - 'INTRO': Dr. Tran phone call overlay
+    - 'DASHBOARD': Main map view with restricted locations
+    - 'HOSPITAL': Specific hospital view
+
+    Args:
+        session_state: Streamlit session state object
+    """
+    if not hasattr(session_state, 'game_state'):
+        session_state.game_state = 'INTRO'
+
+    if not hasattr(session_state, 'locations_unlocked'):
+        # On Day 1, only District Hospital is unlocked
+        session_state.locations_unlocked = ['District Hospital']
+
+    if not hasattr(session_state, 'notebook_content'):
+        session_state.notebook_content = []
+
+
+def is_location_unlocked(location_name: str, session_state) -> bool:
+    """
+    Check if a location is unlocked for the player.
+
+    Args:
+        location_name: Name of the location (e.g., "District Hospital", "Nalu Village")
+        session_state: Streamlit session state object
+
+    Returns:
+        True if location is unlocked, False otherwise
+    """
+    if not hasattr(session_state, 'locations_unlocked'):
+        init_game_state(session_state)
+
+    return location_name in session_state.locations_unlocked
+
+
+def unlock_location(location_name: str, session_state):
+    """
+    Unlock a location for the player.
+
+    Args:
+        location_name: Name of the location to unlock
+        session_state: Streamlit session state object
+    """
+    if not hasattr(session_state, 'locations_unlocked'):
+        init_game_state(session_state)
+
+    if location_name not in session_state.locations_unlocked:
+        session_state.locations_unlocked.append(location_name)
+
+
+def set_game_state(state: str, session_state):
+    """
+    Set the current game state.
+
+    Args:
+        state: One of 'INTRO', 'DASHBOARD', 'HOSPITAL'
+        session_state: Streamlit session state object
+    """
+    valid_states = ['INTRO', 'DASHBOARD', 'HOSPITAL']
+    if state not in valid_states:
+        raise ValueError(f"Invalid game state: {state}. Must be one of {valid_states}")
+
+    session_state.game_state = state

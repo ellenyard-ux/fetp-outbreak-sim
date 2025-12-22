@@ -58,6 +58,12 @@ process_lab_order = jl.process_lab_order
 evaluate_interventions = jl.evaluate_interventions
 check_day_prerequisites = jl.check_day_prerequisites
 
+# Game state management
+init_game_state = getattr(jl, "init_game_state", None)
+is_location_unlocked = getattr(jl, "is_location_unlocked", None)
+unlock_location = getattr(jl, "unlock_location", None)
+set_game_state = getattr(jl, "set_game_state", None)
+
 # XLSForm pipeline (optional but recommended)
 parse_xlsform = getattr(jl, "parse_xlsform", None)
 llm_map_xlsform_questions = getattr(jl, "llm_map_xlsform_questions", None)
@@ -879,6 +885,10 @@ def init_session_state():
     if "truth" not in st.session_state:
         # CSV/JSON files are in the 'data' subdirectory
         st.session_state.truth = load_truth_and_population(data_dir="data")
+
+    # Game state initialization (Serious Mode)
+    if init_game_state:
+        init_game_state(st.session_state)
 
     # Alert page logic (Day 0)
     st.session_state.setdefault("alert_acknowledged", False)
@@ -2896,6 +2906,94 @@ def day_task_list(day: int):
 # =========================
 # VIEWS
 # =========================
+
+def view_intro():
+    """Serious Mode: Dr. Tran phone call intro screen."""
+    st.markdown(
+        """
+        <style>
+        .phone-overlay {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2c5f8d 100%);
+            padding: 3rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            text-align: center;
+            margin: 2rem auto;
+            max-width: 600px;
+        }
+        .phone-title {
+            font-size: 2.5rem;
+            color: white;
+            margin-bottom: 1rem;
+        }
+        .phone-subtitle {
+            font-size: 1.2rem;
+            color: #a8c5e4;
+            margin-bottom: 2rem;
+        }
+        .phone-message {
+            background: rgba(255,255,255,0.1);
+            border-left: 4px solid #ff6b6b;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border-radius: 8px;
+            color: white;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            text-align: left;
+        }
+        .metrics-box {
+            background: rgba(255,107,107,0.2);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        .metric-item {
+            color: #ffeb3b;
+            font-weight: bold;
+            font-size: 1.3rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <div class="phone-overlay">
+            <div class="phone-title">📞 Incoming Call</div>
+            <div class="phone-subtitle">Dr. Tran - District Hospital</div>
+
+            <div class="phone-message">
+                <strong>Dr. Tran:</strong> "This is Dr. Tran at Sidero District Hospital.
+                We have a critical situation here. We've admitted <strong>2 severe pediatric cases</strong>
+                with acute encephalitis syndrome. Both children are experiencing seizures and altered consciousness.
+                <br><br>
+                And I'm sorry to report... we've had <strong>1 death</strong> already.
+                <br><br>
+                I need an FETP officer here <strong>immediately</strong> to investigate.
+                This could be the start of something much bigger."
+            </div>
+
+            <div class="metrics-box">
+                <p class="metric-item">🏥 2 Severe Cases</p>
+                <p class="metric-item">💀 1 Death</p>
+                <p class="metric-item">📅 Day 1</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("✅ Accept Assignment", type="primary", use_container_width=True):
+            if set_game_state:
+                set_game_state('DASHBOARD', st.session_state)
+            st.session_state.alert_acknowledged = True
+            st.session_state.current_view = "map"
+            st.rerun()
+
 
 def view_alert():
     """Day 0: Alert call intro screen."""
@@ -5486,49 +5584,84 @@ def render_interactive_map():
         )
     )
 
-    # Prepare data for scatter points
-    x_coords = []
-    y_coords = []
-    names = []
-    descriptions = []
+    # Prepare data for scatter points, separating unlocked and locked locations
+    unlocked_x = []
+    unlocked_y = []
+    unlocked_names = []
+    unlocked_descriptions = []
+
+    locked_x = []
+    locked_y = []
+    locked_names = []
+    locked_descriptions = []
 
     for loc_name, loc_data in MAP_LOCATIONS.items():
-        x_coords.append(loc_data["x"])
-        y_coords.append(loc_data["y"])
-        names.append(loc_name)
-        descriptions.append(f"{loc_data['icon']} {loc_name}<br>{loc_data['desc']}")
+        # Check if location is unlocked
+        is_unlocked = True
+        if is_location_unlocked and hasattr(st.session_state, 'game_state'):
+            is_unlocked = is_location_unlocked(loc_name, st.session_state)
 
-    # Add clickable scatter points with a subtle glow effect
-    # First add a larger, semi-transparent marker for the glow/halo effect
-    fig.add_trace(go.Scatter(
-        x=x_coords,
-        y=y_coords,
-        mode='markers',
-        marker=dict(
-            size=28,
-            color='rgba(255, 255, 255, 0.4)',
-            line=dict(width=0)
-        ),
-        hoverinfo='skip',
-        showlegend=False
-    ))
+        if is_unlocked:
+            unlocked_x.append(loc_data["x"])
+            unlocked_y.append(loc_data["y"])
+            unlocked_names.append(loc_name)
+            unlocked_descriptions.append(f"{loc_data['icon']} {loc_name}<br>{loc_data['desc']}")
+        else:
+            locked_x.append(loc_data["x"])
+            locked_y.append(loc_data["y"])
+            locked_names.append(loc_name)
+            locked_descriptions.append(f"🔒 {loc_name}<br>Location locked")
 
-    # Add the main marker points
-    fig.add_trace(go.Scatter(
-        x=x_coords,
-        y=y_coords,
-        mode='markers',
-        marker=dict(
-            size=18,
-            color='#FF6B35',  # Orange-red color for visibility
-            line=dict(width=3, color='white'),
-            symbol='circle'
-        ),
-        text=descriptions,
-        hovertemplate='%{text}<extra></extra>',
-        customdata=names,
-        showlegend=False
-    ))
+    # Add clickable scatter points for UNLOCKED locations with a subtle glow effect
+    if unlocked_x:
+        # First add a larger, semi-transparent marker for the glow/halo effect
+        fig.add_trace(go.Scatter(
+            x=unlocked_x,
+            y=unlocked_y,
+            mode='markers',
+            marker=dict(
+                size=28,
+                color='rgba(255, 255, 255, 0.4)',
+                line=dict(width=0)
+            ),
+            hoverinfo='skip',
+            showlegend=False
+        ))
+
+        # Add the main marker points for unlocked locations
+        fig.add_trace(go.Scatter(
+            x=unlocked_x,
+            y=unlocked_y,
+            mode='markers',
+            marker=dict(
+                size=18,
+                color='#FF6B35',  # Orange-red color for visibility
+                line=dict(width=3, color='white'),
+                symbol='circle'
+            ),
+            text=unlocked_descriptions,
+            hovertemplate='%{text}<extra></extra>',
+            customdata=unlocked_names,
+            showlegend=False
+        ))
+
+    # Add LOCKED locations (greyed out, not clickable)
+    if locked_x:
+        fig.add_trace(go.Scatter(
+            x=locked_x,
+            y=locked_y,
+            mode='markers',
+            marker=dict(
+                size=18,
+                color='rgba(128, 128, 128, 0.5)',  # Grey for locked locations
+                line=dict(width=3, color='rgba(200, 200, 200, 0.5)'),
+                symbol='circle'
+            ),
+            text=locked_descriptions,
+            hovertemplate='%{text}<extra></extra>',
+            hoverinfo='text',
+            showlegend=False
+        ))
 
     # Add text labels with shadow effect for readability
     # First add shadow/outline (slightly offset dark text)
@@ -5597,15 +5730,23 @@ def render_interactive_map():
         selection_mode="points"
     )
 
-    # Handle click/selection events
+    # Handle click/selection events (only for unlocked locations)
     if selected_point and selected_point.selection and selected_point.selection.points:
         point_data = selected_point.selection.points[0]
         point_index = point_data.get("point_index", None)
-        if point_index is not None and 0 <= point_index < len(names):
-            selected_location = names[point_index]
-            st.session_state.current_area = selected_location
-            st.session_state.current_view = "area"
-            st.rerun()
+        if point_index is not None and 0 <= point_index < len(unlocked_names):
+            selected_location = unlocked_names[point_index]
+            # Check if location is unlocked before allowing navigation
+            is_unlocked = True
+            if is_location_unlocked and hasattr(st.session_state, 'game_state'):
+                is_unlocked = is_location_unlocked(selected_location, st.session_state)
+
+            if is_unlocked:
+                st.session_state.current_area = selected_location
+                st.session_state.current_view = "area"
+                st.rerun()
+            else:
+                st.warning("🔒 This location is locked. Complete previous objectives to unlock.")
 
     # Show location legend/quick reference below the map
     st.markdown("---")
@@ -5613,16 +5754,51 @@ def render_interactive_map():
     cols = st.columns(3)
     for i, (loc_name, loc_data) in enumerate(MAP_LOCATIONS.items()):
         with cols[i % 3]:
-            if st.button(f"{loc_data['icon']} {loc_name}", key=f"map_btn_{loc_name}", use_container_width=True):
-                st.session_state.current_area = loc_name
-                st.session_state.current_view = "area"
-                st.rerun()
+            # Check if location is unlocked
+            is_unlocked = True
+            if is_location_unlocked and hasattr(st.session_state, 'game_state'):
+                is_unlocked = is_location_unlocked(loc_name, st.session_state)
+
+            button_label = f"{loc_data['icon']} {loc_name}" if is_unlocked else f"🔒 {loc_name}"
+            button_disabled = not is_unlocked
+
+            if st.button(button_label, key=f"map_btn_{loc_name}", use_container_width=True, disabled=button_disabled):
+                if is_unlocked:
+                    st.session_state.current_area = loc_name
+                    st.session_state.current_view = "area"
+                    st.rerun()
             st.caption(loc_data['desc'])
 
 
 def view_travel_map():
     """Main travel map showing all areas and allowing navigation."""
     st.title("Sidero Valley - Investigation Map")
+
+    # Serious Mode: Show outbreak summary metrics prominently on Day 1
+    if st.session_state.current_day == 1:
+        st.markdown("""
+        <div style='background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+                    padding: 1.5rem;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    margin-bottom: 1.5rem;'>
+            <h3 style='color: white; margin: 0 0 1rem 0; text-align: center;'>🚨 Outbreak Summary</h3>
+            <div style='display: flex; justify-content: space-around; text-align: center;'>
+                <div>
+                    <div style='font-size: 2.5rem; color: #ffeb3b; font-weight: bold;'>2</div>
+                    <div style='color: white; font-size: 1.1rem;'>Severe Cases</div>
+                </div>
+                <div>
+                    <div style='font-size: 2.5rem; color: #ffeb3b; font-weight: bold;'>1</div>
+                    <div style='color: white; font-size: 1.1rem;'>Death</div>
+                </div>
+                <div>
+                    <div style='font-size: 2.5rem; color: #ffeb3b; font-weight: bold;'>Day 1</div>
+                    <div style='color: white; font-size: 1.1rem;'>Investigation Start</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # Show current status
     col1, col2, col3, col4 = st.columns(4)
@@ -5649,6 +5825,15 @@ def view_travel_map():
 
             *Click on a location below to travel there.*
             """)
+
+    # About Sidero District
+    with st.expander("ℹ️ About Sidero District"):
+        st.markdown("""
+        Sidero District is a rural agricultural region known for extensive rice farming.
+        Recent irrigation projects have expanded the paddy fields closer to residential areas.
+        The population is approximately 15,000, spread across 3 main villages (Nalu, Tamu, Kabwe).
+        Livestock farming (pigs, ducks) is common in backyard settings.
+        """)
 
     # Render the interactive satellite map for destination selection
     render_interactive_map()
@@ -6718,10 +6903,18 @@ def main():
     )
     init_session_state()
 
-    # Use adventure-style sidebar
+    # Check game state for Serious Mode
+    game_state = st.session_state.get('game_state', 'INTRO')
+
+    # INTRO state: Show Dr. Tran phone call (replaces alert screen for new sessions)
+    if game_state == 'INTRO' and not st.session_state.alert_acknowledged:
+        view_intro()
+        return
+
+    # Use adventure-style sidebar (now persistent across all states)
     adventure_sidebar()
 
-    # If alert hasn't been acknowledged yet, always show alert screen
+    # If alert hasn't been acknowledged yet (legacy), show alert screen
     if not st.session_state.alert_acknowledged:
         view_alert()
         return

@@ -23,6 +23,9 @@ PERSISTENT_KEYS = {
     # Core progression
     'current_day', 'alert_acknowledged', 'current_view',
 
+    # Game state and progression
+    'game_state', 'locations_unlocked', 'notebook_content',
+
     # Resources
     'budget', 'time_remaining', 'lab_credits', 'language',
 

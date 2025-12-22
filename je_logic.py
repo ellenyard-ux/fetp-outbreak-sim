@@ -257,6 +257,254 @@ def get_hospital_triage_list():
     ]
 
 
+def get_medical_chart(patient_id):
+    """
+    Returns a patient's medical chart containing ONLY clinical and demographic data.
+    NO exposure data (pigs, water, mosquitoes, etc.) is included.
+
+    Args:
+        patient_id: Patient ID (e.g., "HOSP-01", "P0001")
+
+    Returns:
+        Dictionary containing: Name, Age, Sex, Village, Date of Onset,
+        Temperature, Neuro Signs, WBC Count, and Outcome.
+        Returns None if patient not found.
+    """
+    # Log the event
+    log_event(
+        event_type='view_medical_chart',
+        location_id=patient_id,
+        cost_time=5,
+        cost_budget=0,
+        payload={'patient_id': patient_id}
+    )
+
+    # Get hospital triage list
+    triage_patients = get_hospital_triage_list()
+
+    # Find patient in triage list
+    patient = None
+    for p in triage_patients:
+        if p['id'] == patient_id:
+            patient = p
+            break
+
+    if not patient:
+        return None
+
+    # Extract clinical data only (NO exposure data)
+    # Parse symptoms to extract temperature and neuro signs
+    symptom_text = patient.get('symptom', '')
+    notes_text = patient.get('notes', '')
+
+    # Extract temperature
+    temp_match = re.search(r'(\d+\.?\d*)[°CcF]', symptom_text + ' ' + notes_text)
+    temperature = f"{temp_match.group(1)}°C" if temp_match else "Unknown"
+
+    # Extract neuro signs
+    neuro_signs = []
+    symptom_lower = symptom_text.lower()
+    if 'seizure' in symptom_lower or 'convulsion' in symptom_lower:
+        neuro_signs.append('Seizure')
+    if 'coma' in symptom_lower or "won't wake" in symptom_lower:
+        neuro_signs.append('Coma')
+    if 'confusion' in symptom_lower or 'lethargy' in symptom_lower:
+        neuro_signs.append('Altered mental status')
+    if 'tremor' in symptom_lower:
+        neuro_signs.append('Tremors')
+
+    neuro_text = ', '.join(neuro_signs) if neuro_signs else 'None documented'
+
+    # Extract WBC count
+    wbc_match = re.search(r'WBC\s+(\d+k?)', notes_text, re.IGNORECASE)
+    wbc_count = wbc_match.group(1) if wbc_match else 'Not tested'
+
+    # Determine outcome
+    outcome_map = {
+        'Currently Admitted': 'Admitted',
+        'Discharged': 'Recovered',
+        'Deceased': 'Died'
+    }
+    outcome = outcome_map.get(patient.get('status'), 'Unknown')
+
+    # Parse age to extract just the number and unit
+    age_str = patient.get('age', 'Unknown')
+
+    # Get patient name if available
+    name = patient.get('name', f"Patient {patient_id}")
+
+    # Map patient ID to onset dates (from individuals_seed.csv data)
+    onset_dates = {
+        'HOSP-01': 'June 3, 2025',  # Lan
+        'HOSP-02': 'June 4, 2025',  # Minh
+        'HOSP-04': 'June 9, 2025',  # Panya (outlier from Tamu)
+        'HOSP-05': 'June 7, 2025',  # Hoa
+    }
+
+    onset_date = onset_dates.get(patient_id, 'Early June 2025')
+
+    # Construct medical chart (CLINICAL DATA ONLY)
+    chart = {
+        'Patient ID': patient_id,
+        'Name': name,
+        'Age': age_str,
+        'Sex': patient.get('sex', 'Unknown'),
+        'Village': patient.get('village', 'Unknown'),
+        'Date of Onset': onset_date,
+        'Temperature': temperature,
+        'Neuro Signs': neuro_text,
+        'WBC Count': wbc_count,
+        'Outcome': outcome
+    }
+
+    return chart
+
+
+def get_clinic_log(village_id):
+    """
+    Returns a realistic clinic logbook with raw, natural language entries.
+    Simulates handwritten notes with natural complaint descriptions.
+
+    Args:
+        village_id: Village ID (e.g., "V1", "V2", "V3") or village name
+
+    Returns:
+        List of 10-15 clinic log entries with natural language complaints.
+    """
+    # Log the event
+    log_event(
+        event_type='view_clinic_log',
+        location_id=village_id,
+        cost_time=15,
+        cost_budget=0,
+        payload={'village_id': village_id}
+    )
+
+    # Map village names to IDs
+    village_name_map = {
+        'nalu': 'V1',
+        'nalu village': 'V1',
+        'kabwe': 'V2',
+        'kabwe village': 'V2',
+        'tamu': 'V3',
+        'tamu village': 'V3'
+    }
+
+    # Normalize village_id
+    if isinstance(village_id, str) and village_id.lower() in village_name_map:
+        village_id = village_name_map[village_id.lower()]
+
+    # Village-specific clinic logs with natural language complaints
+    clinic_logs = {
+        'V1': [  # Nalu Village - HIGH CASE LOAD
+            {'name': 'Lan', 'age': 6, 'complaint': 'Hot to touch, shaking badly', 'date': 'June 3'},
+            {'name': 'Minh', 'age': 9, 'complaint': 'Head hurts, body burning hot', 'date': 'June 4'},
+            {'name': 'Mrs. Pham', 'age': 30, 'complaint': 'Cut finger while cooking', 'date': 'June 4'},
+            {'name': 'Baby Tuan', 'age': 4, 'complaint': 'Fever and shaking, very sleepy', 'date': 'June 6'},
+            {'name': 'Kiet', 'age': 8, 'complaint': 'Coughing and runny nose', 'date': 'June 5'},
+            {'name': 'Thanh', 'age': 12, 'complaint': 'Stomach ache, ate too many mangoes', 'date': 'June 6'},
+            {'name': 'Mr. Hoang', 'age': 45, 'complaint': 'Back pain from lifting', 'date': 'June 7'},
+            {'name': 'Little Duc', 'age': 5, 'complaint': 'Broken arm from tree fall', 'date': 'June 8'},
+            {'name': 'Anh', 'age': 7, 'complaint': 'Hot fever, then sleeping and won\'t wake up', 'date': 'June 7'},
+            {'name': 'Mai', 'age': 11, 'complaint': 'Toothache', 'date': 'June 9'},
+            {'name': 'Baby Linh', 'age': 2, 'complaint': 'Rash on legs, itchy', 'date': 'June 9'},
+            {'name': 'Quan', 'age': 14, 'complaint': 'Twisted ankle playing football', 'date': 'June 10'}
+        ],
+        'V2': [  # Kabwe Village - MODERATE CASE LOAD
+            {'name': 'Hoa', 'age': 7, 'complaint': 'Very hot, body shaking, confused', 'date': 'June 7'},
+            {'name': 'Mr. Tran', 'age': 35, 'complaint': 'Sore throat, cough', 'date': 'June 5'},
+            {'name': 'Little Mai', 'age': 2, 'complaint': 'Fever, but playing normally', 'date': 'June 9'},
+            {'name': 'Binh', 'age': 9, 'complaint': 'Diarrhea for 2 days', 'date': 'June 6'},
+            {'name': 'Mrs. Nguyen', 'age': 40, 'complaint': 'Headache and tired', 'date': 'June 7'},
+            {'name': 'Tien', 'age': 6, 'complaint': 'Earache', 'date': 'June 8'},
+            {'name': 'Khoa', 'age': 11, 'complaint': 'Cut on foot from glass', 'date': 'June 9'},
+            {'name': 'Baby Tam', 'age': 1, 'complaint': 'Coughing, wheezing', 'date': 'June 10'},
+            {'name': 'Phuong', 'age': 8, 'complaint': 'Hot skin, won\'t eat, stiff neck', 'date': 'June 8'},
+            {'name': 'Mr. Minh', 'age': 50, 'complaint': 'Chest pain, worried', 'date': 'June 9'}
+        ],
+        'V3': [  # Tamu Village - MINIMAL CASES (Outlier case)
+            {'name': 'Panya', 'age': 7, 'complaint': 'Burning hot, shaking, then very sleepy', 'date': 'June 9'},
+            {'name': 'Ratana', 'age': 12, 'complaint': 'Common cold, sneezing', 'date': 'June 5'},
+            {'name': 'Mr. Somchai', 'age': 38, 'complaint': 'Scraped knee from fall', 'date': 'June 6'},
+            {'name': 'Baby Niran', 'age': 3, 'complaint': 'Teething pain', 'date': 'June 7'},
+            {'name': 'Mrs. Kulap', 'age': 42, 'complaint': 'Joint pain, rainy season', 'date': 'June 8'},
+            {'name': 'Sakda', 'age': 10, 'complaint': 'Insect bite, swollen', 'date': 'June 9'},
+            {'name': 'Lawan', 'age': 6, 'complaint': 'Stomach upset', 'date': 'June 10'},
+            {'name': 'Mr. Boon', 'age': 55, 'complaint': 'Cough for 1 week', 'date': 'June 8'},
+            {'name': 'Mali', 'age': 9, 'complaint': 'Eye irritation from dust', 'date': 'June 9'},
+            {'name': 'Suda', 'age': 4, 'complaint': 'Mild fever, runny nose', 'date': 'June 10'}
+        ]
+    }
+
+    # Return appropriate log or empty list if village not found
+    return clinic_logs.get(village_id, [])
+
+
+def check_case_definition(criteria, patient=None):
+    """
+    Validates case definition criteria to ensure they rely on Clinical/Person/Place/Time
+    data, NOT risk factors like pigs or mosquitoes.
+
+    Args:
+        criteria: Dictionary or list of criteria fields/terms
+        patient: Optional patient dictionary to validate against criteria
+
+    Returns:
+        Dictionary with 'valid' (bool) and 'message' (str) keys.
+        If invalid, includes error message about risk factors.
+    """
+    # Log the event
+    log_event(
+        event_type='check_case_definition',
+        location_id=None,
+        cost_time=0,
+        cost_budget=0,
+        payload={'criteria': criteria}
+    )
+
+    # Define prohibited risk factor terms
+    prohibited_terms = [
+        'pig', 'pigs', 'swine',
+        'mosquito', 'mosquitoes', 'culex',
+        'water', 'rice paddy', 'paddies',
+        'exposure', 'animal contact',
+        'vector', 'insect'
+    ]
+
+    # Convert criteria to searchable format
+    if isinstance(criteria, dict):
+        criteria_text = ' '.join(str(v).lower() for v in criteria.values())
+    elif isinstance(criteria, list):
+        criteria_text = ' '.join(str(c).lower() for c in criteria)
+    else:
+        criteria_text = str(criteria).lower()
+
+    # Check for prohibited terms
+    found_prohibited = []
+    for term in prohibited_terms:
+        if term in criteria_text:
+            found_prohibited.append(term)
+
+    if found_prohibited:
+        return {
+            'valid': False,
+            'message': f"Case Definitions must rely on Clinical/Person/Place/Time data, not risk factors. "
+                      f"Prohibited terms found: {', '.join(found_prohibited)}. "
+                      f"Please remove references to exposures, animals, or environmental factors."
+        }
+
+    # If patient is provided, validate patient matches criteria
+    if patient:
+        # This is where you would implement actual case matching logic
+        # For now, we'll just return valid
+        pass
+
+    return {
+        'valid': True,
+        'message': 'Case definition criteria are valid.'
+    }
+
+
 def generate_full_population(villages_df, households_seed, individuals_seed, random_seed=42):
     """
     Generate a complete population from seed data + generation rules.

@@ -2611,7 +2611,7 @@ def make_epi_curve(truth: dict) -> go.Figure:
 
 def sidebar_navigation():
     # Language selector at very top
-    st.sidebar.markdown(f"### 🌐 {t('language_header')}")
+    st.sidebar.markdown(f"### {t('language_header')}")
     lang_options = {"en": "English", "es": "Español", "fr": "Français", "pt": "Português"}
     selected_lang = st.sidebar.selectbox(
         t("language_select"),
@@ -2660,18 +2660,18 @@ def sidebar_navigation():
 
     # Session Management - Save/Load functionality
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 💾 Session Management")
+    st.sidebar.markdown("### Session Management")
 
     col1, col2 = st.sidebar.columns(2)
 
     # Save session
     with col1:
-        if st.button("💾 Save", use_container_width=True, key="save_session_btn", help="Download your current progress"):
+        if st.button("Save", use_container_width=True, key="save_session_btn", help="Download your current progress"):
             try:
                 save_data = persistence.create_save_file(st.session_state)
                 filename = persistence.get_save_filename(st.session_state)
                 st.sidebar.download_button(
-                    label="⬇️ Download",
+                    label="Download",
                     data=save_data,
                     file_name=filename,
                     mime="application/json",
@@ -2684,7 +2684,7 @@ def sidebar_navigation():
     # Load session
     with col2:
         uploaded = st.file_uploader(
-            "📂 Load",
+            "Load",
             type=["json"],
             key="session_load_uploader",
             help="Upload a previously saved session file",
@@ -2702,11 +2702,11 @@ def sidebar_navigation():
     st.sidebar.markdown(f"### {t('progress')}")
     for day in range(1, 6):
         if day < st.session_state.current_day:
-            status = "✅"
+            status = "[✓]"
         elif day == st.session_state.current_day:
-            status = "🟡"
+            status = "[●]"
         else:
-            status = "⬜"
+            status = "[ ]"
         st.sidebar.markdown(f"{status} {t('day')} {day}")
 
     st.sidebar.markdown("---")
@@ -2756,7 +2756,7 @@ def sidebar_navigation():
     
     # Advance day button (at bottom)
     if st.session_state.current_day < 5:
-        if st.sidebar.button(f"⏭️ {t('advance_day')} {st.session_state.current_day + 1}", use_container_width=True):
+        if st.sidebar.button(f"{t('advance_day')} {st.session_state.current_day + 1}", use_container_width=True):
             can_advance, missing = check_day_prerequisites(st.session_state.current_day, st.session_state)
             if can_advance:
                 st.session_state.current_day += 1
@@ -2771,7 +2771,7 @@ def sidebar_navigation():
                 st.session_state.advance_missing_tasks = missing
                 st.sidebar.warning(t("cannot_advance"))
     else:
-        st.sidebar.success("📋 Final Day - Complete your briefing!")
+        st.sidebar.success("Final Day - Complete your briefing!")
 
 
 def day_briefing_text(day: int) -> str:
@@ -2997,7 +2997,7 @@ def view_overview():
 
 
 def view_hospital_triage():
-    st.markdown("## 🏥 District Hospital Triage")
+    st.markdown("## District Hospital Triage")
 
     # Intro Text
     st.info("Dr. Tran: 'Here are the patients admitted in the last 48 hours. Please review them. "
@@ -3013,7 +3013,7 @@ def view_hospital_triage():
 
     # --- SECTION 1: THE CHECKLIST ---
     with st.container(border=True):
-        st.markdown("### 📋 Patient Admission Log")
+        st.markdown("### Patient Admission Log")
 
         # Grid Header
         c1, c2, c3, c4 = st.columns([1, 1, 1, 3])
@@ -3046,7 +3046,7 @@ def view_hospital_triage():
 
     # --- SECTION 2: PARENT INTERVIEWS ---
     if len(st.session_state.line_list) > 0:
-        st.markdown("### 🗣️ Investigation")
+        st.markdown("### Investigation")
         st.write(f"**Budget:** You can interview parents for **{2 - len(st.session_state.parents_interviewed)}** more cases.")
 
         cols = st.columns(3)
@@ -3287,10 +3287,10 @@ def view_case_finding():
             st.session_state.current_view = "location"
             st.rerun()
 
-    st.header("🔍 Case Finding")
+    st.header("Case Finding")
 
     # Tabs for different record sources
-    tab1, tab2 = st.tabs(["📋 Clinic Records", "🏥 Hospital Records"])
+    tab1, tab2 = st.tabs(["Clinic Records", "Hospital Records"])
     
     with tab1:
         st.subheader("Nalu Health Center - Patient Register Review")
@@ -3336,7 +3336,7 @@ def view_case_finding():
                 
                 # Show records in columns
                 st.markdown("---")
-                st.markdown("### 📋 Patient Register (June 2025)")
+                st.markdown("### Patient Register (June 2025)")
                 
                 col1, col2 = st.columns(2)
                 
@@ -3426,7 +3426,7 @@ def view_case_finding():
             # Show results if already completed
             if st.session_state.case_finding_score:
                 score = st.session_state.case_finding_score
-                st.markdown("### 📊 Your Case Finding Results")
+                st.markdown("### Your Case Finding Results")
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("True Positives", score['true_positives'])
@@ -3462,7 +3462,7 @@ def view_case_finding():
 
 def view_descriptive_epi():
     """Interactive descriptive epidemiology dashboard - trainees must run analyses themselves."""
-    st.header("📈 Descriptive Epidemiology - Analysis Workspace")
+    st.header("Descriptive Epidemiology - Analysis Workspace")
     
     st.session_state.descriptive_epi_viewed = True
     
@@ -3539,24 +3539,24 @@ def view_descriptive_epi():
     st.markdown("---")
     
     # Interactive Analysis Section
-    st.markdown("### 🔬 Run Analyses")
+    st.markdown("### Run Analyses")
     st.caption("Select the analyses you want to perform. Results will appear below.")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        run_person = st.checkbox("👤 Person characteristics (age, sex, outcomes)")
-        run_place = st.checkbox("📍 Place analysis (cases by village, attack rates)")
+        run_person = st.checkbox("Person characteristics (age, sex, outcomes)")
+        run_place = st.checkbox("Place analysis (cases by village, attack rates)")
     
     with col2:
-        run_time = st.checkbox("📅 Time analysis (epidemic curve)")
-        run_crosstab = st.checkbox("📊 Custom cross-tabulation")
+        run_time = st.checkbox("Time analysis (epidemic curve)")
+        run_crosstab = st.checkbox("Custom cross-tabulation")
     
     st.markdown("---")
     
     # PERSON ANALYSIS
     if run_person:
-        st.markdown("## 👤 Person Analysis")
+        st.markdown("## Person Analysis")
         
         col1, col2 = st.columns(2)
         
@@ -3639,7 +3639,7 @@ def view_descriptive_epi():
     
     # PLACE ANALYSIS
     if run_place:
-        st.markdown("## 📍 Place Analysis")
+        st.markdown("## Place Analysis")
         
         col1, col2 = st.columns(2)
         
@@ -3695,7 +3695,7 @@ def view_descriptive_epi():
     
     # TIME ANALYSIS
     if run_time:
-        st.markdown("## 📅 Time Analysis - Epidemic Curve")
+        st.markdown("## Time Analysis - Epidemic Curve")
         
         if 'onset_date' in cases.columns:
             # Let them choose interval
@@ -3743,7 +3743,7 @@ def view_descriptive_epi():
     
     # CUSTOM CROSSTAB
     if run_crosstab:
-        st.markdown("## 📊 Custom Cross-tabulation")
+        st.markdown("## Custom Cross-tabulation")
         
         available_vars = ['age_group', 'sex', 'village_name', 'severe_neuro', 'outcome']
         
@@ -3790,7 +3790,7 @@ def view_descriptive_epi():
 
 
 def view_study_design():
-    st.header("📊 Data & Study Design")
+    st.header("Data & Study Design")
 
     truth = st.session_state.truth
     individuals = truth["individuals"]
@@ -3800,328 +3800,459 @@ def view_study_design():
     prereq_ok = bool(st.session_state.get("case_definition_written")) and bool(st.session_state.get("hypotheses_documented"))
     if not prereq_ok:
         st.info("Complete **Day 1** on the **Overview / Briefing** screen first (case definition + at least 1 hypothesis). Then return here for sampling and questionnaire upload.")
-
-    # -------------------------
-    # Step 1: Case definition (read-only here; authored on Overview)
-    # -------------------------
-    st.markdown("### Step 1: Case Definition (from Day 1)")
-    cd_text = st.session_state.decisions.get("case_definition_text", "").strip()
-    if cd_text:
-        st.text_area("Working case definition:", value=cd_text, height=120, disabled=True)
-    else:
-        st.warning("No case definition saved yet. Go to **Overview / Briefing** (Day 1) and save one.")
-
-    # -------------------------
-    # Step 2: Study design
-    # -------------------------
-    st.markdown("### Step 2: Study Design")
-    sd_type = st.radio("Choose a study design:", ["Case-control", "Retrospective cohort"], horizontal=True)
-
-    if sd_type == "Case-control":
-        st.session_state.decisions["study_design"] = {"type": "case_control"}
-    else:
-        st.session_state.decisions["study_design"] = {"type": "cohort"}
-
-    # -------------------------
-    # Step 2b: Sampling plan + manual selection (trainee-driven)
-    # -------------------------
-    st.markdown("### Step 2b: Sampling plan & participant selection")
-
-    # Ensure clinic eligibility proxy exists (used for clinic controls)
-    if "reported_to_hospital" not in individuals.columns:
-        individuals = ensure_reported_to_hospital(individuals, random_seed=42)
-        st.session_state.truth["individuals"] = individuals
-
-    case_criteria = st.session_state.decisions.get("case_definition", {"clinical_AES": True})
-    cases_pool = apply_case_definition(individuals, case_criteria).copy()
-    cases_pool = cases_pool.sort_values(["village_id", "onset_date"], na_position="last")
-
-    existing_cases = st.session_state.decisions.get("selected_cases", []) or []
-    existing_controls = st.session_state.decisions.get("selected_controls", []) or []
-
-    # Basic sampling targets
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        n_cases_target = st.number_input("Target # cases", min_value=1, max_value=200, value=int(st.session_state.decisions.get("sample_size", {}).get("cases", 20)), step=1)
-    with c2:
-        controls_per_case = st.number_input("Controls per case", min_value=1, max_value=5, value=int(st.session_state.decisions.get("study_design", {}).get("controls_per_case", 2) or 2), step=1)
-    with c3:
-        nonresponse_rate = st.slider("Expected nonresponse", min_value=0, max_value=25, value=int((st.session_state.decisions.get("sampling_plan", {}) or {}).get("nonresponse_rate", 0.0) * 100), step=1)
-    with c4:
-        allow_replacement = st.checkbox("Allow replacement if nonresponse", value=bool((st.session_state.decisions.get("sampling_plan", {}) or {}).get("allow_replacement", True)))
-
-    st.session_state.decisions["sample_size"] = {"cases": int(n_cases_target), "controls_per_case": int(controls_per_case)}
-    st.session_state.decisions.setdefault("study_design", {})
-    st.session_state.decisions["study_design"]["controls_per_case"] = int(controls_per_case)
-
-    # Show breakdown of case sources if case finding has been done
-    if st.session_state.get('found_cases_added', False) and 'found_via_case_finding' in cases_pool.columns:
-        found_count = cases_pool['found_via_case_finding'].sum() if 'found_via_case_finding' in cases_pool.columns else 0
-        initial_count = len(cases_pool) - found_count
-        st.caption(f"Eligible cases (based on your case definition proxy): **{len(cases_pool)}** ({initial_count} initial + {int(found_count)} from case finding)")
-    else:
-        st.caption(f"Eligible cases (based on your case definition proxy): **{len(cases_pool)}**")
-
-    # ---- CASE SELECTION (manual)
-    with st.form("case_select_form"):
-        st.markdown("#### Select cases")
-        v_filter = st.multiselect("Filter cases by village", sorted(cases_pool["village_id"].dropna().unique().tolist()), default=sorted(cases_pool["village_id"].dropna().unique().tolist()))
-        df_cases = cases_pool[cases_pool["village_id"].isin(v_filter)].copy()
-
-        show_cols = [c for c in ["person_id", "village_id", "hh_id", "age", "sex", "occupation", "onset_date", "severe_neuro", "outcome", "reported_to_hospital"] if c in df_cases.columns]
-        df_cases = df_cases[show_cols].copy()
-        df_cases.insert(0, "select", df_cases["person_id"].isin(existing_cases))
-
-        edited = st.data_editor(
-            df_cases,
-            hide_index=True,
-            use_container_width=True,
-            column_config={"select": st.column_config.CheckboxColumn("Select")},
-            disabled=[c for c in df_cases.columns if c != "select"],
-        )
-
-        submitted = st.form_submit_button("Save selected cases")
-        if submitted:
-            selected = edited[edited["select"] == True]["person_id"].astype(str).tolist()
-            if len(selected) < 1:
-                st.error("Select at least 1 case.")
-            else:
-                st.session_state.decisions["selected_cases"] = selected
-                st.success(f"Saved **{len(selected)}** selected cases.")
-                st.rerun()
-
-    selected_cases = st.session_state.decisions.get("selected_cases", []) or []
-    if selected_cases:
-        st.info(f"Current case selection: **{len(selected_cases)}** cases selected. Target was {int(n_cases_target)}.")
-
-    # ---- CONTROL SOURCE + ELIGIBILITY
-    st.markdown("#### Controls: source & eligibility")
-    control_source_label = st.selectbox(
-        "Control source",
-        ["Community controls", "Neighborhood controls (near cases)", "Clinic controls (healthcare-seeking)"],
-        index=0,
-    )
-    control_source = "community"
-    if "Neighborhood" in control_source_label:
-        control_source = "neighborhood"
-    elif "Clinic" in control_source_label:
-        control_source = "clinic"
-
-    eligible_villages_default = sorted(list(set(cases_pool[cases_pool["person_id"].isin(selected_cases)]["village_id"].dropna().astype(str).tolist()))) if selected_cases else sorted(cases_pool["village_id"].dropna().unique().tolist())
-    eligible_villages = st.multiselect("Eligible villages for controls", options=sorted(individuals["village_id"].dropna().unique().tolist()), default=eligible_villages_default)
-
-    include_symptomatic_noncase = st.checkbox("Allow symptomatic non-cases as controls (rare)", value=bool((st.session_state.decisions.get("sampling_plan", {}) or {}).get("include_symptomatic_noncase", False)))
-
-    # Optional age eligibility for controls
-    age_mode = st.radio("Control age rule", ["No restriction", "Specify range"], horizontal=True, index=0)
-    control_age_range = None
-    if age_mode == "Specify range":
-        a1, a2 = st.columns(2)
-        with a1:
-            cmin = st.number_input("Control minimum age", min_value=0, max_value=100, value=0, step=1)
-        with a2:
-            cmax = st.number_input("Control maximum age", min_value=0, max_value=100, value=60, step=1)
-        control_age_range = {"min": int(cmin), "max": int(cmax)}
-
-    # Pool for control candidates
-    # (We build a manageable candidate set to avoid huge data_editor tables.)
-    def _build_control_pool():
-        pool = individuals.copy()
-        # non-cases only (by default)
-        pool = pool[pool.get("symptomatic_AES", False).astype(bool) == False].copy()
-        pool = pool[pool["village_id"].isin(eligible_villages)].copy()
-        if control_age_range:
-            pool = pool[(pool["age"] >= int(control_age_range["min"])) & (pool["age"] <= int(control_age_range["max"]))].copy()
-        if control_source == "clinic":
-            pool = pool[pool.get("reported_to_hospital", False).astype(bool) == True].copy()
-        # neighborhood handled in je_logic with weights; here we just show same-village candidates
-        return pool
-
-    controls_pool = _build_control_pool()
-    needed_controls = int(len(selected_cases) * int(controls_per_case)) if selected_cases else int(n_cases_target) * int(controls_per_case)
-    st.caption(f"Eligible controls in pool: **{len(controls_pool)}** | Recommended controls to select: **{needed_controls}**")
-
-    # Candidate sampling for UI
-    if "controls_candidate_ids" not in st.session_state:
-        st.session_state.controls_candidate_ids = []
-    if "controls_candidate_seed" not in st.session_state:
-        st.session_state.controls_candidate_seed = 0
-
-    cbtn1, cbtn2 = st.columns([1, 3])
-    with cbtn1:
-        if st.button("🔄 Refresh control candidates"):
-            st.session_state.controls_candidate_seed += 1
-            st.session_state.controls_candidate_ids = []
-            st.rerun()
-
-    # Build candidate list (sample to keep UI snappy)
-    rng = np.random.default_rng(100 + int(st.session_state.controls_candidate_seed))
-    if not st.session_state.controls_candidate_ids:
-        cand_n = min(350, len(controls_pool))
-        if cand_n > 0:
-            cand_ids = controls_pool.sample(n=cand_n, random_state=100 + int(st.session_state.controls_candidate_seed))["person_id"].astype(str).tolist()
-            st.session_state.controls_candidate_ids = cand_ids
-
-    cand_controls = controls_pool[controls_pool["person_id"].astype(str).isin(st.session_state.controls_candidate_ids)].copy()
-    show_cols_c = [c for c in ["person_id", "village_id", "hh_id", "age", "sex", "occupation", "reported_to_hospital"] if c in cand_controls.columns]
-    cand_controls = cand_controls[show_cols_c].copy()
-    cand_controls.insert(0, "select", cand_controls["person_id"].astype(str).isin(existing_controls))
-
-    with st.form("controls_select_form"):
-        st.markdown("#### Select controls (from a candidate list)")
-        edited_c = st.data_editor(
-            cand_controls,
-            hide_index=True,
-            use_container_width=True,
-            column_config={"select": st.column_config.CheckboxColumn("Select")},
-            disabled=[c for c in cand_controls.columns if c != "select"],
-        )
-        sub_c = st.form_submit_button("Save selected controls")
-        if sub_c:
-            selected_c = edited_c[edited_c["select"] == True]["person_id"].astype(str).tolist()
-            if len(selected_c) < 1:
-                st.error("Select at least 1 control.")
-            else:
-                st.session_state.decisions["selected_controls"] = selected_c
-                st.success(f"Saved **{len(selected_c)}** selected controls.")
-                st.rerun()
-
-    selected_controls = st.session_state.decisions.get("selected_controls", []) or []
-    if selected_controls:
-        st.info(f"Current control selection: **{len(selected_controls)}** controls selected. Recommended: {needed_controls}.")
-
-    # Persist sampling plan (used by dataset generator)
-    st.session_state.decisions["sampling_plan"] = {
-        "control_source": control_source,
-        "eligible_villages": eligible_villages,
-        "include_symptomatic_noncase": bool(include_symptomatic_noncase),
-        "control_age_range": control_age_range,
-        "nonresponse_rate": float(nonresponse_rate) / 100.0,
-        "allow_replacement": bool(allow_replacement),
-        "controls_per_case": int(controls_per_case),
-        "n_cases": int(n_cases_target),
-    }
-
-    # -------------------------
-    # Step 3: Questionnaire (XLSForm upload) — gated
-    # -------------------------
-    st.markdown("### Step 3: Questionnaire (XLSForm upload)")
-
-    if not prereq_ok:
-        st.warning("Questionnaire upload is locked until you have a saved case definition and at least 1 hypothesis (Day 1).")
-    else:
-        st.caption("Build your questionnaire in Kobo (or any XLSForm editor), export as XLSForm (.xlsx), then upload it here.")
-        uploaded = st.file_uploader("Upload XLSForm (.xlsx)", type=["xlsx"], key="xlsform_upload")
-
-        if uploaded is not None:
-            xls_bytes = uploaded.read()
-            st.session_state.decisions["questionnaire_xlsform_bytes"] = xls_bytes
-
-            try:
-                questionnaire = parse_xlsform(xls_bytes)
-                st.session_state.decisions["questionnaire_xlsform_preview"] = questionnaire
-
-                preview_rows = []
-                for q in questionnaire.get("questions", []):
-                    preview_rows.append({
-                        "name": q.get("name"),
-                        "type": q.get("type"),
-                        "label": q.get("label"),
-                        "list_name": q.get("list_name"),
-                        "n_choices": len(q.get("choices", []) or []),
-                    })
-                if preview_rows:
-                    st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
-                else:
-                    st.info("No survey questions detected (notes/groups/calculations are ignored).")
-            except Exception as e:
-                st.error(f"Could not parse this XLSForm. Make sure you uploaded the *form definition* (XLSForm), not a data export. Details: {e}")
-                questionnaire = None
-
-            if questionnaire:
-                api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
-                if not api_key:
-                    st.warning("ANTHROPIC_API_KEY not found in Streamlit secrets. LLM mapping cannot run until it is configured.")
-
-                if st.button("Run LLM mapping & save questionnaire", key="save_xlsform_questionnaire"):
-                    if not api_key:
-                        st.error("Missing ANTHROPIC_API_KEY in Streamlit secrets.")
-                    else:
-                        try:
-                            questionnaire = llm_map_xlsform_questions(questionnaire, api_key=api_key)
-                            questionnaire = llm_build_select_one_choice_maps(questionnaire, api_key=api_key)
-                            questionnaire = llm_build_unmapped_answer_generators(questionnaire, api_key=api_key)
-                            questionnaire = prepare_question_render_plan(questionnaire)
-
-                            st.session_state.decisions["questionnaire_xlsform"] = questionnaire
-                            st.session_state.questionnaire_submitted = True
-                            st.success("Questionnaire uploaded, mapped, and saved.")
-                        except Exception as e:
-                            st.error(f"Failed to map/save questionnaire: {e}")
-
-
-    # Facilitator mapping review (optional)
-    saved_q = st.session_state.decisions.get("questionnaire_xlsform")
-    if isinstance(saved_q, dict) and saved_q.get("questions"):
-        if st.session_state.get("facilitator_mode", False):
-            with st.expander("Facilitator mapping review (optional)", expanded=False):
-                rows = []
-                for q in saved_q.get("questions", []):
-                    r = q.get("render", {}) or {}
-                    rows.append({
-                        "question_name": q.get("name"),
-                        "type": q.get("type"),
-                        "label": q.get("label"),
-                        "mapped_var": r.get("mapped_var"),
-                        "confidence": r.get("confidence"),
-                        "domain": r.get("domain"),
-                        "rationale": r.get("rationale"),
-                        "unmapped": r.get("mapped_var") in (None, "", "unmapped"),
-                    })
-                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-
-    # Step 4: Generate dataset (requires questionnaire + selections)
-    # -------------------------
-    st.markdown("### Step 4: Generate simulated study dataset")
-
-    can_generate = bool(st.session_state.decisions.get("questionnaire_xlsform")) and bool(st.session_state.decisions.get("selected_cases")) and bool(st.session_state.decisions.get("selected_controls"))
-    if not can_generate:
-        st.info("To generate the dataset, you need: (1) saved XLSForm questionnaire, (2) selected cases, and (3) selected controls.")
         return
 
-    if st.button("Generate Dataset", type="primary"):
-        try:
-            decisions = dict(st.session_state.decisions)
-            decisions["return_sampling_report"] = True
-            df, report = generate_study_dataset(individuals, households, decisions)
+    # Initialize wizard state
+    if "wizard_step" not in st.session_state:
+        st.session_state.wizard_step = 1
+    if "exposure_domains" not in st.session_state.decisions:
+        st.session_state.decisions["exposure_domains"] = {
+            "human_demographics": False,
+            "animal_exposure": False,
+            "environmental_factors": False,
+            "behavioral_factors": False
+        }
 
-            st.session_state.generated_dataset = df
-            st.session_state.sampling_report = report
-            st.session_state.descriptive_analysis_done = True  # proxy
-            st.success("Dataset generated. Preview below; export for analysis as needed.")
+    # Wizard progress indicator
+    st.markdown("---")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        status1 = "[●]" if st.session_state.wizard_step == 1 else "[✓]" if st.session_state.wizard_step > 1 else "[ ]"
+        st.markdown(f"**{status1} Step 1: Methodology**")
+    with col2:
+        status2 = "[●]" if st.session_state.wizard_step == 2 else "[✓]" if st.session_state.wizard_step > 2 else "[ ]"
+        st.markdown(f"**{status2} Step 2: Exposure Domains**")
+    with col3:
+        status3 = "[●]" if st.session_state.wizard_step == 3 else "[ ]"
+        st.markdown(f"**{status3} Step 3: Review**")
+    st.markdown("---")
 
-            with st.expander("Sampling frame summary", expanded=True):
-                st.json({
-                    "case_pool_n": report.get("case_pool_n"),
-                    "control_pool_n": report.get("control_pool_n"),
-                    "cases_selected_n": report.get("cases_selected_n"),
-                    "controls_selected_n": report.get("controls_selected_n"),
-                    "cases_after_nonresponse_n": report.get("cases_after_nonresponse_n"),
-                    "controls_after_nonresponse_n": report.get("controls_after_nonresponse_n"),
-                    "nonresponse_rate": st.session_state.decisions.get("sampling_plan", {}).get("nonresponse_rate"),
-                    "allow_replacement": st.session_state.decisions.get("sampling_plan", {}).get("allow_replacement"),
-                    "control_source": st.session_state.decisions.get("sampling_plan", {}).get("control_source"),
-                })
+    # ========================================
+    # STEP 1: METHODOLOGY
+    # ========================================
+    if st.session_state.wizard_step == 1:
+        st.markdown("## Step 1: Study Methodology")
 
-            st.dataframe(df.head(30), use_container_width=True)
+        # Case definition (read-only)
+        st.markdown("### Case Definition (from Day 1)")
+        cd_text = st.session_state.decisions.get("case_definition_text", "").strip()
+        if cd_text:
+            st.text_area("Working case definition:", value=cd_text, height=100, disabled=True)
+        else:
+            st.warning("No case definition saved yet.")
 
-        except Exception as e:
-            st.error(f"Dataset generation failed: {e}")
+        st.markdown("### Study Design")
+        sd_type = st.radio("Choose a study design:", ["Case-control", "Retrospective cohort"], horizontal=True,
+                          index=0 if st.session_state.decisions.get("study_design", {}).get("type") == "case_control" else 1)
+
+        if sd_type == "Case-control":
+            st.session_state.decisions["study_design"] = {"type": "case_control"}
+            st.info("**Case-control study**: Compare exposures between cases (people with AES) and controls (people without AES).")
+        else:
+            st.session_state.decisions["study_design"] = {"type": "cohort"}
+            st.info("**Retrospective cohort study**: Follow a group back in time to compare disease occurrence between exposed and unexposed individuals.")
+
+        # Navigation
+        if st.button("Next: Exposure Domains", type="primary"):
+            st.session_state.wizard_step = 2
+            st.rerun()
+
+    # ========================================
+    # STEP 2: EXPOSURE DOMAINS (ONE HEALTH)
+    # ========================================
+    elif st.session_state.wizard_step == 2:
+        st.markdown("## Step 2: Exposure Domains (One Health Approach)")
+
+        st.markdown("""
+        Select the exposure domains you want to investigate in your study.
+        A comprehensive One Health investigation covers human, animal, environmental, and behavioral factors.
+        """)
+
+        # Domain checkboxes
+        domains = st.session_state.decisions["exposure_domains"]
+
+        col1, col2 = st.columns(2)
+        with col1:
+            domains["human_demographics"] = st.checkbox(
+                "Human Demographics & Health",
+                value=domains["human_demographics"],
+                help="Age, sex, occupation, clinical symptoms, vaccination history"
+            )
+            domains["animal_exposure"] = st.checkbox(
+                "Animal Exposure",
+                value=domains["animal_exposure"],
+                help="Contact with pigs, poultry, livestock; proximity to animal populations"
+            )
+        with col2:
+            domains["environmental_factors"] = st.checkbox(
+                "Environmental Factors",
+                value=domains["environmental_factors"],
+                help="Water sources, rice paddies, mosquito exposure, housing conditions"
+            )
+            domains["behavioral_factors"] = st.checkbox(
+                "Behavioral & Social Factors",
+                value=domains["behavioral_factors"],
+                help="Outdoor activities, protective measures, living conditions, water use"
+            )
+
+        # Coverage Meter
+        selected_count = sum(domains.values())
+        total_count = len(domains)
+        coverage_pct = (selected_count / total_count) * 100 if total_count > 0 else 0
+
+        st.markdown("### One Health Coverage Meter")
+        st.progress(coverage_pct / 100)
+        st.caption(f"Coverage: {selected_count}/{total_count} domains ({coverage_pct:.0f}%)")
+
+        if coverage_pct < 50:
+            st.warning("Consider selecting more domains for a comprehensive One Health investigation.")
+        elif coverage_pct < 100:
+            st.info("Good coverage. Consider adding remaining domains for completeness.")
+        else:
+            st.success("Excellent! Full One Health coverage across all domains.")
+
+        # Navigation
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Previous: Methodology"):
+                st.session_state.wizard_step = 1
+                st.rerun()
+        with col2:
+            if st.button("Next: Review", type="primary"):
+                st.session_state.wizard_step = 3
+                st.rerun()
+
+    # ========================================
+    # STEP 3: REVIEW & PARTICIPANT SELECTION
+    # ========================================
+    elif st.session_state.wizard_step == 3:
+        st.markdown("## Step 3: Review & Finalize")
+
+        # Review selections
+        with st.expander("Review Study Design", expanded=True):
+            st.markdown("**Study Type:** " + st.session_state.decisions.get("study_design", {}).get("type", "Not selected").replace("_", "-").title())
+            st.markdown("**Exposure Domains Selected:**")
+            domains = st.session_state.decisions["exposure_domains"]
+            for key, selected in domains.items():
+                status = "[✓]" if selected else "[ ]"
+                label = key.replace("_", " ").title()
+                st.markdown(f"{status} {label}")
+
+            # Coverage meter (compact)
+            selected_count = sum(domains.values())
+            total_count = len(domains)
+            coverage_pct = (selected_count / total_count) * 100
+            st.progress(coverage_pct / 100)
+            st.caption(f"One Health Coverage: {coverage_pct:.0f}%")
+
+        # Continue with existing participant selection logic
+        st.markdown("---")
+
+        # Navigation back button
+        if st.button("Previous: Exposure Domains"):
+            st.session_state.wizard_step = 2
+            st.rerun()
+
+        # -------------------------
+        # Participant Selection (only in Step 3)
+        # -------------------------
+        st.markdown("### Participant Selection")
+
+        # Ensure clinic eligibility proxy exists (used for clinic controls)
+        if "reported_to_hospital" not in individuals.columns:
+            individuals = ensure_reported_to_hospital(individuals, random_seed=42)
+            st.session_state.truth["individuals"] = individuals
+
+        case_criteria = st.session_state.decisions.get("case_definition", {"clinical_AES": True})
+        cases_pool = apply_case_definition(individuals, case_criteria).copy()
+        cases_pool = cases_pool.sort_values(["village_id", "onset_date"], na_position="last")
+
+        existing_cases = st.session_state.decisions.get("selected_cases", []) or []
+        existing_controls = st.session_state.decisions.get("selected_controls", []) or []
+
+        # Basic sampling targets
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            n_cases_target = st.number_input("Target # cases", min_value=1, max_value=200, value=int(st.session_state.decisions.get("sample_size", {}).get("cases", 20)), step=1)
+        with c2:
+            controls_per_case = st.number_input("Controls per case", min_value=1, max_value=5, value=int(st.session_state.decisions.get("study_design", {}).get("controls_per_case", 2) or 2), step=1)
+        with c3:
+            nonresponse_rate = st.slider("Expected nonresponse", min_value=0, max_value=25, value=int((st.session_state.decisions.get("sampling_plan", {}) or {}).get("nonresponse_rate", 0.0) * 100), step=1)
+        with c4:
+            allow_replacement = st.checkbox("Allow replacement if nonresponse", value=bool((st.session_state.decisions.get("sampling_plan", {}) or {}).get("allow_replacement", True)))
+
+        st.session_state.decisions["sample_size"] = {"cases": int(n_cases_target), "controls_per_case": int(controls_per_case)}
+        st.session_state.decisions.setdefault("study_design", {})
+        st.session_state.decisions["study_design"]["controls_per_case"] = int(controls_per_case)
+
+        # Show breakdown of case sources if case finding has been done
+        if st.session_state.get('found_cases_added', False) and 'found_via_case_finding' in cases_pool.columns:
+            found_count = cases_pool['found_via_case_finding'].sum() if 'found_via_case_finding' in cases_pool.columns else 0
+            initial_count = len(cases_pool) - found_count
+            st.caption(f"Eligible cases (based on your case definition proxy): **{len(cases_pool)}** ({initial_count} initial + {int(found_count)} from case finding)")
+        else:
+            st.caption(f"Eligible cases (based on your case definition proxy): **{len(cases_pool)}**")
+
+        # ---- CASE SELECTION (manual)
+        with st.form("case_select_form"):
+            st.markdown("#### Select cases")
+            v_filter = st.multiselect("Filter cases by village", sorted(cases_pool["village_id"].dropna().unique().tolist()), default=sorted(cases_pool["village_id"].dropna().unique().tolist()))
+            df_cases = cases_pool[cases_pool["village_id"].isin(v_filter)].copy()
+
+            show_cols = [c for c in ["person_id", "village_id", "hh_id", "age", "sex", "occupation", "onset_date", "severe_neuro", "outcome", "reported_to_hospital"] if c in df_cases.columns]
+            df_cases = df_cases[show_cols].copy()
+            df_cases.insert(0, "select", df_cases["person_id"].isin(existing_cases))
+
+            edited = st.data_editor(
+                df_cases,
+                hide_index=True,
+                use_container_width=True,
+                column_config={"select": st.column_config.CheckboxColumn("Select")},
+                disabled=[c for c in df_cases.columns if c != "select"],
+            )
+
+            submitted = st.form_submit_button("Save selected cases")
+            if submitted:
+                selected = edited[edited["select"] == True]["person_id"].astype(str).tolist()
+                if len(selected) < 1:
+                    st.error("Select at least 1 case.")
+                else:
+                    st.session_state.decisions["selected_cases"] = selected
+                    st.success(f"Saved **{len(selected)}** selected cases.")
+                    st.rerun()
+
+        selected_cases = st.session_state.decisions.get("selected_cases", []) or []
+        if selected_cases:
+            st.info(f"Current case selection: **{len(selected_cases)}** cases selected. Target was {int(n_cases_target)}.")
+
+        # ---- CONTROL SOURCE + ELIGIBILITY
+        st.markdown("#### Controls: source & eligibility")
+        control_source_label = st.selectbox(
+            "Control source",
+            ["Community controls", "Neighborhood controls (near cases)", "Clinic controls (healthcare-seeking)"],
+            index=0,
+        )
+        control_source = "community"
+        if "Neighborhood" in control_source_label:
+            control_source = "neighborhood"
+        elif "Clinic" in control_source_label:
+            control_source = "clinic"
+
+        eligible_villages_default = sorted(list(set(cases_pool[cases_pool["person_id"].isin(selected_cases)]["village_id"].dropna().astype(str).tolist()))) if selected_cases else sorted(cases_pool["village_id"].dropna().unique().tolist())
+        eligible_villages = st.multiselect("Eligible villages for controls", options=sorted(individuals["village_id"].dropna().unique().tolist()), default=eligible_villages_default)
+
+        include_symptomatic_noncase = st.checkbox("Allow symptomatic non-cases as controls (rare)", value=bool((st.session_state.decisions.get("sampling_plan", {}) or {}).get("include_symptomatic_noncase", False)))
+
+        # Optional age eligibility for controls
+        age_mode = st.radio("Control age rule", ["No restriction", "Specify range"], horizontal=True, index=0)
+        control_age_range = None
+        if age_mode == "Specify range":
+            a1, a2 = st.columns(2)
+            with a1:
+                cmin = st.number_input("Control minimum age", min_value=0, max_value=100, value=0, step=1)
+            with a2:
+                cmax = st.number_input("Control maximum age", min_value=0, max_value=100, value=60, step=1)
+            control_age_range = {"min": int(cmin), "max": int(cmax)}
+
+        # Pool for control candidates
+        # (We build a manageable candidate set to avoid huge data_editor tables.)
+        def _build_control_pool():
+            pool = individuals.copy()
+            # non-cases only (by default)
+            pool = pool[pool.get("symptomatic_AES", False).astype(bool) == False].copy()
+            pool = pool[pool["village_id"].isin(eligible_villages)].copy()
+            if control_age_range:
+                pool = pool[(pool["age"] >= int(control_age_range["min"])) & (pool["age"] <= int(control_age_range["max"]))].copy()
+            if control_source == "clinic":
+                pool = pool[pool.get("reported_to_hospital", False).astype(bool) == True].copy()
+            # neighborhood handled in je_logic with weights; here we just show same-village candidates
+            return pool
+
+        controls_pool = _build_control_pool()
+        needed_controls = int(len(selected_cases) * int(controls_per_case)) if selected_cases else int(n_cases_target) * int(controls_per_case)
+        st.caption(f"Eligible controls in pool: **{len(controls_pool)}** | Recommended controls to select: **{needed_controls}**")
+
+        # Candidate sampling for UI
+        if "controls_candidate_ids" not in st.session_state:
+            st.session_state.controls_candidate_ids = []
+        if "controls_candidate_seed" not in st.session_state:
+            st.session_state.controls_candidate_seed = 0
+
+        cbtn1, cbtn2 = st.columns([1, 3])
+        with cbtn1:
+            if st.button("Refresh control candidates"):
+                st.session_state.controls_candidate_seed += 1
+                st.session_state.controls_candidate_ids = []
+                st.rerun()
+
+        # Build candidate list (sample to keep UI snappy)
+        rng = np.random.default_rng(100 + int(st.session_state.controls_candidate_seed))
+        if not st.session_state.controls_candidate_ids:
+            cand_n = min(350, len(controls_pool))
+            if cand_n > 0:
+                cand_ids = controls_pool.sample(n=cand_n, random_state=100 + int(st.session_state.controls_candidate_seed))["person_id"].astype(str).tolist()
+                st.session_state.controls_candidate_ids = cand_ids
+
+        cand_controls = controls_pool[controls_pool["person_id"].astype(str).isin(st.session_state.controls_candidate_ids)].copy()
+        show_cols_c = [c for c in ["person_id", "village_id", "hh_id", "age", "sex", "occupation", "reported_to_hospital"] if c in cand_controls.columns]
+        cand_controls = cand_controls[show_cols_c].copy()
+        cand_controls.insert(0, "select", cand_controls["person_id"].astype(str).isin(existing_controls))
+
+        with st.form("controls_select_form"):
+            st.markdown("#### Select controls (from a candidate list)")
+            edited_c = st.data_editor(
+                cand_controls,
+                hide_index=True,
+                use_container_width=True,
+                column_config={"select": st.column_config.CheckboxColumn("Select")},
+                disabled=[c for c in cand_controls.columns if c != "select"],
+            )
+            sub_c = st.form_submit_button("Save selected controls")
+            if sub_c:
+                selected_c = edited_c[edited_c["select"] == True]["person_id"].astype(str).tolist()
+                if len(selected_c) < 1:
+                    st.error("Select at least 1 control.")
+                else:
+                    st.session_state.decisions["selected_controls"] = selected_c
+                    st.success(f"Saved **{len(selected_c)}** selected controls.")
+                    st.rerun()
+
+        selected_controls = st.session_state.decisions.get("selected_controls", []) or []
+        if selected_controls:
+            st.info(f"Current control selection: **{len(selected_controls)}** controls selected. Recommended: {needed_controls}.")
+
+        # Persist sampling plan (used by dataset generator)
+        st.session_state.decisions["sampling_plan"] = {
+            "control_source": control_source,
+            "eligible_villages": eligible_villages,
+            "include_symptomatic_noncase": bool(include_symptomatic_noncase),
+            "control_age_range": control_age_range,
+            "nonresponse_rate": float(nonresponse_rate) / 100.0,
+            "allow_replacement": bool(allow_replacement),
+            "controls_per_case": int(controls_per_case),
+            "n_cases": int(n_cases_target),
+        }
+
+        # -------------------------
+        # Step 3: Questionnaire (XLSForm upload) — gated
+        # -------------------------
+        st.markdown("### Step 3: Questionnaire (XLSForm upload)")
+
+        if not prereq_ok:
+            st.warning("Questionnaire upload is locked until you have a saved case definition and at least 1 hypothesis (Day 1).")
+        else:
+            st.caption("Build your questionnaire in Kobo (or any XLSForm editor), export as XLSForm (.xlsx), then upload it here.")
+            uploaded = st.file_uploader("Upload XLSForm (.xlsx)", type=["xlsx"], key="xlsform_upload")
+
+            if uploaded is not None:
+                xls_bytes = uploaded.read()
+                st.session_state.decisions["questionnaire_xlsform_bytes"] = xls_bytes
+
+                try:
+                    questionnaire = parse_xlsform(xls_bytes)
+                    st.session_state.decisions["questionnaire_xlsform_preview"] = questionnaire
+
+                    preview_rows = []
+                    for q in questionnaire.get("questions", []):
+                        preview_rows.append({
+                            "name": q.get("name"),
+                            "type": q.get("type"),
+                            "label": q.get("label"),
+                            "list_name": q.get("list_name"),
+                            "n_choices": len(q.get("choices", []) or []),
+                        })
+                    if preview_rows:
+                        st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("No survey questions detected (notes/groups/calculations are ignored).")
+                except Exception as e:
+                    st.error(f"Could not parse this XLSForm. Make sure you uploaded the *form definition* (XLSForm), not a data export. Details: {e}")
+                    questionnaire = None
+
+                if questionnaire:
+                    api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
+                    if not api_key:
+                        st.warning("ANTHROPIC_API_KEY not found in Streamlit secrets. LLM mapping cannot run until it is configured.")
+
+                    if st.button("Run LLM mapping & save questionnaire", key="save_xlsform_questionnaire"):
+                        if not api_key:
+                            st.error("Missing ANTHROPIC_API_KEY in Streamlit secrets.")
+                        else:
+                            try:
+                                questionnaire = llm_map_xlsform_questions(questionnaire, api_key=api_key)
+                                questionnaire = llm_build_select_one_choice_maps(questionnaire, api_key=api_key)
+                                questionnaire = llm_build_unmapped_answer_generators(questionnaire, api_key=api_key)
+                                questionnaire = prepare_question_render_plan(questionnaire)
+
+                                st.session_state.decisions["questionnaire_xlsform"] = questionnaire
+                                st.session_state.questionnaire_submitted = True
+                                st.success("Questionnaire uploaded, mapped, and saved.")
+                            except Exception as e:
+                                st.error(f"Failed to map/save questionnaire: {e}")
+
+
+        # Facilitator mapping review (optional)
+        saved_q = st.session_state.decisions.get("questionnaire_xlsform")
+        if isinstance(saved_q, dict) and saved_q.get("questions"):
+            if st.session_state.get("facilitator_mode", False):
+                with st.expander("Facilitator mapping review (optional)", expanded=False):
+                    rows = []
+                    for q in saved_q.get("questions", []):
+                        r = q.get("render", {}) or {}
+                        rows.append({
+                            "question_name": q.get("name"),
+                            "type": q.get("type"),
+                            "label": q.get("label"),
+                            "mapped_var": r.get("mapped_var"),
+                            "confidence": r.get("confidence"),
+                            "domain": r.get("domain"),
+                            "rationale": r.get("rationale"),
+                            "unmapped": r.get("mapped_var") in (None, "", "unmapped"),
+                        })
+                    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+        # Step 4: Generate dataset (requires questionnaire + selections)
+        # -------------------------
+        st.markdown("### Step 4: Generate simulated study dataset")
+
+        can_generate = bool(st.session_state.decisions.get("questionnaire_xlsform")) and bool(st.session_state.decisions.get("selected_cases")) and bool(st.session_state.decisions.get("selected_controls"))
+        if not can_generate:
+            st.info("To generate the dataset, you need: (1) saved XLSForm questionnaire, (2) selected cases, and (3) selected controls.")
+            return
+
+        if st.button("Generate Dataset", type="primary"):
+            try:
+                decisions = dict(st.session_state.decisions)
+                decisions["return_sampling_report"] = True
+                df, report = generate_study_dataset(individuals, households, decisions)
+
+                st.session_state.generated_dataset = df
+                st.session_state.sampling_report = report
+                st.session_state.descriptive_analysis_done = True  # proxy
+                st.success("Dataset generated. Preview below; export for analysis as needed.")
+
+                with st.expander("Sampling frame summary", expanded=True):
+                    st.json({
+                        "case_pool_n": report.get("case_pool_n"),
+                        "control_pool_n": report.get("control_pool_n"),
+                        "cases_selected_n": report.get("cases_selected_n"),
+                        "controls_selected_n": report.get("controls_selected_n"),
+                        "cases_after_nonresponse_n": report.get("cases_after_nonresponse_n"),
+                        "controls_after_nonresponse_n": report.get("controls_after_nonresponse_n"),
+                        "nonresponse_rate": st.session_state.decisions.get("sampling_plan", {}).get("nonresponse_rate"),
+                        "allow_replacement": st.session_state.decisions.get("sampling_plan", {}).get("allow_replacement"),
+                        "control_source": st.session_state.decisions.get("sampling_plan", {}).get("control_source"),
+                    })
+
+                st.dataframe(df.head(30), use_container_width=True)
+
+            except Exception as e:
+                st.error(f"Dataset generation failed: {e}")
 
 
 
 def view_lab_and_environment():
-    st.header("🧪 " + t("lab", default="Lab & Environment"))
+    st.header(t("lab", default="Lab & Environment"))
     if int(st.session_state.get("current_day", 1)) < 4:
         st.info(t("locked_until_day", day=4))
         return
@@ -4296,7 +4427,7 @@ def get_village_photos(village_name):
 
 def view_village_profiles():
     """Display village briefing documents with stats and images."""
-    st.header("🏘️ Village Profiles - Sidero Valley")
+    st.header("Village Profiles - Sidero Valley")
     
     st.markdown("""
     These background documents provide official information about each village in the investigation area.
@@ -4679,7 +4810,7 @@ def view_village_profiles():
 
 def view_spot_map():
     """Geographic spot map of cases using a custom fictional map."""
-    st.header("📍 Spot Map - Geographic Distribution of Cases")
+    st.header("Spot Map - Geographic Distribution of Cases")
     
     truth = st.session_state.truth
     individuals = truth["individuals"]
@@ -4858,8 +4989,131 @@ def view_spot_map():
         """)
 
 
+def generate_field_briefing(session_state) -> str:
+    """
+    Generate a professional Field Briefing Note in Markdown format.
+    Pulls from decisions, interview_history, and other session data.
+    """
+    from datetime import datetime
+
+    decisions = session_state.get("decisions", {})
+    interview_history = session_state.get("interview_history", {})
+    current_day = session_state.get("current_day", 1)
+
+    # Build the markdown document
+    md = []
+
+    # Header
+    md.append("# FIELD BRIEFING NOTE")
+    md.append("## AES Outbreak Investigation - Sidero Valley")
+    md.append(f"**Date:** {datetime.now().strftime('%Y-%m-%d')}")
+    md.append(f"**Investigation Day:** {current_day} of 5")
+    md.append("")
+    md.append("---")
+    md.append("")
+
+    # Executive Summary
+    md.append("## Executive Summary")
+    md.append("")
+    final_conclusion = decisions.get("final_conclusion", "Investigation in progress")
+    md.append(f"**Conclusion:** {final_conclusion}")
+    md.append("")
+
+    # Case Definition
+    md.append("## Case Definition")
+    md.append("")
+    case_def = decisions.get("case_definition_text", "Not yet defined")
+    md.append(f"{case_def}")
+    md.append("")
+
+    # Hypotheses
+    if session_state.get("initial_hypotheses"):
+        md.append("## Initial Hypotheses")
+        md.append("")
+        for i, hyp in enumerate(session_state.get("initial_hypotheses", []), 1):
+            md.append(f"{i}. {hyp}")
+        md.append("")
+
+    # Study Design
+    md.append("## Study Design")
+    md.append("")
+    study_design = decisions.get("study_design", {})
+    study_type = study_design.get("type", "Not selected")
+    md.append(f"**Design:** {study_type.replace('_', '-').title()}")
+    md.append("")
+
+    # One Health Domains
+    exposure_domains = decisions.get("exposure_domains", {})
+    if exposure_domains:
+        md.append("### One Health Domains Investigated")
+        md.append("")
+        for domain, selected in exposure_domains.items():
+            status = "✓" if selected else "✗"
+            label = domain.replace("_", " ").title()
+            md.append(f"- [{status}] {label}")
+        md.append("")
+
+    # Sample Size
+    sample_size = decisions.get("sample_size", {})
+    if sample_size:
+        md.append("### Sample Size")
+        md.append("")
+        md.append(f"- **Cases:** {sample_size.get('cases', 'N/A')}")
+        md.append(f"- **Controls per case:** {sample_size.get('controls_per_case', 'N/A')}")
+        md.append("")
+
+    # Key Findings from Interviews
+    if interview_history:
+        md.append("## Key Findings from Field Interviews")
+        md.append("")
+        for npc_key, history in interview_history.items():
+            if history:
+                md.append(f"### Interview: {npc_key.replace('_', ' ').title()}")
+                md.append("")
+                # Show first few exchanges
+                for i, msg in enumerate(history[:6], 1):
+                    role = "Investigator" if msg["role"] == "user" else "Respondent"
+                    content = msg["content"][:200] + "..." if len(msg["content"]) > 200 else msg["content"]
+                    md.append(f"**{role}:** {content}")
+                    md.append("")
+                if len(history) > 6:
+                    md.append(f"*... {len(history) - 6} more exchanges*")
+                    md.append("")
+
+    # Final Diagnosis
+    md.append("## Final Diagnosis")
+    md.append("")
+    final_dx = decisions.get("final_diagnosis", "Not yet determined")
+    md.append(f"{final_dx}")
+    md.append("")
+
+    # Recommendations
+    recommendations = decisions.get("recommendations", [])
+    if recommendations:
+        md.append("## Recommendations")
+        md.append("")
+        for i, rec in enumerate(recommendations, 1):
+            md.append(f"{i}. {rec}")
+        md.append("")
+
+    # Laboratory Results
+    if session_state.get("lab_results"):
+        md.append("## Laboratory Results Summary")
+        md.append("")
+        md.append("Laboratory testing was conducted. Results are available in the investigation database.")
+        md.append("")
+
+    # Footer
+    md.append("---")
+    md.append("")
+    md.append("*This field briefing note was generated by the FETP Outbreak Simulation System.*")
+    md.append("*For official use in training exercises only.*")
+
+    return "\n".join(md)
+
+
 def view_interventions_and_outcome():
-    st.header("📉 Interventions & Outcome")
+    st.header("Interventions & Outcome")
 
     st.markdown("### Final Diagnosis")
     dx = st.text_input(
@@ -4878,6 +5132,53 @@ def view_interventions_and_outcome():
         ln for ln in rec_text.splitlines() if ln.strip()
     ]
 
+    st.markdown("### Final Conclusion")
+    conclusion_options = [
+        "Investigation ongoing - more data needed",
+        "Japanese Encephalitis outbreak confirmed",
+        "Other arboviral disease - further testing required",
+        "Environmental exposure identified and mitigated",
+        "Outbreak contained - surveillance continuing",
+        "Custom conclusion"
+    ]
+    conclusion_choice = st.selectbox(
+        "Select your final conclusion:",
+        conclusion_options,
+        index=conclusion_options.index(st.session_state.decisions.get("final_conclusion", conclusion_options[0])) if st.session_state.decisions.get("final_conclusion") in conclusion_options else 0
+    )
+
+    if conclusion_choice == "Custom conclusion":
+        custom_conclusion = st.text_input(
+            "Enter your custom conclusion:",
+            value=st.session_state.decisions.get("final_conclusion", "") if st.session_state.decisions.get("final_conclusion") not in conclusion_options else ""
+        )
+        st.session_state.decisions["final_conclusion"] = custom_conclusion
+    else:
+        st.session_state.decisions["final_conclusion"] = conclusion_choice
+
+    # Generate and export Field Briefing Note
+    st.markdown("---")
+    st.markdown("### Field Briefing Note")
+    st.caption("Generate a professional briefing document summarizing your investigation.")
+
+    if st.button("Generate Field Briefing Note", type="primary"):
+        briefing_md = generate_field_briefing(st.session_state)
+        st.session_state.field_briefing_note = briefing_md
+        st.success("Field Briefing Note generated! Preview and download below.")
+
+    if st.session_state.get("field_briefing_note"):
+        with st.expander("Preview Field Briefing Note", expanded=True):
+            st.markdown(st.session_state.field_briefing_note)
+
+        st.download_button(
+            label="Download Field Briefing Note (.md)",
+            data=st.session_state.field_briefing_note,
+            file_name=f"field_briefing_sidero_valley_day{st.session_state.current_day}.md",
+            mime="text/markdown",
+            help="Download the field briefing as a Markdown file"
+        )
+
+    st.markdown("---")
     if st.button("Evaluate Outcome"):
         outcome = evaluate_interventions(
             st.session_state.decisions, st.session_state.interview_history
@@ -5040,7 +5341,7 @@ def render_interactive_map():
     )
 
     # Display the map with click handling
-    st.markdown("### 🗺️ Click a location to travel there")
+    st.markdown("### Click a location to travel there")
 
     # Use plotly_events for click detection
     selected_point = st.plotly_chart(
@@ -5076,25 +5377,25 @@ def render_interactive_map():
 
 def view_travel_map():
     """Main travel map showing all areas and allowing navigation."""
-    st.title("🗺️ Sidero Valley - Investigation Map")
+    st.title("Sidero Valley - Investigation Map")
 
     # Show current status
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric(f"📅 {t('day')}", f"{st.session_state.current_day} / 5")
+        st.metric(f"{t('day')}", f"{st.session_state.current_day} / 5")
     with col2:
         time_display = f":red[{st.session_state.time_remaining}h]" if st.session_state.time_remaining < 0 else f"{st.session_state.time_remaining}h"
-        st.markdown(f"**⏱️ {t('time_remaining')}**  \n{time_display}")
+        st.markdown(f"**{t('time_remaining')}**  \n{time_display}")
     with col3:
-        st.metric(f"💰 {t('budget')}", f"${st.session_state.budget}")
+        st.metric(f"{t('budget')}", f"${st.session_state.budget}")
     with col4:
-        st.metric(f"🧪 {t('lab_credits')}", st.session_state.lab_credits)
+        st.metric(f"{t('lab_credits')}", st.session_state.lab_credits)
 
     st.markdown("---")
 
     # Day briefing
     if st.session_state.current_day == 1:
-        with st.expander("📋 Day 1 Briefing - Situation Assessment", expanded=True):
+        with st.expander("Day 1 Briefing - Situation Assessment", expanded=True):
             st.markdown("""
             **Your tasks today:**
             - Visit the **District Hospital** to meet Dr. Tran and review cases
@@ -5108,22 +5409,22 @@ def view_travel_map():
     render_interactive_map()
 
     # Quick access to data views
-    st.markdown("### 📊 Investigation Tools")
+    st.markdown("### Investigation Tools")
     cols = st.columns(4)
     with cols[0]:
-        if st.button("📈 Epi Curve & Line List", use_container_width=True):
+        if st.button("Epi Curve & Line List", use_container_width=True):
             st.session_state.current_view = "descriptive"
             st.rerun()
     with cols[1]:
-        if st.button("📍 Spot Map", use_container_width=True):
+        if st.button("Spot Map", use_container_width=True):
             st.session_state.current_view = "spotmap"
             st.rerun()
     with cols[2]:
-        if st.button("📊 Study Design", use_container_width=True):
+        if st.button("Study Design", use_container_width=True):
             st.session_state.current_view = "study"
             st.rerun()
     with cols[3]:
-        if st.button("📋 Final Report", use_container_width=True):
+        if st.button("Final Report", use_container_width=True):
             st.session_state.current_view = "outcome"
             st.rerun()
 
@@ -5480,10 +5781,10 @@ def view_area_map(area: str):
     which provides a more immersive experience with hero images, status badges,
     and improved NPC avatar display. Kept for backwards compatibility.
     """
-    st.title(f"📍 {area}")
+    st.title(f"{area}")
 
     # Return to main map button
-    if st.button("🗺️ Return to Main Map", key="return_to_main"):
+    if st.button("Return to Main Map", key="return_to_main"):
         st.session_state.current_area = None
         st.session_state.current_view = "map"
         st.rerun()
@@ -5524,7 +5825,7 @@ def view_area_map(area: str):
         teams. Key officials work from here.
         """)
 
-    st.markdown("### 📍 Locations to Visit")
+    st.markdown("### Locations to Visit")
 
     # Display locations in grid
     cols = st.columns(2)
@@ -5699,7 +6000,7 @@ def view_location(loc_key: str):
         st.markdown("---")
 
         # Available actions
-        st.markdown("### 🎯 Available Actions")
+        st.markdown("### Available Actions")
         actions = loc.get("available_actions", [])
 
         if not actions:
@@ -5720,78 +6021,78 @@ def render_location_actions(loc_key: str, actions: list):
 
     action_configs = {
         "review_clinic_records": {
-            "label": "📋 Review Clinic Records",
+            "label": "Review Clinic Records",
             "cost_time": TIME_COSTS.get("clinic_records_review", 2.0),
             "cost_budget": 0,
             "handler": "case_finding",
         },
         "view_hospital_records": {
-            "label": "🏥 View Hospital Records",
+            "label": "View Hospital Records",
             "cost_time": 0.5,
             "cost_budget": 0,
             "handler": "hospital_records",
         },
         "collect_pig_sample": {
-            "label": "🐷 Collect Pig Serum Sample",
+            "label": "Collect Pig Serum Sample",
             "cost_time": TIME_COSTS.get("sample_collection", 1.0),
             "cost_budget": BUDGET_COSTS.get("lab_sample_animal", 35),
             "handler": "lab_sample",
             "sample_type": "pig_serum",
         },
         "collect_mosquito_sample": {
-            "label": "🦟 Set Mosquito Trap",
+            "label": "Set Mosquito Trap",
             "cost_time": TIME_COSTS.get("sample_collection", 1.0),
             "cost_budget": BUDGET_COSTS.get("lab_sample_mosquito", 40),
             "handler": "lab_sample",
             "sample_type": "mosquito_pool",
         },
         "collect_water_sample": {
-            "label": "💧 Collect Water Sample",
+            "label": "Collect Water Sample",
             "cost_time": 0.5,
             "cost_budget": 20,
             "handler": "lab_sample",
             "sample_type": "water",
         },
         "inspect_environment": {
-            "label": "🔍 Environmental Inspection",
+            "label": "Environmental Inspection",
             "cost_time": TIME_COSTS.get("environmental_inspection", 2.0),
             "cost_budget": 0,
             "handler": "environment",
         },
         "view_village_profile": {
-            "label": "📊 View Village Profile",
+            "label": "View Village Profile",
             "cost_time": 0,
             "cost_budget": 0,
             "handler": "village_profile",
         },
         "collect_csf_sample": {
-            "label": "🧪 Request CSF Sample",
+            "label": "Request CSF Sample",
             "cost_time": 0.5,
             "cost_budget": BUDGET_COSTS.get("lab_sample_human", 25),
             "handler": "lab_sample",
             "sample_type": "csf",
         },
         "collect_serum_sample": {
-            "label": "💉 Request Patient Serum",
+            "label": "Request Patient Serum",
             "cost_time": 0.5,
             "cost_budget": BUDGET_COSTS.get("lab_sample_human", 25),
             "handler": "lab_sample",
             "sample_type": "human_serum",
         },
         "view_lab_results": {
-            "label": "🔬 View Lab Results",
+            "label": "View Lab Results",
             "cost_time": 0,
             "cost_budget": 0,
             "handler": "lab_results",
         },
         "submit_lab_samples": {
-            "label": "📤 Submit Samples for Testing",
+            "label": "Submit Samples for Testing",
             "cost_time": 0.5,
             "cost_budget": 0,
             "handler": "lab_submit",
         },
         "request_data": {
-            "label": "📊 Request Official Data",
+            "label": "Request Official Data",
             "cost_time": 0.5,
             "cost_budget": 0,
             "handler": "request_data",
@@ -5871,11 +6172,11 @@ def execute_location_action(action: str, config: dict, loc_key: str):
 
 def render_npc_chat(npc_key: str, npc: dict):
     """Render chat interface for an NPC at current location."""
-    st.markdown(f"### 💬 Talking to {npc['avatar']} {npc['name']}")
+    st.markdown(f"### Talking to {npc['avatar']} {npc['name']}")
     st.caption(f"*{npc['role']}*")
 
     # End conversation button
-    if st.button("✖️ End Conversation", key="end_chat"):
+    if st.button("End Conversation", key="end_chat"):
         st.session_state.current_npc = None
         st.rerun()
 
@@ -5920,7 +6221,7 @@ def render_npc_chat(npc_key: str, npc: dict):
 def adventure_sidebar():
     """Minimal sidebar for adventure mode with resources and tools."""
     # Language selector
-    st.sidebar.markdown(f"### 🌐 {t('language_header')}")
+    st.sidebar.markdown(f"### {t('language_header')}")
     lang_options = {"en": "English", "es": "Español", "fr": "Français", "pt": "Português"}
     selected_lang = st.sidebar.selectbox(
         t("language_select"),
@@ -5934,7 +6235,7 @@ def adventure_sidebar():
         st.rerun()
 
     st.sidebar.markdown("---")
-    st.sidebar.title("🦟 AES Investigation")
+    st.sidebar.title("AES Investigation")
 
     if not st.session_state.alert_acknowledged:
         st.sidebar.info("Review the alert to begin.")
@@ -5954,20 +6255,20 @@ def adventure_sidebar():
     st.sidebar.markdown("### Progress")
     for day in range(1, 6):
         if day < st.session_state.current_day:
-            status = "✅"
+            status = "[✓]"
         elif day == st.session_state.current_day:
-            status = "🟡"
+            status = "[●]"
         else:
-            status = "⬜"
+            status = "[ ]"
         st.sidebar.markdown(f"{status} Day {day}")
 
     # Session Management
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 💾 Session")
+    st.sidebar.markdown("### Session")
     col1, col2 = st.sidebar.columns(2)
 
     with col1:
-        if st.button("💾 Save", use_container_width=True, key="save_session"):
+        if st.button("Save", use_container_width=True, key="save_session"):
             try:
                 save_data = persistence.create_save_file(st.session_state)
                 filename = persistence.get_save_filename(st.session_state)
@@ -6025,7 +6326,7 @@ def adventure_sidebar():
     # Advance day button
     st.sidebar.markdown("---")
     if st.session_state.current_day < 5:
-        if st.sidebar.button(f"⏭️ {t('advance_day')} {st.session_state.current_day + 1}", use_container_width=True):
+        if st.sidebar.button(f"{t('advance_day')} {st.session_state.current_day + 1}", use_container_width=True):
             can_advance, missing = check_day_prerequisites(st.session_state.current_day, st.session_state)
             if can_advance:
                 st.session_state.current_day += 1
@@ -6209,47 +6510,47 @@ def main():
     # Legacy views (still accessible via quick links)
     elif view == "overview":
         # Add return to map button
-        if st.button("🗺️ Return to Map", key="return_from_overview"):
+        if st.button("Return to Map", key="return_from_overview"):
             st.session_state.current_view = "map"
             st.rerun()
         view_overview()
     elif view == "casefinding":
-        if st.button("🗺️ Return to Map", key="return_from_casefinding"):
+        if st.button("Return to Map", key="return_from_casefinding"):
             st.session_state.current_view = "map"
             st.rerun()
         view_case_finding()
     elif view == "descriptive":
-        if st.button("🗺️ Return to Map", key="return_from_descriptive"):
+        if st.button("Return to Map", key="return_from_descriptive"):
             st.session_state.current_view = "map"
             st.rerun()
         view_descriptive_epi()
     elif view == "villages":
-        if st.button("🗺️ Return to Map", key="return_from_villages"):
+        if st.button("Return to Map", key="return_from_villages"):
             st.session_state.current_view = "map"
             st.rerun()
         view_village_profiles()
     elif view == "interviews":
-        if st.button("🗺️ Return to Map", key="return_from_interviews"):
+        if st.button("Return to Map", key="return_from_interviews"):
             st.session_state.current_view = "map"
             st.rerun()
         view_interviews()
     elif view == "spotmap":
-        if st.button("🗺️ Return to Map", key="return_from_spotmap"):
+        if st.button("Return to Map", key="return_from_spotmap"):
             st.session_state.current_view = "map"
             st.rerun()
         view_spot_map()
     elif view == "study":
-        if st.button("🗺️ Return to Map", key="return_from_study"):
+        if st.button("Return to Map", key="return_from_study"):
             st.session_state.current_view = "map"
             st.rerun()
         view_study_design()
     elif view == "lab":
-        if st.button("🗺️ Return to Map", key="return_from_lab"):
+        if st.button("Return to Map", key="return_from_lab"):
             st.session_state.current_view = "map"
             st.rerun()
         view_lab_and_environment()
     elif view == "outcome":
-        if st.button("🗺️ Return to Map", key="return_from_outcome"):
+        if st.button("Return to Map", key="return_from_outcome"):
             st.session_state.current_view = "map"
             st.rerun()
         view_interventions_and_outcome()

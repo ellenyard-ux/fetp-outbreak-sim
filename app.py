@@ -449,7 +449,7 @@ LOCATIONS = {
         "image_thumb": "assets/Nalu/nalu_04_health_center_exterior.png",
         "icon": "🏥",
         "npcs": ["nurse_joy"],
-        "available_actions": ["review_clinic_records", "view_hospital_records"],
+        "available_actions": ["review_clinic_records", "view_hospital_records", "view_nalu_child_register"],
         "travel_time": 0.5,
     },
     "nalu_pig_coop": {
@@ -492,6 +492,17 @@ LOCATIONS = {
         "image_path": "assets/Nalu/canal.png",
         "icon": "💧",
         "available_actions": [],
+        "travel_time": 0.5,
+    },
+    "nalu_patient_house": {
+        "name": "Patient A's House",
+        "area": "Nalu Village",
+        "description": "A traditional wooden house on stilts in Nalu Village. The family's livestock - several pigs, chickens, and ducks - are kept underneath and in a small pen nearby. Water jars sit on the porch for drinking and cooking. The house belongs to the family of one of the hospitalized children.",
+        "image_path": "assets/Nalu/nalu_03_pig_pens.png",
+        "image_thumb": "assets/Nalu/nalu_03_pig_pens.png",
+        "icon": "🏠",
+        "npcs": [],
+        "available_actions": ["collect_household_water_sample"],
         "travel_time": 0.5,
     },
     # === KABWE VILLAGE ===
@@ -3828,6 +3839,111 @@ def view_clinic_register_scan():
                 st.error("No records selected!")
 
 
+def view_nalu_child_register():
+    """View Nalu Health Center Child Register - 38 entries with new cases."""
+    from je_logic import get_nalu_child_register, get_nalu_medical_record
+
+    st.title("Nalu Health Center - Child Register")
+    st.caption("Review the child health register to identify potential cases")
+
+    # Back button
+    if st.button("Return to Map", key="return_from_nalu_register"):
+        st.session_state.current_view = "map"
+        st.rerun()
+
+    st.markdown("---")
+
+    # Get the register
+    register = get_nalu_child_register()
+
+    # Convert to DataFrame for display
+    df = pd.DataFrame(register)
+
+    # Instructions
+    st.markdown("""
+    ### Instructions
+    - Review the child register entries below
+    - Look for patterns in complaints and outcomes
+    - Click "View Chart" to see detailed medical records for key patients
+    - Identify potential AES cases based on clinical presentation
+    """)
+
+    st.markdown("---")
+
+    # Display in table format with highlighting
+    st.markdown("### Child Register (38 entries)")
+
+    # Initialize unlocked charts if not exists
+    if 'unlocked_nalu_charts' not in st.session_state:
+        st.session_state['unlocked_nalu_charts'] = []
+
+    # Show table with color coding
+    for idx, entry in enumerate(register):
+        # Determine card color based on status
+        if 'Referred to Hospital' in entry['status']:
+            card_color = "🔴"
+        elif 'Died' in entry['status']:
+            card_color = "⚫"
+        elif 'stiff neck' in entry['complaint'].lower() or 'seizure' in entry['complaint'].lower():
+            card_color = "🟡"
+        else:
+            card_color = "🟢"
+
+        with st.expander(f"{card_color} **{entry['name']}** ({entry['age']} yrs, {entry['sex']}) - {entry['visit_date']}", expanded=False):
+            col1, col2 = st.columns([3, 1])
+
+            with col1:
+                st.markdown(f"**ID:** {entry['id']}")
+                st.markdown(f"**Village:** {entry['village']}")
+                st.markdown(f"**Complaint:** {entry['complaint']}")
+                st.markdown(f"**Status:** {entry['status']}")
+
+            with col2:
+                # Only show view chart button for key patients (those with medical records)
+                key_patients = ['NALU-CH-001', 'NALU-CH-002', 'NALU-CH-017', 'NALU-CH-023', 'NALU-CH-015', 'NALU-CH-022']
+                if entry['id'] in key_patients:
+                    if st.button("View Chart", key=f"chart_{entry['id']}"):
+                        st.session_state['current_chart'] = entry['id']
+                        st.session_state['unlocked_nalu_charts'].append(entry['id'])
+                        st.rerun()
+
+    st.markdown("---")
+
+    # Display medical chart if selected
+    if 'current_chart' in st.session_state and st.session_state.get('current_chart'):
+        chart_id = st.session_state['current_chart']
+        st.markdown(f"### Medical Record: {chart_id}")
+
+        record = get_nalu_medical_record(chart_id)
+
+        if record:
+            with st.container():
+                st.markdown("#### 📋 Patient Chart")
+                for key, value in record.items():
+                    st.markdown(f"**{key}:** {value}")
+
+                if st.button("Close Chart", key="close_chart"):
+                    st.session_state['current_chart'] = None
+                    st.rerun()
+        else:
+            st.warning("No detailed medical record available for this patient.")
+
+    st.markdown("---")
+
+    # Summary statistics
+    st.markdown("### Summary")
+    total = len(register)
+    referrals = sum(1 for e in register if 'Referred to Hospital' in e['status'])
+    deaths = sum(1 for e in register if 'Died' in e['status'])
+    suspected = sum(1 for e in register if any(term in e['complaint'].lower() for term in ['fever', 'seizure', 'stiff neck', 'shaking']))
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Entries", total)
+    col2.metric("Hospital Referrals", referrals)
+    col3.metric("Deaths", deaths)
+    col4.metric("Suspected Neuro Cases", suspected)
+
+
 def view_descriptive_epi():
     """Interactive descriptive epidemiology dashboard - trainees must run analyses themselves."""
     st.header("Descriptive Epidemiology - Analysis Workspace")
@@ -6648,6 +6764,13 @@ def render_location_actions(loc_key: str, actions: list):
             "handler": "lab_sample",
             "sample_type": "water",
         },
+        "collect_household_water_sample": {
+            "label": "Collect Water Sample from Household Jar",
+            "cost_time": 0.5,
+            "cost_budget": 20,
+            "handler": "lab_sample",
+            "sample_type": "household_water",
+        },
         "inspect_environment": {
             "label": "Environmental Inspection",
             "cost_time": TIME_COSTS.get("environmental_inspection", 2.0),
@@ -6697,6 +6820,12 @@ def render_location_actions(loc_key: str, actions: list):
             "cost_time": 0,
             "cost_budget": 0,
             "handler": "interventions",
+        },
+        "view_nalu_child_register": {
+            "label": "Review Nalu Child Register",
+            "cost_time": 1.0,
+            "cost_budget": 0,
+            "handler": "nalu_child_register",
         },
         "view_ward_registry": {
             "label": "📋 View Ward Registry (30 days)",
@@ -6793,6 +6922,15 @@ def execute_location_action(action: str, config: dict, loc_key: str):
     elif handler == "request_data":
         st.session_state.current_view = "descriptive"
         st.rerun()
+    elif handler == "nalu_child_register":
+        # Check if nurse permits access
+        from je_logic import check_nurse_rapport
+        if check_nurse_rapport(st.session_state):
+            st.session_state.current_view = "nalu_child_register"
+            st.rerun()
+        else:
+            st.error("🔒 The nurse refuses access. 'Build better rapport first - show some respect for my time.'")
+            st.rerun()
     elif handler == "ward_registry":
         st.session_state.action_modal = "ward_registry"
         st.rerun()
@@ -6831,11 +6969,76 @@ def render_npc_chat(npc_key: str, npc: dict):
             with st.chat_message("assistant", avatar=get_npc_avatar(npc)):
                 st.write(msg["content"])
 
+    # Special handling for Nurse Mai (nurse_joy) - Rapport mechanic
+    if npc_key == "nurse_joy":
+        # Import je_logic for rapport functions
+        from je_logic import update_nurse_rapport, check_nurse_rapport
+
+        # Initialize rapport and show current status
+        if 'nurse_rapport' not in st.session_state:
+            st.session_state['nurse_rapport'] = 0
+        if 'nurse_initial_dialogue_shown' not in st.session_state:
+            st.session_state['nurse_initial_dialogue_shown'] = False
+
+        # Show rapport status
+        rapport = st.session_state['nurse_rapport']
+        animal_q = st.session_state.get('nurse_animal_questions', 0)
+
+        st.info(f"**Nurse Rapport:** {rapport} | **Animal Questions Asked:** {animal_q}/3")
+
+        # Show initial dialogue choices if first interaction
+        if not st.session_state['nurse_initial_dialogue_shown'] and len(history) == 0:
+            st.markdown("---")
+            st.markdown("**Nurse Mai looks up from her paperwork, clearly stressed and overwhelmed.**")
+            st.markdown('"Why are you here now? I have so many patients to see..."')
+            st.markdown("---")
+            st.markdown("**How do you respond?**")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🚨 'Show me the records. Now.'", key="nurse_demand", use_container_width=True):
+                    result = update_nurse_rapport('demand', st.session_state)
+                    history.append({"role": "user", "content": "'Show me the records. Now.'"})
+                    history.append({"role": "assistant", "content": result['message']})
+                    st.session_state.interview_history[npc_key] = history
+                    st.session_state['nurse_initial_dialogue_shown'] = True
+                    st.rerun()
+
+            with col2:
+                if st.button("💚 'It looks busy here. Thank you for your work.'", key="nurse_empathize", use_container_width=True):
+                    result = update_nurse_rapport('empathize', st.session_state)
+                    history.append({"role": "user", "content": "'It looks busy here. Thank you for your work.'"})
+                    history.append({"role": "assistant", "content": result['message']})
+                    st.session_state.interview_history[npc_key] = history
+                    st.session_state['nurse_initial_dialogue_shown'] = True
+                    st.rerun()
+
+            st.markdown("---")
+            return  # Don't show chat input yet
+
+        # Show pig clue if unlocked
+        if (rapport > 20 or animal_q >= 3) and 'nurse_pig_clue_shown' not in st.session_state:
+            st.success("**🐷 Nurse Mai sighs:** 'Fine. A few pig litters had abortions recently. Young farmers are careless.'")
+            st.session_state['nurse_pig_clue_shown'] = True
+
+        # Show records access status
+        if rapport > 10:
+            st.success("✅ **Records Access Granted** - You may now review the child register.")
+        else:
+            st.warning("🔒 **Records Access Denied** - Improve your rapport to access clinic records.")
+
     # Chat input
     user_q = st.chat_input(f"Ask {npc['name']} a question...")
     if user_q:
         # Check for NPC unlock triggers
         unlock_notification = check_npc_unlock_triggers(user_q)
+
+        # Track animal questions for nurse_joy
+        if npc_key == "nurse_joy":
+            from je_logic import update_nurse_rapport
+            animal_keywords = ['pig', 'pigs', 'livestock', 'animal', 'animals', 'abortion', 'abortions', 'sow', 'sows', 'litter', 'litters']
+            if any(keyword in user_q.lower() for keyword in animal_keywords):
+                update_nurse_rapport('animals', st.session_state)
 
         history.append({"role": "user", "content": user_q})
         st.session_state.interview_history[npc_key] = history
@@ -7206,6 +7409,8 @@ def main():
         view_medical_records()
     elif view == "clinic_register":
         view_clinic_register_scan()
+    elif view == "nalu_child_register":
+        view_nalu_child_register()
     else:
         view_travel_map()
 

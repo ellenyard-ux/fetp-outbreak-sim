@@ -3378,7 +3378,14 @@ def view_interviews():
             time_cost = TIME_COSTS["interview_followup"] if interviewed else TIME_COSTS["interview_initial"]
             budget_cost = 0 if interviewed else npc.get("cost", 0)
 
-            st.markdown(f"**{npc['avatar']} {npc['name']}** {status}")
+            # Display avatar image if available, otherwise use emoji
+            avatar = get_npc_avatar(npc)
+            if avatar != npc.get("avatar", "🧑") and Path(avatar).exists():
+                st.image(avatar, width=120)
+            else:
+                st.markdown(f"# {npc['avatar']}")
+
+            st.markdown(f"**{npc['name']}** {status}")
             st.caption(f"{npc['role']}")
             st.caption(f"Cost: {format_resource_cost(time_cost, budget_cost)}")
 
@@ -3425,7 +3432,18 @@ def view_interviews():
     if npc_key and npc_key in npc_truth:
         npc = npc_truth[npc_key]
         st.markdown("---")
-        st.subheader(f"Talking to {npc['name']} ({npc['role']})")
+
+        # Display avatar in conversation header
+        avatar = get_npc_avatar(npc)
+        col_avatar, col_header = st.columns([1, 5])
+        with col_avatar:
+            if avatar != npc.get("avatar", "🧑") and Path(avatar).exists():
+                st.image(avatar, width=80)
+            else:
+                st.markdown(f"# {npc['avatar']}")
+        with col_header:
+            st.subheader(f"Talking to {npc['name']}")
+            st.caption(f"{npc['role']}")
 
         col1, col2 = st.columns([1, 5])
         with col1:
@@ -6931,8 +6949,17 @@ def execute_location_action(action: str, config: dict, loc_key: str):
 
 def render_npc_chat(npc_key: str, npc: dict):
     """Render chat interface for an NPC at current location."""
-    st.markdown(f"### Talking to {npc['avatar']} {npc['name']}")
-    st.caption(f"*{npc['role']}*")
+    # Display avatar in conversation header
+    avatar = get_npc_avatar(npc)
+    col_avatar, col_header = st.columns([1, 5])
+    with col_avatar:
+        if avatar != npc.get("avatar", "🧑") and Path(avatar).exists():
+            st.image(avatar, width=80)
+        else:
+            st.markdown(f"# {npc['avatar']}")
+    with col_header:
+        st.markdown(f"### Talking to {npc['name']}")
+        st.caption(f"*{npc['role']}*")
 
     # End conversation button
     if st.button("End Conversation", key="end_chat"):

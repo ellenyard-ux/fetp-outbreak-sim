@@ -205,55 +205,22 @@ def load_truth_data(data_dir: str = "data"):
 
 def get_hospital_triage_list():
     """
-    Returns the 'raw' list of patients Dr. Tran presents to the user.
-    Includes the clues (Clinical signs) that help distinguish JE vs Toxin.
-
-    Hospital Census: Only 1 AES patient is currently admitted.
-    Others are marked 'discharged' or 'deceased'.
+    Returns the Day 1 Hospital Ward Triage List.
+    Outline requirement: 9 entries (4 JES, 5 Other).
     """
     return [
-        {
-            "id": "HOSP-01", "age": "6y", "sex": "F", "village": "Nalu",
-            "symptom": "High Fever (39.5C), Seizures, Confusion",
-            "notes": "WBC 18k (High). Neck stiffness.",
-            "is_case": True, "parent_type": "general",
-            "status": "Currently Admitted"
-        },
-        {
-            "id": "HOSP-02", "age": "8y", "sex": "M", "village": "Nalu",
-            "symptom": "Fever, Headache, Vomiting",
-            "notes": "Rapid onset. Malaria RDT Negative.",
-            "is_case": True, "parent_type": "general",
-            "status": "Discharged"
-        },
-        {
-            "id": "HOSP-03", "age": "34y", "sex": "M", "village": "Nalu",
-            "symptom": "Broken Tibia (Motorbike)",
-            "notes": "Afebrile. Alert and oriented.",
-            "is_case": False, "parent_type": "none",
-            "status": "Discharged"
-        },
-        {
-            "id": "HOSP-04", "name": "Panya", "age": "7y", "sex": "F", "village": "Tamu",
-            "symptom": "Fever, Tremors, Lethargy",
-            "notes": "WBC 14k. Parents insist no animals at home.",
-            "is_case": True, "parent_type": "tamu",  # <--- THE KEY CASE (Panya from Tamu)
-            "status": "Discharged"
-        },
-        {
-            "id": "HOSP-05", "age": "4y", "sex": "M", "village": "Kabwe",
-            "symptom": "Convulsions, Coma",
-            "notes": "Temp 40.1C. CSF clear.",
-            "is_case": True, "parent_type": "general",
-            "status": "Deceased"
-        },
-        {
-            "id": "HOSP-06", "age": "2m", "sex": "F", "village": "Kabwe",
-            "symptom": "Cough, Difficulty Breathing",
-            "notes": "Bronchiolitis suspected.",
-            "is_case": False, "parent_type": "none",
-            "status": "Discharged"
-        }
+        # --- The 4 JES Cases (2 known, 2 new) ---
+        {"id": "HOSP-01", "age": "6y", "sex": "F", "village": "Nalu", "symptom": "High Fever, Seizures", "notes": "Admitted.", "is_case": True, "parent_type": "parent_ward", "status": "Admitted"},
+        {"id": "HOSP-02", "age": "8y", "sex": "M", "village": "Nalu", "symptom": "Fever, Coma", "notes": "Critical.", "is_case": True, "parent_type": "parent_general", "status": "Admitted"},
+        {"id": "HOSP-07", "age": "5y", "sex": "M", "village": "Kabwe", "symptom": "Seizures, Confusion", "notes": "New admission.", "is_case": True, "parent_type": "parent_general", "status": "Admitted"},
+        {"id": "HOSP-04", "age": "7y", "sex": "F", "village": "Tamu", "symptom": "Fever, Lethargy", "notes": "The outlier case.", "is_case": True, "parent_type": "parent_tamu", "status": "Discharged"},
+
+        # --- The 5 Non-JES Cases ---
+        {"id": "HOSP-03", "age": "34y", "sex": "M", "village": "Nalu", "symptom": "Broken Leg", "notes": "Trauma.", "is_case": False, "parent_type": "none", "status": "Admitted"},
+        {"id": "HOSP-05", "age": "4y", "sex": "M", "village": "Kabwe", "symptom": "Severe Dehydration", "notes": "No fever. Diarrhea.", "is_case": False, "parent_type": "none", "status": "Discharged"},
+        {"id": "HOSP-06", "age": "2m", "sex": "F", "village": "Kabwe", "symptom": "Cough", "notes": "Bronchiolitis.", "is_case": False, "parent_type": "none", "status": "Discharged"},
+        {"id": "HOSP-08", "age": "10y", "sex": "F", "village": "Nalu", "symptom": "Rash, Joint Pain", "notes": "Dengue suspected.", "is_case": False, "parent_type": "none", "status": "Discharged"},
+        {"id": "HOSP-09", "age": "60y", "sex": "M", "village": "Tamu", "symptom": "Chest Pain", "notes": "Cardiac.", "is_case": False, "parent_type": "none", "status": "Admitted"},
     ]
 
 

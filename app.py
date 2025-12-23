@@ -607,14 +607,14 @@ LOCATIONS = {
         "image_path": "assets/Hospital/hospital_ward.png",
         "image_thumb": "assets/Hospital/hospital_ward.png",
         "icon": "🏥",
-        "npcs": ["dr_chen", "patient_parent", "ward_parent"],
+        "npcs": ["parent_ward", "parent_general"],
         "available_actions": ["review_hospital_records", "collect_csf_sample", "collect_serum_sample", "view_ward_registry"],
         "travel_time": 0.5,
     },
     "hospital_office": {
         "name": "Hospital Admin (Charts)",
         "area": "Admin Office",
-        "description": "Dr. Tran's office. Charts and reports are pinned to the walls. A window overlooks the hospital courtyard. Deep-dive charts are available here showing High Fever (>39C) and Lymphocytosis patterns.",
+        "description": "The hospital director's office. Charts and reports are pinned to the walls. A window overlooks the hospital courtyard. Deep-dive charts are available here showing High Fever (>39C) and Lymphocytosis patterns.",
         "image_path": "assets/Hospital/hospital_admin.png",
         "image_thumb": "assets/Hospital/hospital_admin.png",
         "icon": "📋",
@@ -1633,7 +1633,7 @@ INFORMATION RULES:
     if unlock_flag:
         st.session_state.unlock_flags[unlock_flag] = True
 
-    # SPECIAL LOGIC: Dr. Tran permission granting
+    # SPECIAL LOGIC: Dr. Chen permission granting
     if npc_key == "dr_chen":
         lower_q = user_input.lower()
         # Grant permission if user asks for it
@@ -6168,10 +6168,7 @@ def render_location_card(loc_key: str, loc: dict, npcs_here: list, npc_truth: di
         </div>
         """, unsafe_allow_html=True)
 
-    # Short description
-    if loc_desc:
-        truncated = loc_desc[:80] + "..." if len(loc_desc) > 80 else loc_desc
-        st.caption(truncated)
+    # Short description removed (caption)
 
     # === NPCs Present with Avatar Overlay ===
     if npcs_here:
@@ -6199,13 +6196,9 @@ def render_location_card(loc_key: str, loc: dict, npcs_here: list, npc_truth: di
 
         st.markdown(avatar_html, unsafe_allow_html=True)
 
-        # Show NPC names
-        npc_names = ", ".join([npc.get("name", "Unknown") for _, npc in npcs_here])
-        st.caption(f"👥 {npc_names}")
+        # Show NPC names removed (caption)
 
-    # Travel time
-    if travel_time > 0:
-        st.caption(f"⏱️ Travel: {travel_time}h")
+    # Travel time removed (caption)
 
     # Go to button
     if st.button(f"Go to {loc_name}", key=f"go_{col_key}_{loc_key}", use_container_width=True):
@@ -6427,33 +6420,14 @@ def view_area_map(area: str):
         with cols[i % 2]:
             with st.container():
                 st.markdown(f"**{loc.get('name', loc_key)}**")
-                st.caption(loc.get("description", "")[:100] + "..." if len(loc.get("description", "")) > 100 else loc.get("description", ""))
 
-                # Show NPCs available
-                if npcs_here:
-                    npc_names = ", ".join([f"{n['avatar']} {n['name']}" for n in npcs_here])
-                    st.caption(f"👥 Here: {npc_names}")
+                # Show NPCs available removed (caption)
 
                 # Show available actions
                 actions = loc.get("available_actions", [])
                 if actions:
-                    action_display = {
-                        "review_clinic_records": "📋 Review Records",
-                        "view_hospital_records": "🏥 Medical Records",
-                        "collect_pig_sample": "🐷 Pig Samples",
-                        "collect_mosquito_sample": "🦟 Mosquito Traps",
-                        "collect_water_sample": "💧 Water Samples",
-                        "inspect_environment": "🔍 Inspect",
-                        "view_village_profile": "📊 Village Info",
-                        "collect_csf_sample": "🧪 CSF Sample",
-                        "collect_serum_sample": "💉 Serum Sample",
-                        "view_lab_results": "🔬 Lab Results",
-                        "submit_lab_samples": "📤 Submit Samples",
-                        "request_data": "📊 Request Data",
-                        "plan_interventions": "📝 Plan Actions",
-                    }
-                    action_str = " | ".join([action_display.get(a, a) for a in actions[:3]])
-                    st.caption(f"Actions: {action_str}")
+                    # Actions removed (caption)
+                    pass
 
                 travel_time = loc.get("travel_time", 0.5)
 
@@ -6526,7 +6500,6 @@ def view_location(loc_key: str):
 
     # Header with location name
     st.title(f"{loc_icon} {loc.get('name', loc_key)}")
-    st.caption(f"*{area}*")
 
     # Layout: Image on left, description and NPCs on right
     col1, col2 = st.columns([1, 2])
@@ -6542,8 +6515,6 @@ def view_location(loc_key: str):
                 <p>Location Image</p>
             </div>
             """, unsafe_allow_html=True)
-
-        st.caption(loc.get("description", ""))
 
     with col2:
         # NPCs at this location
@@ -6571,7 +6542,6 @@ def view_location(loc_key: str):
                     with cols[1]:
                         status = "✓ Interviewed" if interviewed else ""
                         st.markdown(f"**{npc['name']}** {status}")
-                        st.caption(npc['role'])
                     with cols[2]:
                         btn_label = "Continue Chat" if interviewed else "Talk"
                         if st.button(btn_label, key=f"talk_{npc_key}"):
@@ -6587,9 +6557,7 @@ def view_location(loc_key: str):
         st.markdown("### Available Actions")
         actions = loc.get("available_actions", [])
 
-        if not actions:
-            st.caption("No special actions available here.")
-        else:
+        if actions:
             render_location_actions(loc_key, actions)
 
     # If we have an active NPC conversation, show it
@@ -6617,8 +6585,8 @@ def render_ward_registry_modal():
 
     # Check permission
     if not st.session_state.get('tran_permission', False):
-        st.error("⛔ Access Denied: You need Dr. Tran's permission to access hospital records.")
-        st.info("💡 **Hint:** Talk to Dr. Tran and ask for 'permission' to access medical records and the laboratory.")
+        st.error("⛔ Access Denied: You need Dr. Chen's permission to access hospital records.")
+        st.info("💡 **Hint:** Talk to Dr. Chen and ask for 'permission' to access medical records and the laboratory.")
         if st.button("Close", key="close_ward_registry"):
             st.session_state.action_modal = None
             st.rerun()
@@ -6688,8 +6656,8 @@ def render_hospital_charts_modal():
 
     # Check permission
     if not st.session_state.get('tran_permission', False):
-        st.error("⛔ Access Denied: You need Dr. Tran's permission to access hospital records.")
-        st.info("💡 **Hint:** Talk to Dr. Tran and ask for 'permission' to access medical records and the laboratory.")
+        st.error("⛔ Access Denied: You need Dr. Chen's permission to access hospital records.")
+        st.info("💡 **Hint:** Talk to Dr. Chen and ask for 'permission' to access medical records and the laboratory.")
         if st.button("Close", key="close_charts"):
             st.session_state.action_modal = None
             st.rerun()

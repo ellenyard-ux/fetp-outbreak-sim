@@ -71,29 +71,31 @@
     "image_path": "assets/Avatars/nurse_mai.png",
     "cost": 50,
     "location": "Nalu Health Center",
-    "personality": "Exhausted, overwhelmed. Kind but disorganized. Gives too much detail.",
+    "personality": "Overwhelmed, rude, defensive. Says 'Why are you here now?' when first approached. Will only cooperate if treated with respect and empathy.",
     "always_reveal": [
-      "Children arrived in clusters on June 3, 6, 7, 9",
-      "Symptoms: sudden high fever, headache, then confusion/seizures",
-      "No rash observed in any cases",
-      "Parents mentioned many mosquitoes at dusk",
-      "She treated many cuts and bruises from farmers, but these kids are different"
+      "I have too many patients to see. The waiting room is full.",
+      "Children have been coming in with high fevers. Some with seizures.",
+      "I don't have time to look through all the records right now.",
+      "If you want to help, show some respect for how busy we are here."
     ],
     "conditional_clues": {
-      "pigs": "Some parents said their pigs were 'screaming' at night before the kids got sick.",
-      "vaccine": "We ran out of Japanese Encephalitis vaccines 18 months ago.",
-      "pesticide": "Farmers use stronger stuff now for the rice bugs, but poisoning usually causes vomiting and drooling, not just fever."
+      "children": "Yes, several children came in with fever and neurological symptoms. I referred the worst ones to the hospital.",
+      "register": "The child register has all the visits. But I won't just hand it over to anyone who demands it.",
+      "vaccine": "We ran out of Japanese Encephalitis vaccines 18 months ago. Budget cuts.",
+      "pesticide": "Farmers use stronger pesticides now for the rice bugs, but poisoning usually causes vomiting and drooling, not just high fever.",
+      "pigs_rapport_unlock": "Fine. A few pig litters had abortions recently. Young farmers are careless. (NOTE: This unlocks at rapport > 20 OR after asking about animals 3 times)"
     },
     "red_herrings": [
       "Thinks maybe bad drinking water is causing illness",
-      "Mentions a rumor about spirits in the forest"
+      "Mentions a rumor about contaminated rice from the new irrigation system"
     ],
     "unknowns": [
       "Lab results",
-      "Specific animal diseases"
+      "Specific animal diseases",
+      "What is causing the outbreak"
     ],
-    "data_access": "triage_logs",
-    "unlocks": null
+    "data_access": "nalu_child_register",
+    "unlocks": "nalu_medical_records"
   },
   "nurse_kabwe": {
     "name": "Nurse Esi",

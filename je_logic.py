@@ -440,6 +440,305 @@ def get_clinic_log(village_id):
     return clinic_logs.get(village_id, [])
 
 
+def get_nalu_child_register():
+    """
+    Returns the Nalu Health Center Child Register with 38 entries.
+    Includes 3 hospital referrals, 1 new death, 2 moderate cases, and 32 noise cases.
+
+    Returns:
+        List of 38 child register entries with ID, name, age, visit_date, complaint, and status.
+    """
+    # Log the event
+    log_event(
+        event_type='view_nalu_child_register',
+        location_id='nalu_health_center',
+        cost_time=30,
+        cost_budget=0,
+        payload={'register': 'child_register'}
+    )
+
+    register = [
+        # === THE 3 REFERRALS (Known Hospital Patients) ===
+        {'id': 'NALU-CH-001', 'name': 'Lan', 'age': 6, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 3', 'complaint': 'High fever, shaking, very sleepy',
+         'status': 'Referred to Hospital'},
+        {'id': 'NALU-CH-002', 'name': 'Minh', 'age': 9, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 4', 'complaint': 'Burning hot, head hurts badly, confused',
+         'status': 'Referred to Hospital'},
+        {'id': 'NALU-CH-017', 'name': 'Baby Tuan', 'age': 4, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 6', 'complaint': 'Fever, shaking, won\'t wake up',
+         'status': 'Referred to Hospital'},
+
+        # === THE NEW DEATH (New Discovery) ===
+        {'id': 'NALU-CH-023', 'name': 'Anh', 'age': 7, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 7', 'complaint': 'Hot fever, then seizures at home',
+         'status': 'Died at home June 8'},
+
+        # === THE 2 MODERATE CASES (New Cases) ===
+        {'id': 'NALU-CH-015', 'name': 'Hien', 'age': 8, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 5', 'complaint': 'Fever, headache, neck feels stiff',
+         'status': 'Sent home with medicine'},
+        {'id': 'NALU-CH-022', 'name': 'Linh', 'age': 6, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 7', 'complaint': 'Fever, headache, stiff neck, tired',
+         'status': 'Sent home with medicine'},
+
+        # === NOISE CASES (32 entries: well-baby, vaccinations, malaria, minor illnesses) ===
+        {'id': 'NALU-CH-003', 'name': 'Baby Nga', 'age': 2, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 1', 'complaint': 'Well-baby checkup', 'status': 'Healthy'},
+        {'id': 'NALU-CH-004', 'name': 'Phuc', 'age': 5, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 1', 'complaint': 'Vaccination (DPT booster)', 'status': 'Vaccinated'},
+        {'id': 'NALU-CH-005', 'name': 'Thu', 'age': 3, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 2', 'complaint': 'Cough, runny nose', 'status': 'Treated'},
+        {'id': 'NALU-CH-006', 'name': 'Khai', 'age': 7, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 2', 'complaint': 'Diarrhea for 1 day', 'status': 'ORS given'},
+        {'id': 'NALU-CH-007', 'name': 'Baby Vy', 'age': 1, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 3', 'complaint': 'Well-baby checkup', 'status': 'Healthy'},
+        {'id': 'NALU-CH-008', 'name': 'Tung', 'age': 9, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 3', 'complaint': 'Malaria-like fever, tested negative', 'status': 'Treated'},
+        {'id': 'NALU-CH-009', 'name': 'Chi', 'age': 4, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 4', 'complaint': 'Skin rash, itchy', 'status': 'Cream applied'},
+        {'id': 'NALU-CH-010', 'name': 'Bao', 'age': 6, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 4', 'complaint': 'Vaccination (MMR)', 'status': 'Vaccinated'},
+        {'id': 'NALU-CH-011', 'name': 'My', 'age': 8, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 5', 'complaint': 'Scraped knee from fall', 'status': 'Cleaned and bandaged'},
+        {'id': 'NALU-CH-012', 'name': 'Dat', 'age': 5, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 5', 'complaint': 'Stomach ache, ate too much fruit', 'status': 'Observation'},
+        {'id': 'NALU-CH-013', 'name': 'Baby Hong', 'age': 2, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 6', 'complaint': 'Well-baby checkup', 'status': 'Healthy'},
+        {'id': 'NALU-CH-014', 'name': 'Tai', 'age': 10, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 6', 'complaint': 'Toothache', 'status': 'Referred to dentist'},
+        {'id': 'NALU-CH-016', 'name': 'Huong', 'age': 3, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 6', 'complaint': 'Vaccination (Polio)', 'status': 'Vaccinated'},
+        {'id': 'NALU-CH-018', 'name': 'Nam', 'age': 7, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 7', 'complaint': 'Malaria test (positive)', 'status': 'Antimalarial given'},
+        {'id': 'NALU-CH-019', 'name': 'Tuyet', 'age': 5, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 7', 'complaint': 'Cough for 3 days', 'status': 'Treated'},
+        {'id': 'NALU-CH-020', 'name': 'Baby Son', 'age': 1, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 8', 'complaint': 'Well-baby checkup', 'status': 'Healthy'},
+        {'id': 'NALU-CH-021', 'name': 'Phuong', 'age': 9, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 8', 'complaint': 'Eye irritation from dust', 'status': 'Eye drops given'},
+        {'id': 'NALU-CH-024', 'name': 'Dung', 'age': 4, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 8', 'complaint': 'Vaccination (Hepatitis B)', 'status': 'Vaccinated'},
+        {'id': 'NALU-CH-025', 'name': 'Hanh', 'age': 6, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 9', 'complaint': 'Fever, tested for malaria (negative)', 'status': 'Paracetamol given'},
+        {'id': 'NALU-CH-026', 'name': 'Vinh', 'age': 8, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 9', 'complaint': 'Minor cut on hand', 'status': 'Cleaned and bandaged'},
+        {'id': 'NALU-CH-027', 'name': 'Baby Quynh', 'age': 2, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 9', 'complaint': 'Well-baby checkup', 'status': 'Healthy'},
+        {'id': 'NALU-CH-028', 'name': 'Thao', 'age': 7, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 10', 'complaint': 'Earache', 'status': 'Antibiotics given'},
+        {'id': 'NALU-CH-029', 'name': 'Loc', 'age': 5, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 10', 'complaint': 'Vaccination (Measles)', 'status': 'Vaccinated'},
+        {'id': 'NALU-CH-030', 'name': 'Nhi', 'age': 9, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 10', 'complaint': 'Stomach ache, vomiting once', 'status': 'ORS given'},
+        {'id': 'NALU-CH-031', 'name': 'Baby Khang', 'age': 1, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 11', 'complaint': 'Well-baby checkup', 'status': 'Healthy'},
+        {'id': 'NALU-CH-032', 'name': 'Yen', 'age': 6, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 11', 'complaint': 'Insect bite, swollen', 'status': 'Antihistamine given'},
+        {'id': 'NALU-CH-033', 'name': 'Hung', 'age': 10, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 11', 'complaint': 'Sprained ankle from sports', 'status': 'Rest advised'},
+        {'id': 'NALU-CH-034', 'name': 'Giang', 'age': 4, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 12', 'complaint': 'Mild fever, playing normally', 'status': 'Observation'},
+        {'id': 'NALU-CH-035', 'name': 'Tri', 'age': 7, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 12', 'complaint': 'Vaccination (Typhoid)', 'status': 'Vaccinated'},
+        {'id': 'NALU-CH-036', 'name': 'Baby Ly', 'age': 2, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 12', 'complaint': 'Well-baby checkup', 'status': 'Healthy'},
+        {'id': 'NALU-CH-037', 'name': 'Quang', 'age': 8, 'sex': 'M', 'village': 'Nalu',
+         'visit_date': 'June 13', 'complaint': 'Runny nose, sneezing', 'status': 'Treated'},
+        {'id': 'NALU-CH-038', 'name': 'Hoa', 'age': 5, 'sex': 'F', 'village': 'Nalu',
+         'visit_date': 'June 13', 'complaint': 'Skin rash on arms', 'status': 'Cream applied'},
+    ]
+
+    return register
+
+
+def get_nalu_medical_record(patient_id):
+    """
+    Returns a "messier" medical record from Nalu Health Center.
+    Records have missing vitals, brief notes, and incomplete data compared to hospital charts.
+
+    Args:
+        patient_id: Patient ID from the child register (e.g., "NALU-CH-023")
+
+    Returns:
+        Dictionary with medical record data, or None if not found.
+    """
+    # Log the event
+    log_event(
+        event_type='view_nalu_medical_record',
+        location_id=patient_id,
+        cost_time=5,
+        cost_budget=0,
+        payload={'patient_id': patient_id}
+    )
+
+    # Messier medical records for key patients
+    records = {
+        # The 3 Hospital Referrals
+        'NALU-CH-001': {
+            'Patient ID': 'NALU-CH-001',
+            'Name': 'Lan',
+            'Age': '6 years',
+            'Sex': 'F',
+            'Village': 'Nalu',
+            'Visit Date': 'June 3',
+            'Complaint': 'Mother says "hot to touch, shaking badly"',
+            'Vitals': 'Hot skin (no thermometer available)',
+            'Exam': 'Shaking. Very sleepy. Not responding well.',
+            'Notes': 'REFERRED TO HOSPITAL - too sick for clinic',
+            'Outcome': 'Sent to District Hospital'
+        },
+        'NALU-CH-002': {
+            'Patient ID': 'NALU-CH-002',
+            'Name': 'Minh',
+            'Age': '9 years',
+            'Sex': 'M',
+            'Village': 'Nalu',
+            'Visit Date': 'June 4',
+            'Complaint': 'Head hurts, burning hot, confused',
+            'Vitals': 'Temp: high (thermometer broken)',
+            'Exam': 'Confused. Doesn\'t know where he is.',
+            'Notes': 'REFERRED TO HOSPITAL - needs doctor',
+            'Outcome': 'Sent to District Hospital'
+        },
+        'NALU-CH-017': {
+            'Patient ID': 'NALU-CH-017',
+            'Name': 'Baby Tuan',
+            'Age': '4 years',
+            'Sex': 'M',
+            'Village': 'Nalu',
+            'Visit Date': 'June 6',
+            'Complaint': 'Fever, shaking, won\'t wake up',
+            'Vitals': 'Very hot',
+            'Exam': 'Won\'t wake up. Shaking.',
+            'Notes': 'REFERRED TO HOSPITAL URGENTLY',
+            'Outcome': 'Sent to District Hospital'
+        },
+
+        # The New Death
+        'NALU-CH-023': {
+            'Patient ID': 'NALU-CH-023',
+            'Name': 'Anh',
+            'Age': '7 years',
+            'Sex': 'F',
+            'Village': 'Nalu',
+            'Visit Date': 'June 7',
+            'Complaint': 'Hot fever, then seizures at home',
+            'Vitals': 'Not recorded (came after hours)',
+            'Exam': 'Mother says "shaking, then stopped breathing at home"',
+            'Notes': 'Family brought body to clinic morning of June 8. Said child had fever June 7, then seizures at night. Died at home.',
+            'Outcome': 'DIED AT HOME - June 8'
+        },
+
+        # The 2 Moderate Cases
+        'NALU-CH-015': {
+            'Patient ID': 'NALU-CH-015',
+            'Name': 'Hien',
+            'Age': '8 years',
+            'Sex': 'M',
+            'Village': 'Nalu',
+            'Visit Date': 'June 5',
+            'Complaint': 'Fever, headache, neck feels stiff',
+            'Vitals': 'Temp: high (no exact reading)',
+            'Exam': 'Neck stiff. Says head hurts. Hot skin.',
+            'Notes': 'Gave paracetamol. Told mother to watch for worsening.',
+            'Outcome': 'Sent home with medicine'
+        },
+        'NALU-CH-022': {
+            'Patient ID': 'NALU-CH-022',
+            'Name': 'Linh',
+            'Age': '6 years',
+            'Sex': 'F',
+            'Village': 'Nalu',
+            'Visit Date': 'June 7',
+            'Complaint': 'Fever, headache, stiff neck, tired',
+            'Vitals': 'Temp: feels very hot',
+            'Exam': 'Stiff neck. Very tired. Headache.',
+            'Notes': 'Gave paracetamol. Advised rest and fluids.',
+            'Outcome': 'Sent home with medicine'
+        },
+    }
+
+    return records.get(patient_id, None)
+
+
+def update_nurse_rapport(choice, session_state=None):
+    """
+    Updates nurse rapport based on dialogue choice.
+
+    Args:
+        choice: 'demand' (rapport -10) or 'empathize' (rapport +10) or 'animals' (track count)
+        session_state: Streamlit session state object (optional)
+
+    Returns:
+        Dictionary with 'rapport', 'message', and 'unlocks' keys.
+    """
+    if session_state is None and st:
+        session_state = st.session_state
+
+    # Initialize rapport if not exists
+    if 'nurse_rapport' not in session_state:
+        session_state['nurse_rapport'] = 0
+
+    # Initialize animal question count
+    if 'nurse_animal_questions' not in session_state:
+        session_state['nurse_animal_questions'] = 0
+
+    # Update based on choice
+    if choice == 'demand':
+        session_state['nurse_rapport'] -= 10
+        message = "The nurse crosses her arms. 'I don't have time for this right now. Come back later.'"
+        unlocks = {}
+    elif choice == 'empathize':
+        session_state['nurse_rapport'] += 10
+        message = "The nurse's expression softens slightly. 'Thank you... it has been hard.'"
+        unlocks = {}
+    elif choice == 'animals':
+        session_state['nurse_animal_questions'] += 1
+        message = None  # Will be handled by NPC chat
+        unlocks = {}
+    else:
+        message = "Invalid choice."
+        unlocks = {}
+
+    # Check unlocks
+    rapport = session_state['nurse_rapport']
+    animal_q = session_state.get('nurse_animal_questions', 0)
+
+    if rapport > 10:
+        unlocks['records_access'] = True
+    else:
+        unlocks['records_access'] = False
+
+    if rapport > 20 or animal_q >= 3:
+        unlocks['pig_clue'] = True
+    else:
+        unlocks['pig_clue'] = False
+
+    return {
+        'rapport': rapport,
+        'message': message,
+        'unlocks': unlocks
+    }
+
+
+def check_nurse_rapport(session_state=None):
+    """
+    Checks if nurse permits records access based on rapport.
+
+    Args:
+        session_state: Streamlit session state object (optional)
+
+    Returns:
+        Boolean indicating if records access is permitted.
+    """
+    if session_state is None and st:
+        session_state = st.session_state
+
+    rapport = session_state.get('nurse_rapport', 0)
+    return rapport > 10
+
+
 def check_case_definition(criteria, patient=None):
     """
     Validates case definition criteria to ensure they rely on Clinical/Person/Place/Time

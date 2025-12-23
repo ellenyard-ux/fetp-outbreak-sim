@@ -1637,9 +1637,9 @@ INFORMATION RULES:
     if npc_key == "dr_chen":
         lower_q = user_input.lower()
         # Grant permission if user asks for it
-        if any(keyword in lower_q for keyword in ["permission", "access", "records", "lab", "charts", "registry"]):
-            if "?" in lower_q:  # Must be a question
-                st.session_state.tran_permission = True
+        if any(keyword in lower_q for keyword in ["permission", "access", "records", "investigate", "allow"]):
+            st.session_state.unlock_flags['records_access'] = True
+            st.rerun()  # Force refresh to unlock the buttons immediately
 
     # SPECIAL LOGIC: Ward Parent livestock question counter
     if npc_key == "ward_parent":

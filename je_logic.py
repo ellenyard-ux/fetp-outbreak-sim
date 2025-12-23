@@ -3231,3 +3231,473 @@ def set_game_state(state: str, session_state):
         raise ValueError(f"Invalid game state: {state}. Must be one of {valid_states}")
 
     session_state.game_state = state
+
+
+# =======================
+# DISTRICT HOSPITAL LOGIC
+# =======================
+
+def generate_ward_registry(num_days: int = 30, random_seed: int = 42) -> pd.DataFrame:
+    """
+    Generate a realistic 30-day ward registry with 60 admissions.
+
+    Signal: 9 entries with neuro/fever complaints:
+        - 5 "False Alarms" (Malaria, Trauma, Dysentery)
+        - 4 "Hidden" JES cases (Fever + Altered Mental Status)
+
+    Noise: 51 standard hospital burden cases
+
+    Args:
+        num_days: Number of days to generate (default 30)
+        random_seed: Random seed for reproducibility
+
+    Returns:
+        DataFrame with ward registry entries
+    """
+    import random
+    import datetime
+
+    random.seed(random_seed)
+    np.random.seed(random_seed)
+
+    # Define the end date (today) and start date
+    end_date = datetime.date(2025, 6, 12)  # Day 1 of investigation
+    start_date = end_date - datetime.timedelta(days=num_days - 1)
+
+    # The 2 known cases (already in medical records)
+    known_case_ids = ['WARD-001', 'WARD-002']
+
+    # The 5 False Alarm cases
+    false_alarms = [
+        {'id': 'WARD-017', 'age': '8y', 'sex': 'M', 'complaint': 'Fever, chills, sweating', 'diagnosis': 'Malaria - Positive smear', 'outcome': 'Recovered', 'is_signal': True, 'is_je': False},
+        {'id': 'WARD-023', 'age': '12y', 'sex': 'F', 'complaint': 'High fever, rigors', 'diagnosis': 'Malaria - Positive RDT', 'outcome': 'Recovered', 'is_signal': True, 'is_je': False},
+        {'id': 'WARD-031', 'age': '34y', 'sex': 'M', 'complaint': 'Leg pain, swelling', 'diagnosis': 'Fracture - Tibia (motorbike)', 'outcome': 'Recovered', 'is_signal': True, 'is_je': False},
+        {'id': 'WARD-042', 'age': '4y', 'sex': 'F', 'complaint': 'Bloody diarrhea, abdominal pain', 'diagnosis': 'Dysentery', 'outcome': 'Recovered', 'is_signal': True, 'is_je': False},
+        {'id': 'WARD-051', 'age': '6y', 'sex': 'M', 'complaint': 'Watery diarrhea, fever', 'diagnosis': 'Acute gastroenteritis', 'outcome': 'Recovered', 'is_signal': True, 'is_je': False},
+    ]
+
+    # The 4 Hidden JES cases
+    hidden_jes = [
+        {'id': 'WARD-013', 'age': '5y', 'sex': 'F', 'complaint': 'Fever, altered mental status, stiff neck', 'diagnosis': 'Fever - under observation', 'outcome': 'Admitted', 'is_signal': True, 'is_je': True},
+        {'id': 'WARD-028', 'age': '7y', 'sex': 'M', 'complaint': 'High fever, confusion, headache', 'diagnosis': 'Fever - cause unknown', 'outcome': 'Recovered', 'is_signal': True, 'is_je': True},
+        {'id': 'WARD-037', 'age': '6y', 'sex': 'F', 'complaint': 'Fever, drowsiness, vomiting', 'diagnosis': 'Febrile illness - unspecified', 'outcome': 'Recovered', 'is_signal': True, 'is_je': True},
+        {'id': 'WARD-046', 'age': '9y', 'sex': 'M', 'complaint': 'Fever, lethargy, neck stiffness', 'diagnosis': 'Fever - neurological signs', 'outcome': 'Admitted', 'is_signal': True, 'is_je': True},
+    ]
+
+    # Noise cases (standard hospital burden)
+    noise_templates = [
+        ('Pneumonia', 'Cough, fever, difficulty breathing', 'Pneumonia', 'Recovered'),
+        ('Pneumonia', 'Chest pain, productive cough', 'Pneumonia', 'Recovered'),
+        ('Birth', 'Labor pains', 'Normal vaginal delivery', 'Discharged'),
+        ('Birth', 'Contractions', 'Cesarean section', 'Discharged'),
+        ('Injury', 'Laceration - right arm', 'Wound repair', 'Recovered'),
+        ('Injury', 'Burn - hot water', 'Burn treatment', 'Recovered'),
+        ('Malaria', 'Fever, headache', 'Malaria - treated', 'Recovered'),
+        ('Malaria', 'Chills, body aches', 'Malaria - treated', 'Recovered'),
+        ('Diarrhea', 'Watery diarrhea', 'Acute gastroenteritis', 'Recovered'),
+        ('Diarrhea', 'Vomiting, diarrhea', 'Dehydration', 'Recovered'),
+        ('Asthma', 'Wheezing, shortness of breath', 'Asthma exacerbation', 'Recovered'),
+        ('Diabetes', 'High blood sugar', 'Diabetes management', 'Discharged'),
+        ('Hypertension', 'Severe headache, high BP', 'Hypertensive crisis', 'Recovered'),
+        ('Appendicitis', 'Right lower abdominal pain', 'Appendectomy', 'Recovered'),
+        ('UTI', 'Painful urination', 'Urinary tract infection', 'Recovered'),
+    ]
+
+    # Build the registry
+    registry = []
+
+    # Add known cases
+    for idx, case_id in enumerate(known_case_ids):
+        admission_date = start_date + datetime.timedelta(days=random.randint(0, num_days - 5))
+        registry.append({
+            'Patient_ID': case_id,
+            'Admission_Date': admission_date.strftime('%Y-%m-%d'),
+            'Age': ['6y', '7y'][idx],
+            'Sex': ['M', 'F'][idx],
+            'Chief_Complaint': 'High fever, seizures, altered consciousness',
+            'Diagnosis': 'Acute Encephalitis Syndrome',
+            'Outcome': ['Admitted', 'Deceased'][idx],
+            'is_signal': True,
+            'is_je': True
+        })
+
+    # Add false alarms
+    for case in false_alarms:
+        admission_date = start_date + datetime.timedelta(days=random.randint(0, num_days - 1))
+        registry.append({
+            'Patient_ID': case['id'],
+            'Admission_Date': admission_date.strftime('%Y-%m-%d'),
+            'Age': case['age'],
+            'Sex': case['sex'],
+            'Chief_Complaint': case['complaint'],
+            'Diagnosis': case['diagnosis'],
+            'Outcome': case['outcome'],
+            'is_signal': case['is_signal'],
+            'is_je': case['is_je']
+        })
+
+    # Add hidden JES cases
+    for case in hidden_jes:
+        admission_date = start_date + datetime.timedelta(days=random.randint(0, num_days - 1))
+        registry.append({
+            'Patient_ID': case['id'],
+            'Admission_Date': admission_date.strftime('%Y-%m-%d'),
+            'Age': case['age'],
+            'Sex': case['sex'],
+            'Chief_Complaint': case['complaint'],
+            'Diagnosis': case['diagnosis'],
+            'Outcome': case['outcome'],
+            'is_signal': case['is_signal'],
+            'is_je': case['is_je']
+        })
+
+    # Add noise cases to reach ~60 total
+    current_count = len(registry)
+    needed_noise = 60 - current_count
+
+    patient_id_counter = 60
+    for i in range(needed_noise):
+        template = random.choice(noise_templates)
+        category, complaint, diagnosis, outcome = template
+
+        # Generate random demographics
+        age = f"{random.randint(1, 65)}y" if random.random() > 0.2 else f"{random.randint(1, 24)}m"
+        sex = random.choice(['M', 'F'])
+
+        admission_date = start_date + datetime.timedelta(days=random.randint(0, num_days - 1))
+
+        registry.append({
+            'Patient_ID': f'WARD-{patient_id_counter:03d}',
+            'Admission_Date': admission_date.strftime('%Y-%m-%d'),
+            'Age': age,
+            'Sex': sex,
+            'Chief_Complaint': complaint,
+            'Diagnosis': diagnosis,
+            'Outcome': outcome,
+            'is_signal': False,
+            'is_je': False
+        })
+        patient_id_counter += 1
+
+    # Convert to DataFrame and sort by date
+    df = pd.DataFrame(registry)
+    df = df.sort_values('Admission_Date', ascending=False).reset_index(drop=True)
+
+    return df
+
+
+def get_paper_chart_text(patient_id: str) -> str:
+    """
+    Generate realistic paper chart text for a patient.
+
+    CRITICAL: NO RISK FACTORS mentioned (no pigs, rice fields, mosquitoes, nets).
+    Only clinical data and demographics.
+
+    Args:
+        patient_id: Patient ID (e.g., 'WARD-001', 'WARD-013')
+
+    Returns:
+        Formatted chart text in handwritten style
+    """
+    # Define chart templates
+    charts = {
+        # The 2 known JES cases
+        'WARD-001': {
+            'name': 'Kwame A.',
+            'age': '6y',
+            'sex': 'M',
+            'village': 'Nalu',
+            'date': 'June 3, 2025',
+            'temp': '39.5°C',
+            'hr': '128',
+            'symptoms': 'High fever × 2d, multiple seizures, confusion',
+            'exam': 'Neck stiffness +, Brudzinski sign +, GCS 11/15',
+            'labs': 'WBC 18,200 (elevated), CSF: clear, lymphocytes 45',
+            'diagnosis': 'Acute viral encephalitis - presumed',
+            'notes': 'Started on IV fluids, diazepam for seizures. Monitor closely.'
+        },
+        'WARD-002': {
+            'name': 'Esi M.',
+            'age': '7y',
+            'sex': 'F',
+            'village': 'Nalu',
+            'date': 'June 9, 2025',
+            'temp': '40.1°C',
+            'hr': '145',
+            'symptoms': 'Fever × 3d, severe headache, vomiting, now unresponsive',
+            'exam': 'GCS 6/15, pupils sluggish, decorticate posturing',
+            'labs': 'WBC 16,400, CSF: protein elevated, glucose normal',
+            'diagnosis': 'Severe encephalitis with raised ICP',
+            'notes': 'Critical condition. Family at bedside. Supportive care only.'
+        },
+
+        # The 5 False Alarms
+        'WARD-017': {
+            'name': 'John K.',
+            'age': '8y',
+            'sex': 'M',
+            'village': 'Kabwe',
+            'date': 'May 25, 2025',
+            'temp': '38.9°C',
+            'hr': '115',
+            'symptoms': 'Fever × 2d, chills, sweating episodes',
+            'exam': 'Alert, oriented. Spleen palpable. No neck stiffness.',
+            'labs': 'Malaria smear: POSITIVE for P. falciparum',
+            'diagnosis': 'Uncomplicated malaria',
+            'notes': 'Started ACT. Improving on Day 2.'
+        },
+        'WARD-023': {
+            'name': 'Grace N.',
+            'age': '12y',
+            'sex': 'F',
+            'village': 'Nalu',
+            'date': 'May 30, 2025',
+            'temp': '39.2°C',
+            'hr': '108',
+            'symptoms': 'High fever, rigors, body aches',
+            'exam': 'Conscious, mild hepatomegaly. Neuro: normal',
+            'labs': 'Malaria RDT: POSITIVE',
+            'diagnosis': 'Malaria',
+            'notes': 'ACT given. Discharged Day 3.'
+        },
+        'WARD-031': {
+            'name': 'Peter O.',
+            'age': '34y',
+            'sex': 'M',
+            'village': 'Mining Area',
+            'date': 'June 2, 2025',
+            'temp': '36.8°C',
+            'hr': '88',
+            'symptoms': 'Right leg pain, swelling after motorbike accident',
+            'exam': 'AFEBRILE. Alert. Obvious deformity right tibia.',
+            'labs': 'X-ray: Tibial fracture - mid-shaft',
+            'diagnosis': 'Closed tibial fracture',
+            'notes': 'Ortho consult. Cast applied. Pain controlled.'
+        },
+        'WARD-042': {
+            'name': 'Sarah L.',
+            'age': '4y',
+            'sex': 'F',
+            'village': 'Kabwe',
+            'date': 'June 7, 2025',
+            'temp': '37.8°C',
+            'hr': '102',
+            'symptoms': 'Bloody diarrhea × 3d, cramping abdominal pain',
+            'exam': 'Mild dehydration. Abdomen tender. NO fever. Neuro: intact',
+            'labs': 'Stool: WBC ++, RBC +++',
+            'diagnosis': 'Dysentery - bacterial',
+            'notes': 'IV fluids, ciprofloxacin. Improving.'
+        },
+        'WARD-051': {
+            'name': 'David M.',
+            'age': '6y',
+            'sex': 'M',
+            'village': 'Nalu',
+            'date': 'June 10, 2025',
+            'temp': '37.9°C',
+            'hr': '98',
+            'symptoms': 'Watery diarrhea × 2d, low-grade fever, vomiting',
+            'exam': 'Mildly dehydrated. Alert. Abdomen soft. Neuro: normal',
+            'labs': 'Stool: watery, no blood',
+            'diagnosis': 'Acute gastroenteritis',
+            'notes': 'ORS, zinc. Discharged next day.'
+        },
+
+        # The 4 Hidden JES cases
+        'WARD-013': {
+            'name': 'Fatima H.',
+            'age': '5y',
+            'sex': 'F',
+            'village': 'Nalu',
+            'date': 'May 28, 2025',
+            'temp': '39.1°C',
+            'hr': '125',
+            'symptoms': 'Fever × 2d, stiff neck, altered mental status',
+            'exam': 'Drowsy but arousable. Neck stiffness +. Kernig sign +',
+            'labs': 'WBC 15,200. CSF: clear, mild pleocytosis',
+            'diagnosis': 'Fever - under observation',
+            'notes': 'Infection likely. Started broad-spectrum ABx. Improving slowly.'
+        },
+        'WARD-028': {
+            'name': 'Michael T.',
+            'age': '7y',
+            'sex': 'M',
+            'village': 'Kabwe',
+            'date': 'June 1, 2025',
+            'temp': '39.8°C',
+            'hr': '132',
+            'symptoms': 'High fever, confusion, severe headache',
+            'exam': 'Confused, agitated. Fundi normal. No focal deficits',
+            'labs': 'WBC 17,100. Malaria: negative',
+            'diagnosis': 'Fever - cause unknown',
+            'notes': 'Treated empirically. Fever resolved Day 4. Discharged.'
+        },
+        'WARD-037': {
+            'name': 'Rose K.',
+            'age': '6y',
+            'sex': 'F',
+            'village': 'Nalu',
+            'date': 'June 5, 2025',
+            'temp': '38.7°C',
+            'hr': '118',
+            'symptoms': 'Fever, drowsiness, vomiting × 3 episodes',
+            'exam': 'Lethargic. Responds to voice. Neck supple. Neuro: no clear deficit',
+            'labs': 'WBC 14,800. Blood culture: pending',
+            'diagnosis': 'Febrile illness - unspecified',
+            'notes': 'Supportive care. Gradual improvement. Discharged Day 5.'
+        },
+        'WARD-046': {
+            'name': 'James P.',
+            'age': '9y',
+            'sex': 'M',
+            'village': 'Kabwe',
+            'date': 'June 8, 2025',
+            'temp': '39.4°C',
+            'hr': '128',
+            'symptoms': 'Fever, lethargy, neck stiffness, photophobia',
+            'exam': 'Drowsy. Neck stiff. Brudzinski +. GCS 13/15',
+            'labs': 'WBC 16,900. CSF: lymphocytic pleocytosis',
+            'diagnosis': 'Fever - neurological signs',
+            'notes': 'Likely viral CNS infection. Supportive management.'
+        },
+    }
+
+    # Get chart data
+    chart = charts.get(patient_id)
+
+    if not chart:
+        return f"Chart for {patient_id} not available."
+
+    # Format in realistic handwritten style
+    formatted = f"""
+╔══════════════════════════════════════════════════════════════╗
+║  DISTRICT HOSPITAL - MEDICAL CHART                          ║
+╚══════════════════════════════════════════════════════════════╝
+
+Patient ID: {patient_id}
+Name: {chart['name']}
+Age/Sex: {chart['age']} / {chart['sex']}
+Village: {chart['village']}
+Admission Date: {chart['date']}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VITAL SIGNS:
+  Temperature: {chart['temp']}
+  Heart Rate: {chart['hr']} bpm
+
+CHIEF COMPLAINT:
+  {chart['symptoms']}
+
+PHYSICAL EXAMINATION:
+  {chart['exam']}
+
+LABORATORY:
+  {chart['labs']}
+
+DIAGNOSIS:
+  {chart['diagnosis']}
+
+CLINICAL NOTES:
+  {chart['notes']}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Physician: Dr. Somchai / Dr. Niran
+    """
+
+    return formatted.strip()
+
+
+def get_lab_volume_requirements() -> dict:
+    """
+    Define lab test volume requirements and available sample volumes.
+
+    Returns:
+        Dictionary with test requirements and sample volumes
+    """
+    return {
+        'sample_volumes': {
+            'Serum': 5.0,  # 5 ml - enough for everything
+            'CSF': 0.5,    # 0.5 ml - critical constraint
+            'Urine': 10.0  # 10 ml
+        },
+        'test_requirements': {
+            # Basic tests (fast, low volume)
+            'CBC': {'volume': 0.5, 'matrix': ['Serum'], 'turnaround': 'Same day'},
+            'Malaria_Smear': {'volume': 0.1, 'matrix': ['Serum'], 'turnaround': '2 hours'},
+            'Blood_Culture': {'volume': 1.0, 'matrix': ['Serum'], 'turnaround': '3-5 days'},
+
+            # CSF tests
+            'CSF_Cell_Count': {'volume': 0.1, 'matrix': ['CSF'], 'turnaround': 'Same day'},
+            'CSF_Protein_Glucose': {'volume': 0.1, 'matrix': ['CSF'], 'turnaround': 'Same day'},
+            'CSF_Culture': {'volume': 0.2, 'matrix': ['CSF'], 'turnaround': '3-5 days'},
+
+            # Advanced tests (slow, high volume)
+            'JE_IgM': {'volume': 0.5, 'matrix': ['Serum', 'CSF'], 'turnaround': 'Day 4'},
+            'Nipah_PCR': {'volume': 0.5, 'matrix': ['Serum', 'CSF'], 'turnaround': 'Day 4'},
+            'Enterovirus_PCR': {'volume': 0.3, 'matrix': ['Serum', 'CSF'], 'turnaround': 'Day 4'},
+
+            # Urine tests
+            'Urinalysis': {'volume': 5.0, 'matrix': ['Urine'], 'turnaround': 'Same day'},
+        }
+    }
+
+
+def validate_lab_order(tests: list, matrix: str) -> dict:
+    """
+    Validate a lab order against volume constraints.
+
+    Args:
+        tests: List of test names
+        matrix: Sample matrix ('Serum', 'CSF', 'Urine')
+
+    Returns:
+        Dictionary with validation results:
+            - valid: Boolean
+            - total_volume: Required volume
+            - available_volume: Available volume
+            - message: User message
+    """
+    requirements = get_lab_volume_requirements()
+
+    available_volume = requirements['sample_volumes'].get(matrix, 0)
+    test_reqs = requirements['test_requirements']
+
+    total_required = 0
+    invalid_tests = []
+
+    for test in tests:
+        if test not in test_reqs:
+            invalid_tests.append(test)
+            continue
+
+        test_info = test_reqs[test]
+
+        # Check if test is valid for this matrix
+        if matrix not in test_info['matrix']:
+            invalid_tests.append(f"{test} (not available for {matrix})")
+            continue
+
+        total_required += test_info['volume']
+
+    # Build result
+    result = {
+        'valid': len(invalid_tests) == 0 and total_required <= available_volume,
+        'total_volume': total_required,
+        'available_volume': available_volume,
+        'tests': tests,
+        'matrix': matrix
+    }
+
+    # Generate message
+    if invalid_tests:
+        result['message'] = f"❌ Invalid tests: {', '.join(invalid_tests)}"
+    elif total_required > available_volume:
+        result['message'] = f"⚠️ Order accepted, but insufficient volume ({total_required:.1f}ml required, {available_volume:.1f}ml available). Results will show QNS (Quantity Not Sufficient) on Day 4."
+        result['qns'] = True  # Mark as quantity not sufficient
+    else:
+        result['message'] = f"✅ Order accepted. Required: {total_required:.1f}ml / Available: {available_volume:.1f}ml"
+        result['qns'] = False
+
+    return result

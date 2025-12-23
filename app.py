@@ -2983,19 +2983,16 @@ def view_intro():
             padding: 1rem;
             border-radius: 8px;
             margin: 1rem 0;
+            text-align: center;
         }
         .metric-item {
             color: #ffeb3b;
             font-weight: bold;
             font-size: 1.3rem;
+            margin: 0.5rem 0;
         }
         </style>
-        """,
-        unsafe_allow_html=True
-    )
 
-    st.markdown(
-        """
         <div class="phone-overlay">
             <div class="phone-title">📞 Incoming Call</div>
             <div class="phone-subtitle">Dr. Tran - District Hospital</div>

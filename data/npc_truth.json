@@ -52,25 +52,38 @@
     "data_access": null,
     "unlocks": "travel_history_revealed"
   },
-  "parent_general": {
-    "name": "Worried Parent",
-    "role": "Villager",
-    "avatar": "👥",
+  "parent_ward": {
+    "name": "Mrs. Chai (Patient's Mother)",
+    "role": "Mother of Sick Child",
+    "avatar": "👩‍👧",
     "cost": 0,
-    "location": "Hospital Waiting Room",
-    "personality": "Exhausted. Scared.",
+    "location": "Hospital Ward",
+    "personality": "Distraught, tearful, desperate for help.",
     "always_reveal": [
-      "The fever came so fast. Hot like fire.",
-      "Yes, we live near the rice fields.",
-      "We have a few pigs, like everyone else.",
-      "The mosquitoes are terrible this year."
+      "Please, can you help my son? He was playing, and then the fever started.",
+      "The doctors say it's a virus, but I don't believe them."
     ],
     "conditional_clues": {
-      "pesticide": "I don't know about poison. I only know my child is burning up.",
-      "travel": "We haven't gone anywhere. We stay in the village."
+      "pesticide": "The neighbors sprayed 'Dragon Fire' on the rice paddies last week. My son was playing right there!",
+      "rice": "He plays in the dry paddies. But the neighbor sprayed chemicals there.",
+      "animals": "We have the usual animals. Chickens, a few pigs under the house."
     },
+    "red_herrings": ["It must be the poison spray. It smells terrible."],
+    "unknowns": ["Medical details", "What the other kids have"],
+    "data_access": null,
+    "unlocks": null
+  },
+  "parent_general": {
+    "name": "Waiting Parent",
+    "role": "Parent",
+    "avatar": "👤",
+    "cost": 0,
+    "location": "Hospital Ward",
+    "personality": "Tired, holding a sleeping child.",
+    "always_reveal": ["We've been waiting for hours. My child just has a broken arm."],
+    "conditional_clues": {},
     "red_herrings": [],
-    "unknowns": [],
+    "unknowns": ["Everything about the outbreak"],
     "data_access": null,
     "unlocks": null
   },

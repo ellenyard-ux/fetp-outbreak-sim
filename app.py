@@ -607,8 +607,8 @@ LOCATIONS = {
         "image_path": "assets/Hospital/hospital_ward.png",
         "image_thumb": "assets/Hospital/hospital_ward.png",
         "icon": "🏥",
-        "npcs": ["dr_chen", "patient_parent"],
-        "available_actions": ["review_hospital_records", "collect_csf_sample", "collect_serum_sample"],
+        "npcs": ["dr_chen", "patient_parent", "ward_parent"],
+        "available_actions": ["review_hospital_records", "collect_csf_sample", "collect_serum_sample", "view_ward_registry"],
         "travel_time": 0.5,
     },
     "hospital_office": {
@@ -741,6 +741,7 @@ AREA_METADATA = {
 NPC_LOCATIONS = {
     "dr_chen": "hospital_ward",
     "patient_parent": "hospital_ward",
+    "ward_parent": "hospital_ward",
     "nurse_joy": "nalu_health_center",
     "healer_marcus": "healer_clinic",
     "mama_kofi": "nalu_village_center",
@@ -1615,6 +1616,30 @@ INFORMATION RULES:
     unlock_flag = npc_truth.get("unlocks")
     if unlock_flag:
         st.session_state.unlock_flags[unlock_flag] = True
+
+    # SPECIAL LOGIC: Dr. Tran permission granting
+    if npc_key == "dr_chen":
+        lower_q = user_input.lower()
+        # Grant permission if user asks for it
+        if any(keyword in lower_q for keyword in ["permission", "access", "records", "lab", "charts", "registry"]):
+            if "?" in lower_q:  # Must be a question
+                st.session_state.tran_permission = True
+
+    # SPECIAL LOGIC: Ward Parent livestock question counter
+    if npc_key == "ward_parent":
+        lower_q = user_input.lower()
+        # Increment counter if asking about livestock/animals/pigs
+        if any(keyword in lower_q for keyword in ["livestock", "animal", "pig", "cow", "chicken", "duck"]):
+            if "?" in lower_q:  # Must be a question
+                if 'ward_parent_livestock_asks' not in st.session_state:
+                    st.session_state.ward_parent_livestock_asks = 0
+                st.session_state.ward_parent_livestock_asks += 1
+
+                # On second ask about livestock, reveal pigs
+                if st.session_state.ward_parent_livestock_asks >= 2:
+                    # Make sure the pig info gets included
+                    if "pigs" not in text.lower() and "pig" not in text.lower():
+                        text += "\n\n...Well, actually, we do keep pigs. Two of them, right near the house. They're for the New Year festival."
 
     return text
 
@@ -6561,6 +6586,146 @@ def view_location(loc_key: str):
             st.markdown("---")
             render_npc_chat(npc_key, npc_truth[npc_key])
 
+    # Handle action modals
+    action_modal = st.session_state.get("action_modal")
+    if action_modal:
+        st.markdown("---")
+        if action_modal == "ward_registry":
+            render_ward_registry_modal()
+        elif action_modal == "hospital_charts":
+            render_hospital_charts_modal()
+        elif action_modal == "deep_dive_charts":
+            render_deep_dive_charts_modal()
+
+
+def render_ward_registry_modal():
+    """Render Ward Registry modal with case finding functionality."""
+    st.subheader("📋 District Hospital - Ward Registry (Last 30 Days)")
+
+    # Check permission
+    if not st.session_state.get('tran_permission', False):
+        st.error("⛔ Access Denied: You need Dr. Tran's permission to access hospital records.")
+        st.info("💡 **Hint:** Talk to Dr. Tran and ask for 'permission' to access medical records and the laboratory.")
+        if st.button("Close", key="close_ward_registry"):
+            st.session_state.action_modal = None
+            st.rerun()
+        return
+
+    # Generate or retrieve ward registry
+    if 'ward_registry' not in st.session_state:
+        st.session_state.ward_registry = jl.generate_ward_registry()
+
+    registry = st.session_state.ward_registry
+
+    st.markdown("""
+    This is the hospital's admission log for the past 30 days. Review the Chief Complaints and
+    select patients whose charts you want to examine more closely in the Office.
+    """)
+
+    if st.button("✖ Close Registry", key="close_ward_registry"):
+        st.session_state.action_modal = None
+        st.rerun()
+
+    st.markdown("---")
+
+    # Initialize unlocked charts if not exists
+    if 'unlocked_charts' not in st.session_state:
+        # Start with the 2 known cases
+        st.session_state.unlocked_charts = ['WARD-001', 'WARD-002']
+
+    # Display registry with checkboxes
+    st.markdown("### Select Patients to Pull Charts")
+
+    # Create a selection state
+    if 'selected_charts' not in st.session_state:
+        st.session_state.selected_charts = []
+
+    # Show table with selection
+    selected_ids = st.multiselect(
+        "Select patients to pull charts for:",
+        options=registry['Patient_ID'].tolist(),
+        default=st.session_state.selected_charts,
+        format_func=lambda x: f"{x} - {registry[registry['Patient_ID']==x]['Chief_Complaint'].iloc[0][:50]}...",
+        key="ward_registry_select"
+    )
+
+    # Display registry table
+    st.dataframe(
+        registry[['Patient_ID', 'Admission_Date', 'Age', 'Sex', 'Chief_Complaint', 'Diagnosis', 'Outcome']],
+        use_container_width=True,
+        height=400
+    )
+
+    # Pull charts button
+    if len(selected_ids) > 0:
+        if st.button(f"📄 Pull {len(selected_ids)} Charts", key="pull_charts", type="primary"):
+            # Add selected IDs to unlocked charts
+            for pid in selected_ids:
+                if pid not in st.session_state.unlocked_charts:
+                    st.session_state.unlocked_charts.append(pid)
+
+            st.session_state.selected_charts = []
+            st.success(f"✅ {len(selected_ids)} charts retrieved. View them in the Hospital Office.")
+            st.rerun()
+
+
+def render_hospital_charts_modal():
+    """Render Hospital Charts modal showing unlocked patient charts."""
+    st.subheader("📄 District Hospital - Medical Charts")
+
+    # Check permission
+    if not st.session_state.get('tran_permission', False):
+        st.error("⛔ Access Denied: You need Dr. Tran's permission to access hospital records.")
+        st.info("💡 **Hint:** Talk to Dr. Tran and ask for 'permission' to access medical records and the laboratory.")
+        if st.button("Close", key="close_charts"):
+            st.session_state.action_modal = None
+            st.rerun()
+        return
+
+    if st.button("✖ Close Charts", key="close_charts"):
+        st.session_state.action_modal = None
+        st.rerun()
+
+    st.markdown("---")
+
+    # Get unlocked charts
+    unlocked_charts = st.session_state.get('unlocked_charts', ['WARD-001', 'WARD-002'])
+
+    if len(unlocked_charts) == 0:
+        st.info("No charts have been pulled yet. Visit the Ward Registry to select patient charts.")
+        return
+
+    st.markdown(f"**Available Charts:** {len(unlocked_charts)}")
+    st.caption("These charts contain ONLY clinical data - no exposure history or risk factors.")
+
+    # Chart selector
+    selected_chart = st.selectbox(
+        "Select a patient chart to review:",
+        options=unlocked_charts,
+        format_func=lambda x: f"Patient {x}",
+        key="chart_selector"
+    )
+
+    if selected_chart:
+        # Get chart text
+        chart_text = jl.get_paper_chart_text(selected_chart)
+
+        # Display chart in monospace font
+        st.markdown(f"```\n{chart_text}\n```")
+
+
+def render_deep_dive_charts_modal():
+    """Render Deep Dive Charts modal (placeholder for future implementation)."""
+    st.subheader("📊 Hospital Deep-Dive Charts")
+
+    if st.button("✖ Close", key="close_deep_dive"):
+        st.session_state.action_modal = None
+        st.rerun()
+
+    st.markdown("---")
+
+    st.info("🚧 Deep-dive charts feature coming soon. This will show aggregate patterns across hospitalized cases.")
+
 
 def render_location_actions(loc_key: str, actions: list):
     """Render action buttons for a location."""
@@ -6662,6 +6827,36 @@ def render_location_actions(loc_key: str, actions: list):
             "cost_budget": 0,
             "handler": "nalu_child_register",
         },
+        "view_ward_registry": {
+            "label": "📋 View Ward Registry (30 days)",
+            "cost_time": 1.0,
+            "cost_budget": 0,
+            "handler": "ward_registry",
+        },
+        "review_hospital_records": {
+            "label": "📄 Review Medical Charts",
+            "cost_time": 0.5,
+            "cost_budget": 0,
+            "handler": "hospital_charts",
+        },
+        "view_deep_dive_charts": {
+            "label": "📊 View Deep-Dive Charts",
+            "cost_time": 0.5,
+            "cost_budget": 0,
+            "handler": "deep_dive_charts",
+        },
+        "review_attendance_records": {
+            "label": "📚 Review Attendance Records",
+            "cost_time": 1.0,
+            "cost_budget": 0,
+            "handler": "attendance",
+        },
+        "review_tamu_records": {
+            "label": "📝 Review Tamu Records",
+            "cost_time": 0.5,
+            "cost_budget": 0,
+            "handler": "tamu_records",
+        },
     }
 
     for action in actions:
@@ -6736,6 +6931,21 @@ def execute_location_action(action: str, config: dict, loc_key: str):
         else:
             st.error("🔒 The nurse refuses access. 'Build better rapport first - show some respect for my time.'")
             st.rerun()
+    elif handler == "ward_registry":
+        st.session_state.action_modal = "ward_registry"
+        st.rerun()
+    elif handler == "hospital_charts":
+        st.session_state.action_modal = "hospital_charts"
+        st.rerun()
+    elif handler == "deep_dive_charts":
+        st.session_state.action_modal = "deep_dive_charts"
+        st.rerun()
+    elif handler == "attendance":
+        st.session_state.action_modal = "attendance"
+        st.rerun()
+    elif handler == "tamu_records":
+        st.session_state.action_modal = "tamu_records"
+        st.rerun()
 
 
 def render_npc_chat(npc_key: str, npc: dict):

@@ -5,19 +5,29 @@
     "avatar": "👨‍⚕️",
     "image_path": "assets/Avatars/dr_tran.png",
     "cost": 0,
-    "location": "District Hospital",
-    "personality": "Precise. Impatient. Overworked.",
+    "location": "District Hospital - Office",
+    "personality": "Self-important, busy, defensive. Blames environmental causes. Territorial about resources.",
     "always_reveal": [
-      "We are overwhelmed. I need you to triage these cases.",
-      "My staff have listed the recent admissions below.",
-      "Most have high fever and altered mental status.",
-      "Initial lab work shows Leukocytosis (high WBC), which suggests infection, not poisoning."
+      "I'm extremely busy managing this crisis. What do you need?",
+      "Before you access any hospital resources, you need proper authorization.",
+      "We're doing everything we can with limited resources."
     ],
-    "conditional_clues": {},
-    "red_herrings": [],
-    "unknowns": ["Specific pathogen", "Source of infection"],
-    "data_access": "hospital_triage",
-    "unlocks": null
+    "conditional_clues": {
+      "permission": "Fine. You may access the medical records and laboratory. But be efficient - my staff are overwhelmed.",
+      "cause": "It's obviously the mine discharge pond. They've been dumping chemicals for months, and with the recent heavy rains, it must have contaminated the water supply downstream.",
+      "mine": "The mine has been irresponsible. Waste water pools near the villages. After the rains last week, I'm certain that's what caused this cluster.",
+      "records": "You'll need my permission first. Once granted, you can review charts in the Office.",
+      "lab": "Yes, we have a laboratory. But again, you need authorization before submitting samples.",
+      "water": "The contaminated water from the mine is the most logical explanation. Chemical poisoning presents with neurological symptoms."
+    },
+    "red_herrings": [
+      "The mine discharge pond is the obvious culprit - it's been a problem for months.",
+      "After the heavy rains, chemicals from the mine must have washed into the village water supply.",
+      "This has all the hallmarks of environmental contamination, not infectious disease."
+    ],
+    "unknowns": ["Specific pathogen if infectious", "Lab confirmation"],
+    "data_access": null,
+    "unlocks": "tran_permission_granted"
   },
   "parent_tamu": {
     "name": "Panya's Mother",
@@ -360,6 +370,32 @@
     "unknowns": ["What caused this", "Lab results"],
     "data_access": null,
     "unlocks": null
+  },
+  "ward_parent": {
+    "name": "Patient B's Mother",
+    "role": "Mother of sick child",
+    "avatar": "👩‍👧",
+    "cost": 0,
+    "location": "Hospital Ward",
+    "personality": "Emotional. Worried. Volunteers information easily but needs prompting for livestock details.",
+    "always_reveal": [
+      "My poor baby! The fever won't go down!",
+      "I think it might be the pesticides... our neighbor just sprayed 'Dragon Fire' on his fields three days ago.",
+      "My son was playing in the rice paddies all day before he got sick. He loves splashing in the water there."
+    ],
+    "conditional_clues": {
+      "livestock": "The usual animals... chickens, a few ducks. Nothing unusual.",
+      "pigs": "Well, we do keep pigs. Two of them, right near the house. They're for the New Year festival.",
+      "animals": "Chickens, ducks... and yes, we have pigs too. They sleep in the pen next to our bedroom window."
+    },
+    "red_herrings": [
+      "The Dragon Fire pesticide must be poisoning our children.",
+      "The neighbor sprayed it everywhere - even near where the kids play."
+    ],
+    "unknowns": ["What's really making her child sick", "Whether it's the pesticides"],
+    "data_access": null,
+    "unlocks": "pig_exposure_hint",
+    "livestock_ask_count": 0
   },
   "env_officer": {
     "name": "Mr. Nguyen",

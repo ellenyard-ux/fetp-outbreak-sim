@@ -692,6 +692,7 @@ AREA_LOCATIONS = {
     "Nalu Village": ["nalu_village_center", "nalu_health_center", "nalu_pig_coop", "nalu_rice_paddies", "nalu_school", "nalu_canal", "central_market", "healer_clinic"],
     "Kabwe Village": ["kabwe_village_center", "kabwe_school_path", "kabwe_school", "kabwe_health_center", "kabwe_paddies"],
     "Tamu Village": ["tamu_remote_upland", "tamu_forest_edge", "tamu_forest", "tamu_health_center"],
+    "District Hospital": ["hospital_office", "hospital_ward", "hospital_lab"],
     "Admin Office": ["hospital_ward", "hospital_office"],
     "Laboratory": ["hospital_lab"],
     "District Office": ["district_office"],
@@ -709,6 +710,11 @@ AREA_METADATA = {
         "image_exterior": "assets/Hospital/hospital_lab.png",
         "description": "The hospital laboratory. Basic tests are available immediately. Complex PCR and serology tests unlock on Day 4.",
         "icon": "🔬",
+    },
+    "District Hospital": {
+        "image_exterior": "assets/Hospital/hospital_exterior.png",
+        "description": "The district hospital where AES patients are being treated. Contains the administrative office, patient ward, and laboratory facilities. Dr. Tran oversees operations.",
+        "icon": "🏥",
     },
     "Nalu Village": {
         "image_exterior": "assets/Nalu/nalu_01_village_scene.png",
